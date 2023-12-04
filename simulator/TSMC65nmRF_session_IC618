@@ -1,0 +1,226 @@
+#!/bin/bash
+##############################################################################
+#
+#   Cadence 2020-21 IC tools setup script
+#   note order dependencies in path
+#   INNOVUS before GENUS
+#   PVS before Assura - vldbtoVnl executable exists in both installs
+#   QUANTUS before Assura 
+#
+##############################################################################
+CDS_INST=/projects/nanus/eda/Cadence/2021
+
+
+# Licensing server
+
+export LM_LICENSE_FILE=5370@lisens.ifi.uio.no:${LM_LICENSE_FILE}
+
+#End licens
+
+
+# START_CDS IC
+################################################################################
+## IC6 Section
+## Do not use with IC5
+################################################################################
+export CDS_IC=$CDS_INST/IC618
+# This line is required by some design kits...
+export CDSDIR=$CDS_IC
+# When using ADE set netlisting mode to analog ("dfIIconfig.pdf"), p16.
+export CDS_Netlisting_Mode=Analog
+# Required for tutorial material and cadence libraries (eg analogLib)
+export CDSHOME=$CDS_IC
+export CDS_USE_PALETTE
+export PATH="${PATH}:${CDS_IC}/tools/bin"
+export PATH="${PATH}:${CDS_IC}/tools/dfII/bin"
+alias help_cds_ic='$CDS_IC/tools/bin/cdnshelp &'
+# virtuoso 
+###############################################################################
+# /End IC6 Section
+###############################################################################
+# END_CDS IC
+# START_CDS PVS
+export CDS_PVS=$CDS_INST/PVS191
+export PATH="${PATH}:${CDS_PVS}/bin"
+#setenv PATH "${PATH}:${CDS_PVS}/tools/bin"
+# pvs, k2_viewer
+# END_CDS PVS
+
+# START_CDS QUANTUS
+export CDS_QUANTUS=$CDS_INST/QUANTUS201
+export QRC_HOME=$CDS_QUANTUS
+export PATH="${PATH}:${CDS_QUANTUS}/bin"
+#setenv PATH "${PATH}:${CDS_QUANTUS}/tools/bin"
+# qrc
+# END_CDS QUANTUS
+
+# START_CDS ASSURA
+##############################################################################
+## IC6 Assura Section - Assura version compatible with IC6 only
+## Do not use with IC5
+##############################################################################
+# NOTE: For use with IC6
+export CDS_ASSURA=$CDS_INST/ASSURA41-618
+export ASSURAHOME=$CDS_ASSURA
+#the following line might be completely redundant
+export SUBSTRATESTORMHOME=$ASSURAHOME		# For Assura-RF
+export LANG=C
+export PATH="${PATH}:${CDS_ASSURA}/tools/bin"
+export PATH="${PATH}:${CDS_ASSURA}/tools/assura/bin"
+export PATH="${PATH}:${SUBSTRATESTORMHOME}/bin"
+export ASSURA_AUTO_64BIT=ALL
+alias help_cds_assura='$CDS_ASSURA/tools/bin/cdnshelp &'
+# assura
+###############################################################################
+## /End IC6 Assura Section
+###############################################################################
+# END_CDS ASSURA
+
+# START_CDS MVS
+export CDS_MVS=$CDS_INST/MVS201
+export DFMHOME=$CDS_MVS
+export RETHOME=$DFMHOME
+export PATH="${PATH}:${CDS_MVS}/bin"
+alias help_cds_mvs='$CDS_MVS/bin/cdsnhelp &'
+# lpa
+# END_CDS MVS
+
+# START_CDS LIBERATE
+export ALTOSHOME=$CDS_INST/LIBERATE192
+export PATH="${PATH}:${ALTOSHOME}/bin"
+export ALTOS_64=1
+export TMPDIR=/tmp
+# liberate, liberate_lv, liberate_mx, variety, lcplot
+# END_CDS LIBERATE
+
+# START_CDS CONFRML
+export CDS_CONFRML=$CDS_INST/CONFRML201
+export PATH="${PATH}:${CDS_CONFRML}/bin"
+alias help_cds_conformal='$CDS_CONFRML/bin/cdnshelp &'
+# lec -LPGXL, ccd
+# END_CDS CONFRML
+
+# START_CDS INNOVUS
+export CDS_INNOVUS=$CDS_INST/INNOVUS201
+export PATH="${PATH}:${CDS_INNOVUS}/bin"
+alias help_cds_innovus='$CDS_INNOVUS/tools/bin/cdnshelp &'
+# innovus
+# END_CDS INNOVUS
+
+# START_CDS GENUS
+export CDS_GENUS=$CDS_INST/GENUS191
+export PATH="${PATH}:${CDS_GENUS}/bin"
+alias help_cds_genus='$CDS_GENUS/tools/bin/cdnshelp &'
+# genus
+# END_CDS GENUS
+
+# START_CDS MODUS
+export CDS_MODUS=$CDS_INST/MODUS191
+export PATH="${PATH}:${CDS_MODUS}/bin"
+alias help_cds_modus='$CDS_MODUS/bin/cdnshelp &'
+# modus
+# END_CDS MODUS
+
+# START_CDS JLS
+export CDS_JLS=$CDS_INST/JLS191
+export PATH="${PATH}:${CDS_JLS}/bin"
+alias help_cds_joules='$CDS_JLS/bin/cdnshelp &'
+# joules
+# END_CDS JLS
+
+# START_CDS SSV
+export CDS_SSV=$CDS_INST/SSV201
+export PATH="${PATH}:${CDS_SSV}/bin"
+alias help_cds_ets='$CDS_SSV/bin/cdnshelp &'
+# tempus, voltus
+# END_CDS SSV
+
+# START_CDS SPECTRE
+export CDS_SPECTRE=$CDS_INST/SPECTRE191
+export PATH="${PATH}:${CDS_SPECTRE}/bin"
+alias help_cds_spectre='$CDS_SPECTRE/tools/bin/cdnshelp &'
+# spectre, ultrasim, aps
+# END_CDS SPECTRE
+
+# START_CDS INDAGO
+#export CDS_INDAGO=<CDS_INDAGO_INSTALL_PATH>
+#export INDAGO_ROOT=$CDS_INDAGO
+#export PATH="${PATH}:${CDS_INDAGO}/bin"
+#alias help_cds_indago='$CDS_INDAGO/bin/cdnshelp &'
+# indago, debug_analyzer
+# END_CDS INDAGO
+
+# START_CDS VMANAGER
+export CDS_VMANAGER=$CDS_INST/VMANAGER2003
+export PATH="${PATH}:${CDS_VMANAGER}/bin"
+alias help_cds_vmanager='$CDS_VMANAGER/bin/cdnshelp &'
+# vmanager
+# END_CDS MDV
+
+# START_CDS XCELIUM
+export CDS_XCELIUM=$CDS_INST/XCELIUM2009
+export PATH="${PATH}:${CDS_XCELIUM}/bin:${CDS_XCELIUM}/tools/bin:${CDS_XCELIUM}/tools/cdsgcc/gcc/bin"
+alias help_cds_xcelium='$CDS_XCELIUM/bin/cdnshelp &'
+# xrun, simvision, xmvhdl, xmvlog, xmsc, xmelab, xmsim, xmls, xmhelp, xfr, xmxlimport
+# END_CDS XCELIUM
+
+# START_EMX
+export CDS_INTEGRAND=$CDS_INST/INTEGRAND60
+export PATH="${PATH}:${CDS_INTEGRAND}/bin"
+
+# emx, gdsview, gdsview-ogl, modelgen
+# END_EMX
+
+################################################################################
+## VIPCAT Section
+################################################################################
+
+
+# START_CDS VIPCAT
+export CDS_VIPCAT=$CDS_INST/VIPCAT113
+export PATH="${PATH}:${CDS_VIPCAT}/tools/bin"
+if [ $?SPECMAN_PATH == 0 ] ; then 
+  export SPECMAN_PATH="${CDS_VIPCAT}/utils:${CDS_VIPCAT}/packages"
+else 
+  export SPECMAN_PATH="${CDS_VIPCAT}/utils:${CDS_VIPCAT}/packages:${SPECMAN_PATH}"
+fi
+alias help_cds_vipcat='$CDS_VIPCAT/tools/bin/cdnshelp &'
+################################################################################
+## / End VIPCAT Section
+################################################################################
+#
+# END_CDS VIPCAT
+
+
+## suggested analogue/mixed signal setup  
+#set path = ($path $mmsimpath $incisivpath $confrmlpath $rcpath $etspath $edipath $icpath $extpath $assurapath)
+
+#PATH=$path $mmsimpath $incisivpath $confrmlpath $rcpath $etspath $edipath $icpath $extpath $assurapath
+
+## suggested digital path
+# set path = ($path $incisivpath $ccdpath $confrmlpath $rcpath $etspath $etpath $edipath)
+
+# for systems tools
+# set path = ($path $spbpath $asipath)
+
+
+#
+# Mentor Graphics Calibre
+#
+# New 2020_4 version 
+MGC_HOME=/projects/nanus/eda/Synopsys/2021/Calibre/aoi_cal_2020.4_15.9
+# New 2015_4 version 
+#MGC_HOME=/projects/nanos/programsrhel6/Mentor/Calibre2015/aoi_cal_2015.4_16.11
+# New 2013_4 version 
+#MGC_HOME=/projects/nanos/programsrhel6/Mentor/Calibre/aoi_cal_2013.4_15.12
+PATH_MGC=$MGC_HOME/bin
+
+CALIBRE_HOME=$MGC_HOME
+
+export MGC_HOME PATH_MGC CALIBRE_HOME
+export MGC_RVE_INIT_SOCKET_AT_STARTUP=true
+
+PATH=$PATH_CDS:$PATH_MGC:$PATH_RCXT:$PATH
+
+export PATH 
+

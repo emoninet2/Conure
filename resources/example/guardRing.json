@@ -1,0 +1,151 @@
+{
+    "config": {},
+    "data": {
+        "distance": 50,
+        "segments": {
+            "dummy": {
+                "shape": "hex",
+                "offset": 0,
+                "layer": "INDDMY_dr2"
+            },
+            "NT_N": {
+                "shape": "hex",
+                "offset": -0.5,
+                "layer": "NT_N_drw"
+            },
+            "PP": {
+                "shape": "hex",
+                "offset": -1,
+                "layer": "PP_drw"
+            },
+            "OD": {
+                "shape": "hexRing",
+                "offset": -9,
+                "width": 4,
+                "partialCut": {
+                    "use": true,
+                    "segment": 2,
+                    "spacing": 10
+                },
+                "layer": "OD_drw",
+                "contacts": {
+                    "use": true,
+                    "viaStack": "VS_M1_OD"
+                }
+            },
+            "NP": {
+                "shape": "hexRing",
+                "offset": -0.5,
+                "width": 5,
+                "layer": "NP_drw"
+            },
+            "RPO": {
+                "shape": "hexRing",
+                "offset": -0.5,
+                "width": 12.5,
+                "layer": "RPO_drw"
+            }
+        },
+        "dummyFills": {
+            "type": "checkered",
+            "groupSpacing": 2,
+            "items": {
+                "rect0": {
+                    "shape": "rect",
+                    "length": 3,
+                    "height": 3,
+                    "offsetX": 0,
+                    "offsetY": -2,
+                    "layers": [
+                        "M9",
+                        "M8",
+                        "M7",
+                        "M6",
+                        "M5",
+                        "M4",
+                        "M3",
+                        "M2"
+                    ]
+                },
+                "rect1": {
+                    "shape": "rect",
+                    "length": 3,
+                    "height": 2,
+                    "offsetX": 0,
+                    "offsetY": 1,
+                    "layers": [
+                        "PO_drw"
+                    ]
+                },
+                "rect2": {
+                    "shape": "rect",
+                    "length": 3,
+                    "height": 3,
+                    "offsetX": 0,
+                    "offsetY": 4,
+                    "layers": [
+                        "OD_drw",
+                        "M9",
+                        "M8",
+                        "M7",
+                        "M6",
+                        "M5",
+                        "M4",
+                        "M3",
+                        "M2",
+                        "M1"
+                    ]
+                },
+                "rect3": {
+                    "shape": "rect",
+                    "length": 3,
+                    "height": 2,
+                    "offsetX": 0,
+                    "offsetY": 7,
+                    "layers": [
+                        "PO_drw"
+                    ]
+                },
+                "rect4": {
+                    "shape": "rect",
+                    "length": 3,
+                    "height": 3,
+                    "offsetX": 0,
+                    "offsetY": 10,
+                    "layers": [
+                        "OD_drw",
+                        "M9",
+                        "M8",
+                        "M7",
+                        "M6",
+                        "M5",
+                        "M4",
+                        "M3",
+                        "M2",
+                        "M1"
+                    ]
+                },
+                "rect5": {
+                    "shape": "rect",
+                    "length": 2,
+                    "height": 3,
+                    "offsetX": 3,
+                    "offsetY": 4,
+                    "layers": [
+                        "PO_drw"
+                    ]
+                },
+                "rect6": {
+                    "shape": "rect",
+                    "length": 2,
+                    "height": 3,
+                    "offsetX": 3,
+                    "offsetY": 10,
+                    "layers": [
+                        "PO_drw"
+                    ]
+                }
+            }
+        }
+    }
+}

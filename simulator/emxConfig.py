@@ -1,0 +1,47 @@
+
+emxConfig = {
+    "emxPath": "/projects/nanus/eda/Cadence/2021/INTEGRAND60/bin/emx",
+    "emxProcPath": "RC_IRCX_CRN65LP_1P9M+ALRDL_6X1Z1U_typical.proc",
+	"sweepFreq": {"startFreq": 1e6, "stopFreq": 50e9, "stepNum": 2000, "stepSize": 10e6, "useStepSize": False},
+    "referenceImpedance": 100,
+    "edgeWidth": 1,
+    "3dCond": True,
+    "sidewalls": False,
+    "viaSidewalls": False,
+    "viaInductance": False,
+    "viaEdgeFactor": 1,
+    "thickness": 1,
+    "useCadencePins": False,
+    "viaSeparation": 0.5,
+    "labelDepth": 2,
+    "InductiveOnly": False,
+    "CapacitiveOnly": False,
+    "ResistiveOnly": False,
+    "ResistiveAndCapacitiveOnly": False,
+    "dumpConnectivity": True,
+    "quasistatic": True,
+    "fullwave": False,
+    "parallelCPU": 128,
+    "simultaneousFrequencies": 0,
+    "recommendedMemory": True,
+    "dumpConnectivity": True,
+    "verbose": 3,
+    "printCommandLine": True,
+    "format": "touchstone",
+    "SParam": {
+        "formats": {
+            "touchstone": True,
+            "matlab": True,
+            "spectre": True,
+            "psf": True,
+        },
+    },
+    "YParam": {
+        "formats": {
+            "touchstone": True,
+            "matlab": True,
+            "spectre": True,
+            "psf": True,
+        },
+    }
+}

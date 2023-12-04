@@ -1,0 +1,37 @@
+{
+    "Via8": {
+        "length": 1,
+        "width": 1,
+        "spacing": 0.5,
+        "angle": 0,
+        "layer": "V8"
+    },
+    "Via7": {
+        "length": 2,
+        "width": 2,
+        "spacing": 0.5,
+        "angle": 0,
+        "layer": "V7"
+    },
+    "Via6": {
+        "length": 3,
+        "width": 3,
+        "spacing": 0.5,
+        "angle": 0,
+        "layer": "V6"
+    },
+    "Via5": {
+        "length": 2,
+        "width": 2,
+        "spacing": 0.5,
+        "angle": 0,
+        "layer": "V5"
+    },
+    "ViaCO": {
+        "length": 0.09,
+        "width": 0.09,
+        "spacing": 0.5,
+        "angle": 0,
+        "layer": "CO_drw"
+    }
+}

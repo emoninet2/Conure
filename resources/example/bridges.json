@@ -1,0 +1,15 @@
+{
+    "DEFAULT": {
+        "layer": "M9",
+        "Via": "V0"
+    },
+    "B0": {
+        "layer": "M9"
+    },
+    "B1": {
+        "layer": "M8",
+        "ViaWidth": 10,
+        "ViaStackCCW": "VS_9_8",
+        "ViaStackCW": "VS_9_8"
+    }
+}

@@ -1,0 +1,134 @@
+{
+    "DEFAULT": {
+        "gds": {
+            "layer": 39,
+            "datatype": 60
+        }
+    },
+    "M9": {
+        "gds": {
+            "layer": 39,
+            "datatype": 60
+        }
+    },
+    "M8": {
+        "gds": {
+            "layer": 38,
+            "datatype": 40
+        }
+    },
+    "M7": {
+        "gds": {
+            "layer": 37,
+            "datatype": 0
+        }
+    },
+    "M6": {
+        "gds": {
+            "layer": 36,
+            "datatype": 0
+        }
+    },
+    "M5": {
+        "gds": {
+            "layer": 35,
+            "datatype": 0
+        }
+    },
+    "M4": {
+        "gds": {
+            "layer": 34,
+            "datatype": 0
+        }
+    },
+    "M3": {
+        "gds": {
+            "layer": 33,
+            "datatype": 0
+        }
+    },
+    "M2": {
+        "gds": {
+            "layer": 32,
+            "datatype": 0
+        }
+    },
+    "M1": {
+        "gds": {
+            "layer": 31,
+            "datatype": 0
+        }
+    },
+    "V8": {
+        "gds": {
+            "layer": 58,
+            "datatype": 40
+        }
+    },
+    "V7": {
+        "gds": {
+            "layer": 57,
+            "datatype": 40
+        }
+    },
+    "V6": {
+        "gds": {
+            "layer": 56,
+            "datatype": 0
+        }
+    },
+    "V5": {
+        "gds": {
+            "layer": 55,
+            "datatype": 0
+        }
+    },
+    "OD_drw": {
+        "gds": {
+            "layer": 6,
+            "datatype": 0
+        }
+    },
+    "NT_N_drw": {
+        "gds": {
+            "layer": 11,
+            "datatype": 0
+        }
+    },
+    "PP_drw": {
+        "gds": {
+            "layer": 25,
+            "datatype": 0
+        }
+    },
+    "NP_drw": {
+        "gds": {
+            "layer": 26,
+            "datatype": 0
+        }
+    },
+    "RPO_drw": {
+        "gds": {
+            "layer": 29,
+            "datatype": 0
+        }
+    },
+    "INDDMY_dr2": {
+        "gds": {
+            "layer": 144,
+            "datatype": 2
+        }
+    },
+    "CO_drw": {
+        "gds": {
+            "layer": 30,
+            "datatype": 0
+        }
+    },
+    "PO_drw": {
+        "gds": {
+            "layer": 17,
+            "datatype": 0
+        }
+    }
+}

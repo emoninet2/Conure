@@ -1,0 +1,39 @@
+{
+    "A0": {
+        "type": "DOUBLE",
+        "length": 200,
+        "width": 20,
+        "spacing": 40,
+        "port": [
+            "PORT0",
+            "PORT1"
+        ],
+        "layer": "M9"
+    },
+    "A1": {
+        "type": "DOUBLE",
+        "length": 200,
+        "width": 20,
+        "spacing": 40,
+        "port": [
+            "PORT2",
+            "PORT3"
+        ],
+        "layer": "M9"
+    },
+    "A2": {
+        "type": "SINGLE",
+        "length": 200,
+        "width": 20,
+        "port": "PORT4",
+        "layer": "M9"
+    },
+    "A3": {
+        "type": "SINGLE",
+        "length": 200,
+        "width": 10,
+        "port": "PORT5",
+        "layer": "M7",
+        "viaStack": "VS_9_8"
+    }
+}

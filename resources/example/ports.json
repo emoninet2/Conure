@@ -1,0 +1,40 @@
+{
+    "config": {
+        "simulatingPorts": [
+            {
+                "id": 0,
+                "type": "differential",
+                "plus": "PORT0",
+                "minus": "PORT1",
+                "enable": true
+            },
+            {
+                "id": 1,
+                "type": "differential",
+                "plus": "PORT2",
+                "minus": "PORT3",
+                "enable": true
+            }
+        ]
+    },
+    "data": {
+        "PORT0": {
+            "label": "P0"
+        },
+        "PORT1": {
+            "label": "P1"
+        },
+        "PORT2": {
+            "label": "P2"
+        },
+        "PORT3": {
+            "label": "P3"
+        },
+        "PORT4": {
+            "label": "P4"
+        },
+        "PORT5": {
+            "label": "P5"
+        }
+    }
+}

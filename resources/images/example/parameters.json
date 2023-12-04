@@ -1,0 +1,12 @@
+{
+    "name": "Inductor_Coplanar_1",
+    "class": "Spiral",
+    "type": "Coplanar",
+    "corners": 8,
+    "rings": 3,
+    "apothem": 80,
+    "width": 20,
+    "spacing": 2,
+    "precision": 0.005,
+    "outputDir": "./ARTWORK"
+}

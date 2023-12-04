@@ -1,0 +1,12 @@
+To generate artwork
+
+python artwork_generator/artwork_generator.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json -o OUTPUT -n artwork
+
+To simulate 
+
+python simulator/simulate.py -f OUTPUT/artwork.gds -c simulator/config.json --sim "emx" -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json -o OUTPUT -n artwork
+
+
+To perform sweep operation
+
+python sweep/sweep.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json --sweep sweep.json  -o SWEEP_OUTPUT --layout --simulate -c simulator/config.json --sim "emx"
