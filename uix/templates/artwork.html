@@ -1,0 +1,109 @@
+<h2>Artwork Tab Content</h2>
+<button onclick="showSubTab('segment')">Segment</button>
+<button onclick="showSubTab('arms')">Arms</button>
+<button onclick="showSubTab('ports')">Ports</button>
+<button onclick="showSubTab('bridges')">Bridges</button>
+<button onclick="showSubTab('viaPadStack')">ViaPadStack</button>
+<button onclick="showSubTab('via')">Via</button>
+<button onclick="showSubTab('guardRing')">GuardRing</button>
+<button onclick="showSubTab('layers')">Layers</button>
+
+<div id="segment" class="sub-tab-content" style="display: none;">
+    <h3>Segment Sub-tab Content</h3>
+    <label for="numRings">No. of Rings:</label>
+    <input type="number" id="numRings" value="" min="1" onchange="generateSegmentTables()">
+    <div id="segmentContainer">
+        <!-- Tables will be dynamically generated here -->
+    </div>
+</div>
+
+<div id="arms" class="sub-tab-content" style="display: none;">
+    <h3>Arms Sub-tab Content</h3>
+    <!-- Add content specific to Arms sub-tab -->
+</div>
+
+<div id="ports" class="sub-tab-content" style="display: none;">
+    <h3>Ports Sub-tab Content</h3>
+    <!-- Add content specific to Ports sub-tab -->
+</div>
+
+<div id="bridges" class="sub-tab-content" style="display: none;">
+    <h3>Bridges Sub-tab Content</h3>
+    <!-- Add content specific to Bridges sub-tab -->
+</div>
+
+<div id="viaPadStack" class="sub-tab-content" style="display: none;">
+    <h3>Via Pad-Stack Sub-tab Content</h3>
+    <!-- Add content specific to ViaPadStack sub-tab -->
+</div>
+
+<div id="via" class="sub-tab-content" style="display: none;">
+    <h3>Via Sub-tab Content</h3>
+    <!-- Add content specific to Via sub-tab -->
+     
+</div>
+
+<div id="guardRing" class="sub-tab-content" style="display: none;">
+    <h3>GuardRing Sub-tab Content</h3>
+    <!-- Add content specific to GuardRing sub-tab -->
+</div>
+
+<div id="layers" class="sub-tab-content">
+    <h3>Layers Sub-tab Content</h3>
+
+    <div>
+        <label for="jsonPath">JSON File Path:</label>
+        <input type="text" id="jsonPath" placeholder="Enter path to JSON file">
+        <button onclick="loadLayers()">Load JSON</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table id="layersTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>GDS Layer</th>
+                    <th>GDS Datatype</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addRow()">Add Row</button>
+        <div>
+            <label for="savePath">Save JSON File Path:</label>
+            <input type="text" id="savePath" placeholder="Enter path to save JSON file">
+            <label for="saveName">File Name:</label>
+            <input type="text" id="saveName" placeholder="Enter file name">
+            <button onclick="saveLayers()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Correctly include scripts with src attribute -->
+<script src="/static/script_layers.js"></script>
+<script src="/static/script_segments.js"></script>
+
+<script>
+   // JavaScript to handle sub-tab visibility
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initially hide all sub-tab contents except for "Layers"
+        var subTabs = document.getElementsByClassName('sub-tab-content');
+        for (var i = 0; i < subTabs.length; i++) {
+            if (subTabs[i].id !== 'layers') {
+                subTabs[i].style.display = 'none';
+            }
+        }
+    });
+
+    function showSubTab(subTabName) {
+        var subTabs = document.getElementsByClassName('sub-tab-content');
+        for (var i = 0; i < subTabs.length; i++) {
+            subTabs[i].style.display = 'none';
+        }
+        document.getElementById(subTabName).style.display = 'block';
+    }
+
+</script>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>{% block title %}SPA Example{% endblock %}</title>
+    <style>
+        /* Add your CSS styles here */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="tabs">
+        <button onclick="showTab('project')">Project</button>
+        <button onclick="showTab('artwork')">Artwork</button>
+        <button onclick="showTab('sweep')">Sweep</button>
+    </div>
+
+    {% block content %}{% endblock %}
+
+    
+
+    <script>
+        function showTab(tabName) {
+            var tabs = document.getElementsByClassName('tab-content');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove('active');
+            }
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function showSubTab(subTabName) {
+            var subTabs = document.getElementsByClassName('sub-tab-content');
+            for (var i = 0; i < subTabs.length; i++) {
+                subTabs[i].style.display = 'none';
+            }
+            document.getElementById(subTabName).style.display = 'block';
+        }
+    </script>
+
+
+</body>
+
+</html>

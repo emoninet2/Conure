@@ -1,0 +1,16 @@
+<h2>Project Tab Content</h2>
+
+<!-- Form to input project directory manually -->
+<form id="projectDirectoryForm" onsubmit="return false;">
+    <label for="projectDirectory">Project Directory:</label>
+    <input type="text" id="projectDirectory" placeholder="Enter relative path...">
+    <button onclick="createProject()">Save</button>
+</form>
+
+<!-- Display selected project directory -->
+<div id="selectedProjectDirectory">
+    <!-- This will be populated with selected directory path -->
+</div>
+
+<!-- Correctly include project_layers.js with src attribute -->
+<script src="/static/script_project.js"></script>
