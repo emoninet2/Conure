@@ -8,7 +8,7 @@ function showSubTab(subTabName) {
     document.getElementById(subTabName).style.display = 'block';
 }
 
-function addRow() {
+function addLayerRow() {
     var table = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
     var rowCount = table.rows.length + 1;
     var newRow = table.insertRow();
@@ -19,12 +19,12 @@ function addRow() {
     cell1.innerHTML = '<input type="text" name="name' + rowCount + '">';
     cell2.innerHTML = '<input type="text" name="gdsLayer' + rowCount + '">';
     cell3.innerHTML = '<input type="text" name="gdsDatatype' + rowCount + '">';
-    cell4.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+    cell4.innerHTML = '<button onclick="deleteLayerRow(this)">Delete</button>';
     updateTabsAvailability(); // Update tabs after deleting row
     updateSegmentDropdowns(); // Update segment dropdowns after deleting row
 }
 
-function deleteRow(btn) {
+function deleteLayerRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
 
@@ -58,13 +58,13 @@ function saveLayers() {
 
     // Prepare data to send to Flask
     var jsonData = {
-        layers: layers,
+        data: { layer: layers }, // Making it more generic by wrapping layers in a "data" object
         savePath: document.getElementById('savePath').value.trim(),
         saveName: document.getElementById('saveName').value.trim()
     };
 
     // Send data to Flask to save to custom file path and name
-    fetch('/save_layers_custom', {
+    fetch('/save_json', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -74,14 +74,15 @@ function saveLayers() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Layers data saved successfully!');
+                alert('Data saved successfully!');
             } else {
-                alert('Failed to save layers data.');
+                alert('Failed to save data.');
             }
         })
         .catch(error => console.error('Error:', error));
-    updateTabsAvailability(); // Update tabs after saving layers
+    updateTabsAvailability(); // Update tabs after saving data
 }
+
 
 
 function loadLayers() {
@@ -103,7 +104,7 @@ function loadLayers() {
         })
         .then(data => {
             if (data.success) {
-                populateLayersTable(data.layers);
+                populateLayersTable(data.layers.layer);
                 alert('JSON data loaded successfully!');
             } else {
                 alert('Failed to load JSON data.');
@@ -133,11 +134,11 @@ function populateLayersTable(layersData) {
         cell1.innerHTML = '<input type="text" name="name" value="' + name + '">';
         cell2.innerHTML = '<input type="text" name="gdsLayer" value="' + layer + '">';
         cell3.innerHTML = '<input type="text" name="gdsDatatype" value="' + datatype + '">';
-        cell4.innerHTML = '<button onclick="deleteRow(this)">Delete</button>';
+        cell4.innerHTML = '<button onclick="deleteLayerRow(this)">Delete</button>';
     });
 
     // Add one empty row at the end for adding new entries
-    //addRow();
+    //addLayerRow();
 
     updateTabsAvailability(); // Update tabs after populating layers
     updateSegmentDropdowns(); // Update segment dropdowns after populating layers
@@ -219,6 +220,9 @@ function throttle(func, limit) {
         }
     };
 }
+
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
     updateTabsAvailability(); // Update tabs after deleting row

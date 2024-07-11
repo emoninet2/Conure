@@ -59,21 +59,21 @@ def create_project():
     return jsonify({'success': False})
 
 
-@app.route('/save_layers_custom', methods=['POST'])
-def save_layers_custom():
+@app.route('/save_json', methods=['POST'])
+def save_json():
     data = request.json
-    layers = data.get('layers')
+    data_to_save = data.get('data')  # Making it more generic
     save_path = data.get('savePath')
     save_name = data.get('saveName')
 
-    if layers and save_path and save_name:
+    if data_to_save and save_path and save_name:
         try:
             # Construct full file path
             file_path = os.path.join(save_path, save_name + '.json')
 
-            # Save layers data to specified file path
+            # Save data to specified file path
             with open(file_path, 'w') as json_file:
-                json.dump({'layer': layers}, json_file, indent=4)
+                json.dump(data_to_save, json_file, indent=4)
 
             # Print the full path of the saved file
             print(f"File saved successfully at: {file_path}")
@@ -84,7 +84,9 @@ def save_layers_custom():
             print(e)  # Log the error for debugging purposes
             return jsonify({'success': False, 'error': str(e)})
     
-    return jsonify({'success': False, 'error': 'Missing layers data or save path/name'})
+    return jsonify({'success': False, 'error': 'Missing data or save path/name'})
+
+
 
 
 @app.route('/load_json', methods=['POST'])
@@ -98,7 +100,7 @@ def load_json():
             with open(json_path, 'r') as json_file:
                 layers_data = json.load(json_file)
                 print(layers_data["layer"])
-            return jsonify({'success': True, 'layers': layers_data["layer"]})
+            return jsonify({'success': True, 'layers': layers_data})
 
         except FileNotFoundError:
             return jsonify({'success': False, 'message': 'File not found.'})
