@@ -1,8 +1,6 @@
-function loadVias(event) {
+// script_via.js
 
-}
-
-function addViaRow(event) {
+function addViaRow() {
     var table = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
     var rowCount = table.rows.length + 1;
     var newRow = table.insertRow();
@@ -13,72 +11,68 @@ function addViaRow(event) {
     var cell5 = newRow.insertCell(4);
     var cell6 = newRow.insertCell(5);
     var cell7 = newRow.insertCell(6);
-    cell1.innerHTML = '<input type="text" name="name' + rowCount + '">';
-    cell2.innerHTML = '<input type="text" name="length' + rowCount + '">';
-    cell3.innerHTML = '<input type="text" name="width' + rowCount + '">';
-    cell4.innerHTML = '<input type="text" name="spacing' + rowCount + '">';
-    cell5.innerHTML = '<input type="text" name="angle' + rowCount + '">';
-    cell6.innerHTML = '<input type="text" name="layer' + rowCount + '">';
+    cell1.innerHTML = '<input type="text" name="viaName' + rowCount + '">';
+    cell2.innerHTML = '<input type="number" name="viaLength' + rowCount + '">';
+    cell3.innerHTML = '<input type="number" name="viaWidth' + rowCount + '">';
+    cell4.innerHTML = '<input type="number" name="viaSpacing' + rowCount + '">';
+    cell5.innerHTML = '<input type="number" name="viaAngle' + rowCount + '">';
+    cell6.innerHTML = '<select name="viaLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell7.innerHTML = '<button onclick="deleteViaRow(this)">Delete</button>';
-    // updateTabsAvailability(); // Update tabs after deleting row
-    // updateSegmentDropdowns(); // Update segment dropdowns after deleting row
+    updateTabsAvailability(); // Update tabs after adding row
 }
+
+
 
 function deleteViaRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-
-    //updateTabsAvailability(); // Update tabs after deleting row
-    //updateSegmentDropdowns(); // Update segment dropdowns after deleting row
+    updateTabsAvailability(); // Update tabs after deleting row
 }
 
-function saveVias(event) {
+function saveVia() {
     var vias = {};
 
     // Iterate through table rows to collect data
     var tableRows = document.querySelectorAll('#viaTable tbody tr');
     tableRows.forEach(function (row, index) {
-        var nameInput = row.querySelector('input[name^="name"]');
-        var lengthInput = row.querySelector('input[name^="length"]');
-        var widthInput = row.querySelector('input[name^="width"]');
-        var spacingInput = row.querySelector('input[name^="spacing"]');
-        var angleInput = row.querySelector('input[name^="angle"]');
-        var layerInput = row.querySelector('input[name^="layer"]');
-
+        var nameInput = row.querySelector('input[name^="viaName"]');
+        var lengthInput = row.querySelector('input[name^="viaLength"]');
+        var widthInput = row.querySelector('input[name^="viaWidth"]');
+        var spacingInput = row.querySelector('input[name^="viaSpacing"]');
+        var angleInput = row.querySelector('input[name^="viaAngle"]');
+        var layerSelect = row.querySelector('select[name^="viaLayer"]');
 
         var name = nameInput.value.trim();
-        var length = parseInt(gdsLayerInput.value.trim());
-        var width = parseInt(gdsLayerInput.value.trim());
-        var spacing = parseInt(gdsLayerInput.value.trim());
-        var angle = parseInt(gdsLayerInput.value.trim());
-        var layer = layerInput.value.trim();
+        var length = parseInt(lengthInput.value.trim());
+        var width = parseInt(widthInput.value.trim());
+        var spacing = parseInt(spacingInput.value.trim());
+        var angle = parseInt(angleInput.value.trim());
+        var layer = layerSelect.value.trim(); // Get selected value from dropdown
 
-
-        var gdsLayer = parseInt(gdsLayerInput.value.trim());
-        var gdsDatatype = parseInt(gdsDatatypeInput.value.trim());
-
+        // Validate all inputs including layer
         if (name && !isNaN(length) && !isNaN(width) && !isNaN(spacing) && !isNaN(angle) && layer) {
             vias[name] = {
-
                 length: length,
                 width: width,
                 spacing: spacing,
                 angle: angle,
                 layer: layer
-                
             };
+        } else {
+            // Handle invalid data if necessary (e.g., alert or console log)
+            console.log('Invalid data found in row:', index + 1);
         }
     });
 
     // Prepare data to send to Flask
     var jsonData = {
-        via: vias,
-        savePath: document.getElementById('savePath').value.trim(),
-        saveName: document.getElementById('saveName').value.trim()
+        data: { via: vias },
+        savePath: document.getElementById('viaSavePath').value.trim(),
+        saveName: document.getElementById('viaSaveName').value.trim()
     };
 
     // Send data to Flask to save to custom file path and name
-    fetch('/save_via_custom', {
+    fetch('/save_json', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -88,38 +82,91 @@ function saveVias(event) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Layers data saved successfully!');
+                alert('Data saved successfully!');
             } else {
-                alert('Failed to save layers data.');
+                alert('Failed to save data.');
             }
         })
         .catch(error => console.error('Error:', error));
-    updateTabsAvailability(); // Update tabs after saving layers
+    updateTabsAvailability(); // Update tabs after saving data
 }
 
 
-function populateLayersTable(layersData) {
-    var table = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
+function loadVia() {
+    var viaJsonPath = document.getElementById('viaJsonPath').value.trim();
+
+    loadJsonData(viaJsonPath,
+        function (data) {
+            populateViaTable(data.via);
+            alert('JSON data loaded successfully!');
+            updateTabsAvailability(); // Update tabs after loading data
+        },
+        function (errorMessage) {
+            alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+            updateTabsAvailability(); // Update tabs on error
+        }
+    );
+}
+
+function populateViaTable(viasData) {
+    var table = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
     table.innerHTML = ''; // Clear existing rows
 
-    Object.keys(layersData).forEach(function (name) {
-        var layer = layersData[name].gds ? layersData[name].gds.layer : '';
-        var datatype = layersData[name].gds ? layersData[name].gds.datatype : '';
-
+    Object.keys(viasData).forEach(function (key, index) {
+        var via = viasData[key];
         var newRow = table.insertRow();
         var cell1 = newRow.insertCell(0);
         var cell2 = newRow.insertCell(1);
         var cell3 = newRow.insertCell(2);
         var cell4 = newRow.insertCell(3);
-        cell1.innerHTML = '<input type="text" name="name" value="' + name + '">';
-        cell2.innerHTML = '<input type="text" name="gdsLayer" value="' + layer + '">';
-        cell3.innerHTML = '<input type="text" name="gdsDatatype" value="' + datatype + '">';
-        cell4.innerHTML = '<button onclick="deleteLayerRow(this)">Delete</button>';
+        var cell5 = newRow.insertCell(4);
+        var cell6 = newRow.insertCell(5);
+        var cell7 = newRow.insertCell(6);
+
+        cell1.innerHTML = '<input type="text" name="viaName' + index + '" value="' + key + '">';
+        cell2.innerHTML = '<input type="number" name="viaLength' + index + '" value="' + via.length + '">';
+        cell3.innerHTML = '<input type="number" name="viaWidth' + index + '" value="' + via.width + '">';
+        cell4.innerHTML = '<input type="number" name="viaSpacing' + index + '" value="' + via.spacing + '">';
+        cell5.innerHTML = '<input type="number" name="viaAngle' + index + '" value="' + via.angle + '">';
+
+        // Determine if via.layer is in the available layer options
+        var layerOptionsHTML = getLayerOptions();
+        if (layerOptionsHTML.includes('value="' + via.layer + '"')) {
+            cell6.innerHTML = '<select name="viaLayer' + index + '">' + layerOptionsHTML + '</select>';
+            // Set the value after setting innerHTML
+            cell6.querySelector('select').value = via.layer;
+        } else {
+            cell6.innerHTML = '<select name="viaLayer' + index + '"><option value="">-- Select Layer --</option>' + layerOptionsHTML + '</select>';
+        }
+
+        cell7.innerHTML = '<button onclick="deleteViaRow(this)">Delete</button>';
     });
 
-    // Add one empty row at the end for adding new entries
-    //addLayerRow();
-
-    updateTabsAvailability(); // Update tabs after populating layers
-    updateSegmentDropdowns(); // Update segment dropdowns after populating layers
+    updateTabsAvailability(); // Update tabs after populating vias
 }
+
+
+// Function to update via dropdowns after layer changes
+function updateViaDropdowns() {
+    var viaTables = document.getElementById('viaTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (var i = 0; i < viaTables.length; i++) {
+        var selectElement = viaTables[i].querySelector('select[name^="viaLayer"]');
+        if (selectElement) {
+            var currentValue = selectElement.value;
+            selectElement.innerHTML = getLayerOptions();
+            selectElement.value = currentValue;  // Restore previous selection
+        }
+    }
+}
+
+
+// Add event listener to viaTable to capture input changes
+document.getElementById('viaTable').addEventListener('input', function (event) {
+    updateTabsAvailability();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    updateTabsAvailability(); // Update tabs after loading DOM
+});
+
+

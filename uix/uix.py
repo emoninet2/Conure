@@ -91,25 +91,21 @@ def save_json():
 
 @app.route('/load_json', methods=['POST'])
 def load_json():
-    
     data = request.json
     json_path = data.get('path')
-    print("DAMN RIGHT", json_path)
     if json_path:
         try:
             with open(json_path, 'r') as json_file:
-                layers_data = json.load(json_file)
-                print(layers_data["layer"])
-            return jsonify({'success': True, 'layers': layers_data})
-
+                data_to_load = json.load(json_file)
+                print(data_to_load)
+            return jsonify({'success': True, 'data': data_to_load})
         except FileNotFoundError:
             return jsonify({'success': False, 'message': 'File not found.'})
-
         except Exception as e:
             print(e)  # Log the error for debugging purposes
-            return jsonify({'success': False})
-
+            return jsonify({'success': False, 'message': str(e)})
     return jsonify({'success': False, 'message': 'No JSON path provided.'})
+
 
 if __name__ == '__main__':
     app.run(port=8080, debug=True)

@@ -39,9 +39,39 @@
 
 <div id="via" class="sub-tab-content" style="display: none;">
     <h3>Via Sub-tab Content</h3>
-    <!-- Add content specific to Via sub-tab -->
-   
-     
+
+    <div>
+        <label for="viaJsonPath">JSON File Path:</label>
+        <input type="text" id="viaJsonPath" placeholder="Enter path to JSON file">
+        <button onclick="loadVia()">Load JSON</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table id="viaTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Length</th>
+                    <th>Width</th>
+                    <th>Spacing</th>
+                    <th>Angle</th>
+                    <th>Layer</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addViaRow()">Add Row</button>
+        <div>
+            <label for="viaSavePath">Save JSON File Path:</label>
+            <input type="text" id="viaSavePath" placeholder="Enter path to save JSON file">
+            <label for="viaSaveName">File Name:</label>
+            <input type="text" id="viaSaveName" placeholder="Enter file name">
+            <button onclick="saveVia()">Save</button>
+        </div>
+    </div>
 </div>
 
 <div id="guardRing" class="sub-tab-content" style="display: none;">
@@ -53,8 +83,8 @@
     <h3>Layers Sub-tab Content</h3>
 
     <div>
-        <label for="jsonPath">JSON File Path:</label>
-        <input type="text" id="jsonPath" placeholder="Enter path to JSON file">
+        <label for="layerJsonPath">JSON File Path:</label>
+        <input type="text" id="layerJsonPath" placeholder="Enter path to JSON file">
         <button onclick="loadLayers()">Load JSON</button>
     </div>
 
@@ -87,9 +117,10 @@
 <script src="/static/script_layers.js"></script>
 <script src="/static/script_segments.js"></script>
 <script src="/static/script_via.js"></script>
+<script src="/static/script_util.js"></script>
 
 <script>
-   // JavaScript to handle sub-tab visibility
+    // JavaScript to handle sub-tab visibility
     document.addEventListener("DOMContentLoaded", function () {
         // Initially hide all sub-tab contents except for "Layers"
         var subTabs = document.getElementsByClassName('sub-tab-content');
@@ -108,4 +139,24 @@
         document.getElementById(subTabName).style.display = 'block';
     }
 
+
+    function updateTabsAvailability() {
+        var layersTable = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
+        var viaTable = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
+        var isLayersEmpty = layersTable.rows.length === 0;
+        var isViaEmpty = viaTable.rows.length === 0;
+
+        var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
+
+        tabsToDisable.forEach(function (tabName) {
+            var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
+            if (tabButton) {
+                if (isLayersEmpty) {
+                    tabButton.disabled = true;
+                } else {
+                    tabButton.disabled = false;
+                }
+            }
+        });
+    }
 </script>

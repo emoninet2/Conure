@@ -32,6 +32,8 @@ function deleteLayerRow(btn) {
     updateSegmentDropdowns(); // Update segment dropdowns after deleting row
 }
 
+
+
 function saveLayers() {
     var layers = {};
 
@@ -63,60 +65,44 @@ function saveLayers() {
         saveName: document.getElementById('saveName').value.trim()
     };
 
-    // Send data to Flask to save to custom file path and name
-    fetch('/save_json', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+    // Call saveJsonData to save the JSON data
+    saveJsonData(
+        jsonData,
+        '/save_json',
+        function () {
+            alert('Data saved successfully!');
+            updateTabsAvailability(); // Update tabs after saving data
         },
-        body: JSON.stringify(jsonData),
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Data saved successfully!');
-            } else {
-                alert('Failed to save data.');
-            }
-        })
-        .catch(error => console.error('Error:', error));
-    updateTabsAvailability(); // Update tabs after saving data
+        function (errorMessage) {
+            alert(errorMessage);
+            // Optionally handle further error logic here
+            updateTabsAvailability(); // Update tabs after error
+        }
+    );
 }
+
+
 
 
 
 function loadLayers() {
-    var jsonPath = document.getElementById('jsonPath').value.trim();
+    var layerJsonPath = document.getElementById('layerJsonPath').value.trim();
 
-    fetch('/load_json', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+    loadJsonData(layerJsonPath,
+        function (data) {
+            populateLayersTable(data.layer);
+            alert('JSON data loaded successfully!');
+            updateTabsAvailability(); // Update tabs after loading data
+            updateSegmentDropdowns(); // Update segment dropdowns after loading data
         },
-        body: JSON.stringify({ path: jsonPath }),
-    })
-        .then(response => {
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error('Failed to load JSON file.');
-            }
-        })
-        .then(data => {
-            if (data.success) {
-                populateLayersTable(data.layers.layer);
-                alert('JSON data loaded successfully!');
-            } else {
-                alert('Failed to load JSON data.');
-            }
-        })
-        .catch(error => {
-            alert('Error: ' + error.message);
-            console.error('Error:', error);
-        });
-    updateTabsAvailability(); // Update tabs after deleting row
-    updateSegmentDropdowns(); // Update segment dropdowns after deleting row
+        function (errorMessage) {
+            alert(errorMessage);
+            updateTabsAvailability(); // Update tabs on error
+            updateSegmentDropdowns(); // Update segment dropdowns on error
+        }
+    );
 }
+
 
 function populateLayersTable(layersData) {
     var table = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
@@ -171,23 +157,7 @@ function getLayerOptions(includeDefaultOption = true) {
     }
 }
 
-function updateTabsAvailability() {
-    var layersTable = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
-    var isEmpty = layersTable.rows.length === 0;
 
-    var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
-
-    tabsToDisable.forEach(function (tabName) {
-        var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
-        if (tabButton) {
-            if (isEmpty) {
-                tabButton.disabled = true;
-            } else {
-                tabButton.disabled = false;
-            }
-        }
-    });
-}
 
 // Function to handle input changes in layersTable
 function handleLayerInputChange(event) {
@@ -195,12 +165,15 @@ function handleLayerInputChange(event) {
     if (target.tagName === 'INPUT' && target.name.startsWith('name')) {
         // If input field name starts with 'name', update segment dropdowns
         updateSegmentDropdowns();
+        updateViaDropdowns(); // Call function to update via dropdowns
     } else if (target.tagName === 'INPUT' && target.name.startsWith('gdsLayer')) {
         // If input field name starts with 'gdsLayer', update segment dropdowns
         updateSegmentDropdowns();
+        updateViaDropdowns(); // Call function to update via dropdowns
     } else if (target.tagName === 'INPUT' && target.name.startsWith('gdsDatatype')) {
         // If input field name starts with 'gdsDatatype', update segment dropdowns
         updateSegmentDropdowns();
+        updateViaDropdowns(); // Call function to update via dropdowns
     }
 }
 
@@ -222,9 +195,19 @@ function throttle(func, limit) {
 }
 
 
+// Add event listener to layersTable to capture input changes
+document.getElementById('layersTable').addEventListener('input', handleLayerInputChange);
 
 
 document.addEventListener('DOMContentLoaded', function () {
     updateTabsAvailability(); // Update tabs after deleting row
     updateSegmentDropdowns(); // Update segment dropdowns after deleting row
 });
+
+
+
+// Update via dropdowns every 1 second
+// setInterval(function () {
+//     updateSegmentDropdowns
+//     updateViaDropdowns();
+// }, 1000); // 1000 milliseconds = 1 second
