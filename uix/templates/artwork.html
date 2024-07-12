@@ -22,6 +22,7 @@
     <!-- Add content specific to Arms sub-tab -->
 </div>
 
+
 <div id="ports" class="sub-tab-content" style="display: none;">
     <h3>Ports Sub-tab Content</h3>
     <!-- Add content specific to Ports sub-tab -->
@@ -35,6 +36,37 @@
 <div id="viaPadStack" class="sub-tab-content" style="display: none;">
     <h3>Via Pad-Stack Sub-tab Content</h3>
     <!-- Add content specific to ViaPadStack sub-tab -->
+    <div>
+        <label for="viaPadStackJsonPath">JSON File Path:</label>
+        <input type="text" id="viaPadStackJsonPath" placeholder="Enter path to JSON file">
+        <button onclick="loadViaPadStack()">Load JSON</button>
+    </div>
+    
+    <div style="overflow-x: auto;">
+        <table id="viaPadStackTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Top Layer</th>
+                    <th>Bottom Layer</th>
+                    <th>Margin</th>
+                    <th>Via List</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addViaPadStackRow()">Add Row</button>
+        <div>
+            <label for="viaPadStackSavePath">Save JSON File Path:</label>
+            <input type="text" id="viaPadStackSavePath" placeholder="Enter path to save JSON file">
+            <label for="viaPadStackSaveName">File Name:</label>
+            <input type="text" id="viaPadStackSaveName" placeholder="Enter file name">
+            <button onclick="saveViaPadStack()">Save</button>
+        </div>
+    </div>
 </div>
 
 <div id="via" class="sub-tab-content" style="display: none;">
@@ -114,10 +146,13 @@
 </div>
 
 <!-- Correctly include scripts with src attribute -->
+<script src="/static/script_global.js"></script>
+<script src="/static/script_util.js"></script>
 <script src="/static/script_layers.js"></script>
 <script src="/static/script_segments.js"></script>
 <script src="/static/script_via.js"></script>
-<script src="/static/script_util.js"></script>
+<script src="/static/script_viaPadStack.js"></script>
+
 
 <script>
     // JavaScript to handle sub-tab visibility
@@ -125,9 +160,12 @@
         // Initially hide all sub-tab contents except for "Layers"
         var subTabs = document.getElementsByClassName('sub-tab-content');
         for (var i = 0; i < subTabs.length; i++) {
-            if (subTabs[i].id !== 'layers') {
-                subTabs[i].style.display = 'none';
-            }
+            // if (subTabs[i].id !== 'layers') {
+            //     subTabs[i].style.display = 'none';
+            // }
+
+            subTabs[i].style.display = 'none';
+            
         }
     });
 
