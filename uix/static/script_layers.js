@@ -177,7 +177,6 @@ function initializeLayerChangeObserver(handleChangeFunction) {
 
 document.addEventListener('DOMContentLoaded', function () {
     updateTabsAvailability(); // Update tabs after deleting row
-    updateLayerListDropdowns();
 });
 
 

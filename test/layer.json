@@ -362,8 +362,23 @@
                     "type": "differential",
                     "plus": "PORT0",
                     "minus": "PORT1",
+                    "enable": false
+                },
+                {
+                    "id": 1,
+                    "type": "single",
+                    "plus": "PORT1",
+                    "minus": "PORT5",
+                    "enable": false
+                },
+                {
+                    "id": 2,
+                    "type": "differential",
+                    "plus": "PORT4",
+                    "minus": "PORT5",
                     "enable": true
                 }
+
             ]
         },
         "data": {

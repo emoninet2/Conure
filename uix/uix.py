@@ -97,7 +97,7 @@ def load_json():
         try:
             with open(json_path, 'r') as json_file:
                 data_to_load = json.load(json_file)
-                print(data_to_load)
+                #print(data_to_load)
             return jsonify({'success': True, 'data': data_to_load})
         except FileNotFoundError:
             return jsonify({'success': False, 'message': 'File not found.'})

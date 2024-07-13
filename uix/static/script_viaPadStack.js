@@ -16,16 +16,10 @@ function addViaPadStackRow() {
     cell2.innerHTML = '<select name="viaPadStackTopLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell3.innerHTML = '<select name="viaPadStackBottomLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell4.innerHTML = '<input type="number" name="viaPadStackMargin' + rowCount + '">';
+    
     //cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '">' + getViaOptions() + '</select>';
     cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '" multiple>' + getViaOptions() + '</select>';
-
-    
-
-
     cell6.innerHTML = '<button onclick="deleteViaPadStackRow(this)">Delete</button>';
-
-
-    
 
     updateTabsAvailability(); // Update tabs after adding row
    
