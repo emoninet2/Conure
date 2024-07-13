@@ -12,7 +12,7 @@ function addLayerRow() {
     cell3.innerHTML = '<input type="text" name="gdsDatatype' + rowCount + '">';
     cell4.innerHTML = '<button onclick="deleteLayerRow(this)">Delete</button>';
     updateTabsAvailability(); // Update tabs after deleting row
-    updateLayerListDropdowns();
+
 }
 
 function deleteLayerRow(btn) {
@@ -20,7 +20,7 @@ function deleteLayerRow(btn) {
     row.parentNode.removeChild(row);
 
     updateTabsAvailability(); // Update tabs after deleting row
-    updateLayerListDropdowns();
+
 }
 
 
@@ -84,12 +84,10 @@ function loadLayers() {
             populateLayersTable(data.layer);
             alert('JSON data loaded successfully!');
             updateTabsAvailability(); // Update tabs after loading data
-            updateViaDropdowns(); // Call function to update via dropdowns
         },
         function (errorMessage) {
             alert(errorMessage);
             updateTabsAvailability(); // Update tabs on error
-            updateViaDropdowns(); // Call function to update via dropdowns
         }
     );
 }
@@ -118,7 +116,6 @@ function populateLayersTable(layersData) {
     //addLayerRow();
 
     updateTabsAvailability(); // Update tabs after populating layers
-    updateLayerListDropdowns();
 }
 
 function getLayerNames() {
@@ -150,39 +147,32 @@ function getLayerOptions(includeDefaultOption = true) {
 
 
 
-// Function to handle input changes in layersTable
-function handleLayerInputChange(event) {
-    console.log("YOU JUST UPDATED THE LAYER CONTAINER");
-    var target = event.target;
-    if (target.tagName === 'INPUT' && target.name.startsWith('name')) {
-        // If input field name starts with 'name', update segment dropdowns
-        updateLayerListDropdowns();
-        
-    } else if (target.tagName === 'INPUT' && target.name.startsWith('gdsLayer')) {
-        // If input field name starts with 'gdsLayer', update segment dropdowns
-        updateLayerListDropdowns();
-        
-    } else if (target.tagName === 'INPUT' && target.name.startsWith('gdsDatatype')) {
-        // If input field name starts with 'gdsDatatype', update segment dropdowns
-        updateLayerListDropdowns();
-        
-        
-    }
+
+// Function to initialize both MutationObserver and input listener
+function initializeLayerChangeObserver(handleChangeFunction) {
+    // Select the layersTable element
+    const layersTable = document.getElementById('layersTable');
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the layersTable element and its children
+    observer.observe(layersTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    layersTable.addEventListener('input', handleChangeFunction);
 }
 
 
 
-
-function updateLayerListDropdowns() {
-    updateSegmentDropdowns();
-    updateViaPadStackDropdowns();
-    updateViaDropdowns(); // Call function to update via dropdowns
-}
-
-
-
-// Add event listener to layersTable to capture input changes
-document.getElementById('layersTable').addEventListener('input', handleLayerInputChange);
 
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -192,8 +182,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 
+
+
 // Update via dropdowns every 1 second
 // setInterval(function () {
 //     updateSegmentDropdowns
-//     updateViaDropdowns();
+//     updateDropdownsInVia();
 // }, 1000); // 1000 milliseconds = 1 second

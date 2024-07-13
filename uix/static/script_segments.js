@@ -163,3 +163,5 @@ document.getElementById('numRings').addEventListener('change', handleNumRingsCha
 // Initial call to generate tables when the page loads
 generateSegmentTables();
 
+
+initializeLayerChangeObserver(updateSegmentDropdowns);

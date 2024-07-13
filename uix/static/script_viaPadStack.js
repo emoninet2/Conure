@@ -28,7 +28,7 @@ function addViaPadStackRow() {
     
 
     updateTabsAvailability(); // Update tabs after adding row
-    updateViaPadStackDropdowns();
+   
 }
 
 
@@ -36,7 +36,7 @@ function deleteViaPadStackRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
     updateTabsAvailability(); // Update tabs after deleting row
-    updateViaPadStackDropdowns();
+  
 }
 
 
@@ -111,7 +111,7 @@ function loadViaPadStack() {
             updateTabsAvailability(); // Update tabs on error
         }
     );
-    updateViaPadStackDropdowns();
+   
 }
 
 function populateViaPadStackTable(viaPadStacksData) {
@@ -151,12 +151,12 @@ function populateViaPadStackTable(viaPadStacksData) {
     });
 
     updateTabsAvailability(); // Update tabs after populating viaPadStacks
-    updateViaPadStackDropdowns();
+
 }
 
 
 // Function to update via dropdowns after layer changes
-function updateViaPadStackDropdowns() {
+function updateDropdownsInViaPadStack() {
     var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
     // Update top layer select elements
@@ -198,3 +198,31 @@ function updateViaPadStackDropdowns() {
     }
 }
 
+
+
+// Function to initialize both MutationObserver and input listener
+function initializeViaPadStackChangeObserver(handleChangeFunction) {
+    // Select the layersTable element
+    const layersTable = document.getElementById('viaPadStackTable');
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the layersTable element and its children
+    observer.observe(layersTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    layersTable.addEventListener('input', handleChangeFunction);
+}
+
+
+initializeLayerChangeObserver(updateDropdownsInViaPadStack);
+initializeViaChangeObserver(updateDropdownsInViaPadStack)

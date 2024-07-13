@@ -19,7 +19,7 @@ function addViaRow() {
     cell6.innerHTML = '<select name="viaLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell7.innerHTML = '<button onclick="deleteViaRow(this)">Delete</button>';
     updateTabsAvailability(); // Update tabs after adding row
-    updateViaListDropdowns();
+  
 }
 
 
@@ -28,7 +28,7 @@ function deleteViaRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
     updateTabsAvailability(); // Update tabs after deleting row
-    updateViaListDropdowns();
+
 }
 
 function saveVia() {
@@ -108,7 +108,7 @@ function loadVia() {
             updateTabsAvailability(); // Update tabs on error
         }
     );
-    updateViaListDropdowns();
+
 }
 
 function populateViaTable(viasData) {
@@ -146,22 +146,10 @@ function populateViaTable(viasData) {
     });
 
     updateTabsAvailability(); // Update tabs after populating vias
-    updateViaListDropdowns();
+
 }
 
 
-// Function to update via dropdowns after layer changes
-function updateViaDropdowns() {
-    var viaTables = document.getElementById('viaTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    for (var i = 0; i < viaTables.length; i++) {
-        var selectElement = viaTables[i].querySelector('select[name^="viaLayer"]');
-        if (selectElement) {
-            var currentValue = selectElement.value;
-            selectElement.innerHTML = getLayerOptions();
-            selectElement.value = currentValue;  // Restore previous selection
-        }
-    }
-}
 
 
 function getViaNames(){
@@ -192,22 +180,46 @@ function getViaOptions(includeDefaultOption = true) {
 
 
 
-// Function to handle input changes in layersTable
-function handleViaInputChange(event) {
-    console.log("YOU JUST UPDATED THE VIA CONTAINER");
-    var target = event.target;
-    // if (target.tagName === 'INPUT' && target.name.startsWith('viaName')) {
-    //     // If input field name starts with 'name', update segment dropdowns
-    //     updateViaListDropdowns();
-
-    // }
-
-    updateViaListDropdowns();
-}
-
-function updateViaListDropdowns() {
-    updateViaPadStackDropdowns();
+// Function to update via dropdowns after layer changes
+function updateDropdownsInVia() {
+    var viaTables = document.getElementById('viaTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    for (var i = 0; i < viaTables.length; i++) {
+        var selectElement = viaTables[i].querySelector('select[name^="viaLayer"]');
+        if (selectElement) {
+            var currentValue = selectElement.value;
+            selectElement.innerHTML = getLayerOptions();
+            selectElement.value = currentValue;  // Restore previous selection
+        }
+    }
 }
 
 
-document.getElementById('viaTable').addEventListener('input', handleViaInputChange);
+
+
+
+// Function to initialize both MutationObserver and input listener
+function initializeViaChangeObserver(handleChangeFunction) {
+    // Select the layersTable element
+    const layersTable = document.getElementById('viaTable');
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the layersTable element and its children
+    observer.observe(layersTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    layersTable.addEventListener('input', handleChangeFunction);
+}
+
+
+initializeLayerChangeObserver(updateDropdownsInVia);
+

@@ -1,1 +1,1 @@
-var layerList = [];
+const layersTable = document.getElementById('layersTable');
