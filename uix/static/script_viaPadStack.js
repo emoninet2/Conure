@@ -155,6 +155,31 @@ function populateViaPadStackTable(viaPadStacksData) {
 }
 
 
+function getViaPadStackNames() {
+    var viaPadStackNames = [];
+    var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0];
+    var rows = viaPadStackTable.getElementsByTagName('tr');
+    for (var i = 0; i < rows.length; i++) {
+        var nameInput = rows[i].querySelector('input[name^="viaPadStackName"]');
+        if (nameInput) {
+            viaPadStackNames.push(nameInput.value.trim());
+        }
+    }
+    return viaPadStackNames;
+}
+
+function getViaPadStackOptions(includeDefaultOption = true) {
+    var viaPadStackNames = getViaPadStackNames();
+    var viaPadStackOptions = viaPadStackNames.map(name => `<option value="${name}">${name}</option>`).join('');
+    if (includeDefaultOption) {
+        return `<option value="">-- Select Via --</option>${viaPadStackOptions}`;
+    } else {
+        return viaPadStackOptions;
+    }
+}
+
+
+
 // Function to update via dropdowns after layer changes
 function updateDropdownsInViaPadStack() {
     var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');

@@ -31,6 +31,37 @@
 <div id="bridges" class="sub-tab-content" style="display: none;">
     <h3>Bridges Sub-tab Content</h3>
     <!-- Add content specific to Bridges sub-tab -->
+    <div>
+        <label for="bridgeJsonPath">JSON File Path:</label>
+        <input type="text" id="bridgeJsonPath" placeholder="Enter path to JSON file">
+        <button onclick="loadBridges()">Load JSON</button>
+    </div>
+    <div style="overflow-x: auto;">
+        <table id="bridgesTable">
+            <thead>
+                <tr>
+                    <th>Bridge Name</th>
+                    <th>Layer</th>
+                    <th>Via</th>
+                    <th>Via Width</th>
+                    <th>Via Stack CCW</th>
+                    <th>Via Stack CW</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addBridgeRow()">Add Row</button>
+        <div>
+            <label for="bridgeSavePath">Save JSON File Path:</label>
+            <input type="text" id="bridgeSavePath" placeholder="Enter path to save JSON file">
+            <label for="bridgeSaveName">File Name:</label>
+            <input type="text" id="bridgeSaveName" placeholder="Enter file name">
+            <button onclick="saveBridges()">Save</button>
+        </div>
+    </div>
 </div>
 
 <div id="viaPadStack" class="sub-tab-content" style="display: none;">
@@ -152,7 +183,7 @@
 <script src="/static/script_segments.js"></script>
 <script src="/static/script_via.js"></script>
 <script src="/static/script_viaPadStack.js"></script>
-
+<script src="/static/script_bridges.js"></script>
 
 <script>
     // JavaScript to handle sub-tab visibility

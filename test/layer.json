@@ -390,7 +390,7 @@
     "bridges": {
         "DEFAULT": {
             "layer": "M9",
-            "Via": "V0"
+            "Via": "Via7"
         },
         "B0": {
             "layer": "M9"
