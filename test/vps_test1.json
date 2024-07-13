@@ -1,0 +1,10 @@
+{
+    "viaPadStack": {
+        "vps1": {
+            "topLayer": "M6",
+            "bottomLayer": "M7",
+            "margin": 5,
+            "viaList": "Via5"
+        }
+    }
+}

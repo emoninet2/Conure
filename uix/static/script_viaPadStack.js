@@ -12,11 +12,16 @@ function addViaPadStackRow() {
     var cell6 = newRow.insertCell(5);
 
     cell1.innerHTML = '<input type="text" name="viaPadStackName' + rowCount + '">';
+
     cell2.innerHTML = '<select name="viaPadStackTopLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell3.innerHTML = '<select name="viaPadStackBottomLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell4.innerHTML = '<input type="number" name="viaPadStackMargin' + rowCount + '">';
-    //cell5.innerHTML = '<input type="text" name="viaPadStackViaList' + rowCount + '">';
-    cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '">' + getViaOptions() + '</select>';
+    //cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '">' + getViaOptions() + '</select>';
+    cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '" multiple>' + getViaOptions() + '</select>';
+
+    
+
+
     cell6.innerHTML = '<button onclick="deleteViaPadStackRow(this)">Delete</button>';
 
 
@@ -51,14 +56,15 @@ function saveViaPadStack() {
         var topLayer = topLayerSelect.value.trim();
         var bottomLayer = bottomLayerSelect.value.trim();
         var margin = parseInt(marginInput.value.trim());
-        var viaList = viaListSelect.value.trim();
 
-        if (name && topLayer && bottomLayer && !isNaN(margin) && viaList) {
+        var viaList = Array.from(viaListSelect.selectedOptions).map(option => option.value.trim());
+
+        if (name && topLayer && bottomLayer && !isNaN(margin) && viaList.length > 0) {
             viaPadStacks[name] = {
                 topLayer: topLayer,
                 bottomLayer: bottomLayer,
                 margin: margin,
-                viaList: viaList
+                vias: viaList
             };
         }
     });
@@ -124,10 +130,23 @@ function populateViaPadStackTable(viaPadStacksData) {
 
         cell1.innerHTML = '<input type="text" name="viaPadStackName' + index + '" value="' + key + '">';
         cell2.innerHTML = '<select name="viaPadStackTopLayer' + index + '">' + getLayerOptions() + '</select>';
+        cell2.querySelector('select').value = viaPadStack.topLayer; // Set selected value
         cell3.innerHTML = '<select name="viaPadStackBottomLayer' + index + '">' + getLayerOptions() + '</select>';
+        cell3.querySelector('select').value = viaPadStack.bottomLayer; // Set selected value
         cell4.innerHTML = '<input type="number" name="viaPadStackMargin' + index + '" value="' + viaPadStack.margin + '">';
-        //cell5.innerHTML = '<input type="text" name="viaPadStackViaList' + index + '" value="' + viaPadStack.viaList + '">';
-        cell5.innerHTML = '<input type="text" name="viaPadStackViaList' + rowCount + '">' + getViaOptions() + '</select>';
+
+        // Populate multiple select for vias
+        cell5.innerHTML = '<select name="viaPadStackViaList' + index + '" multiple>' + getViaOptions() + '</select>';
+        var viaListSelect = cell5.querySelector('select');
+        viaPadStack.vias.forEach(function (via) {
+            for (var i = 0; i < viaListSelect.options.length; i++) {
+                if (viaListSelect.options[i].value === via) {
+                    viaListSelect.options[i].selected = true;
+                    break;
+                }
+            }
+        });
+
         cell6.innerHTML = '<button onclick="deleteViaPadStackRow(this)">Delete</button>';
     });
 
@@ -136,11 +155,11 @@ function populateViaPadStackTable(viaPadStacksData) {
 }
 
 
-
 // Function to update via dropdowns after layer changes
 function updateViaPadStackDropdowns() {
-    
     var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    // Update top layer select elements
     for (var i = 0; i < viaPadStackTable.length; i++) {
         var selectElement = viaPadStackTable[i].querySelector('select[name^="viaPadStackTopLayer"]');
         if (selectElement) {
@@ -150,7 +169,7 @@ function updateViaPadStackDropdowns() {
         }
     }
 
-    var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    // Update bottom layer select elements
     for (var i = 0; i < viaPadStackTable.length; i++) {
         var selectElement = viaPadStackTable[i].querySelector('select[name^="viaPadStackBottomLayer"]');
         if (selectElement) {
@@ -160,16 +179,22 @@ function updateViaPadStackDropdowns() {
         }
     }
 
-
-    var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    // Update via list select elements
     for (var i = 0; i < viaPadStackTable.length; i++) {
         var selectElement = viaPadStackTable[i].querySelector('select[name^="viaPadStackViaList"]');
         if (selectElement) {
-            var currentValue = selectElement.value;
+            // Store current selected options
+            var selectedOptions = Array.from(selectElement.selectedOptions).map(option => option.value);
             selectElement.innerHTML = getViaOptions();
-            selectElement.value = currentValue;  // Restore previous selection
+            // Restore previous selected options
+            selectedOptions.forEach(value => {
+                for (var j = 0; j < selectElement.options.length; j++) {
+                    if (selectElement.options[j].value === value) {
+                        selectElement.options[j].selected = true;
+                    }
+                }
+            });
         }
     }
-
 }
 

@@ -1,0 +1,20 @@
+{
+    "viaPadStack": {
+        "VS_9_8": {
+            "topLayer": "M9",
+            "bottomLayer": "M8",
+            "margin": 0,
+            "vias": [
+                "Via5"
+            ]
+        },
+        "VS_M1_OD": {
+            "topLayer": "M1",
+            "bottomLayer": "OD_drw",
+            "margin": 0,
+            "vias": [
+                "ViaCO"
+            ]
+        }
+    }
+}

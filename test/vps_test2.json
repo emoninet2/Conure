@@ -1,0 +1,22 @@
+{
+    "viaPadStack": {
+        "vps1": {
+            "topLayer": "M6",
+            "bottomLayer": "M9",
+            "margin": 2,
+            "viaList": [
+                "Via5",
+                "Via7"
+            ]
+        },
+        "vps2": {
+            "topLayer": "M9",
+            "bottomLayer": "OD_drw",
+            "margin": -3,
+            "viaList": [
+                "Via6",
+                "Via7"
+            ]
+        }
+    }
+}
