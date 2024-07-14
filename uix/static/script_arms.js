@@ -13,12 +13,12 @@ function addArmRow() {
 
     cell1.innerHTML = '<input type="text" name="armName' + rowCount + '">';
     cell2.innerHTML = '<select name="armType' + rowCount + '">' +
-        '<option value="single">Single</option>' +
-        '<option value="differential">Differential</option>' +
+        '<option value="single">SINGLE</option>' +
+        '<option value="double">DOUBLE</option>' +
         '</select>';
     cell3.innerHTML = '<input type="number" name="armLength' + rowCount + '">';
     cell4.innerHTML = '<input type="number" name="armWidth' + rowCount + '">';
-    cell5.innerHTML = '<input type="text" name="armPort' + rowCount + '">';
+    cell5.innerHTML = '<select name="armPort' + rowCount + '">' + getPortOptions() + '</select>';
     cell6.innerHTML = '<select name="armLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell7.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
     cell8.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
@@ -31,54 +31,51 @@ function deleteArmRow(btn) {
     row.parentNode.removeChild(row);
     updateTabsAvailability(); // Update tabs after deleting row
 }
+
+
 function saveArms() {
-    var arms = {};
+    var table = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
+    var rows = table.getElementsByTagName('tr');
+    var armsData = {};
 
-    // Iterate through table rows to collect data
-    var tableRows = document.querySelectorAll('#armsTable tbody tr');
-    tableRows.forEach(function (row, index) {
-        var nameInput = row.querySelector('input[name^="armName"]');
-        var typeSelect = row.querySelector('select[name^="armType"]');
-        var lengthInput = row.querySelector('input[name^="armLength"]');
-        var widthInput = row.querySelector('input[name^="armWidth"]');
-        var portInput = row.querySelector('input[name^="armPort"]');
-        var layerSelect = row.querySelector('select[name^="armLayer"]');
-        var viaPadStackSelect = row.querySelector('select[name^="armViaPadStack"]');
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var arm = {};
 
-        var name = nameInput.value.trim();
-        var type = typeSelect.value.trim();
-        var length = parseInt(lengthInput.value.trim());
-        var width = parseInt(widthInput.value.trim());
-        var port = portInput.value.trim().split(',').map(function (item) { return item.trim(); }); // Convert ports to array
-        var layer = layerSelect.value.trim();
-        var viaPadStack = viaPadStackSelect.value.trim();
+        arm.name = row.querySelector('input[name^="armName"]').value.trim();
+        arm.type = row.querySelector('select[name^="armType"]').value;
+        arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
+        arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
 
-        if (name && type && !isNaN(length) && length > 0 && !isNaN(width) && width > 0 && layer && viaPadStack) {
-            arms[name] = {
-                type: type,
-                length: length,
-                width: width,
-                port: port,
-                layer: layer,
-                viaPadStack: viaPadStack
-            };
+        var selectedPorts = [];
+        var portSelect = row.querySelector('select[name^="armPort"]');
+        for (var j = 0; j < portSelect.options.length; j++) {
+            if (portSelect.options[j].selected) {
+                selectedPorts.push(portSelect.options[j].value);
+            }
         }
-    });
+        arm.port = selectedPorts.length === 1 ? selectedPorts[0] : selectedPorts;
 
-    // Prepare data to send to server
+        arm.layer = row.querySelector('select[name^="armLayer"]').value;
+        arm.viaStack = row.querySelector('select[name^="armViaPadStack"]').value;
+
+        armsData[arm.name] = arm;
+    }
+
     var jsonData = {
-        arms: arms,
+        data: armsData,
+        //arms: armsData,
         savePath: document.getElementById('armsSavePath').value.trim(),
         saveName: document.getElementById('armsSaveName').value.trim()
     };
 
-    // Send data to server to save
-    fetch('/save_json_arms', {
+    // Send data to Flask to save to custom file path and name
+    fetch('/save_json', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
-        body: JSON.stringify(jsonData)
+        body: JSON.stringify(jsonData),
     })
         .then(response => response.json())
         .then(data => {
@@ -92,8 +89,6 @@ function saveArms() {
 
     updateTabsAvailability(); // Update tabs after saving data
 }
-
-
 
 function loadArms() {
     var armJsonPath = document.getElementById('armsJsonPath').value.trim(); // Ensure correct ID is used
@@ -138,11 +133,28 @@ function populateArmTable(armsData) {
 
         cell4.innerHTML = '<input type="number" name="armWidth' + index + '" value="' + arm.width + '">';
 
+
+        cell5.innerHTML = '<select name="armPort' + index + '" multiple>' + getPortOptions(false) + '</select>';
+        var portListSelect = cell5.querySelector('select');
         if (Array.isArray(arm.port)) {
-            cell5.innerHTML = '<input type="text" name="armPort' + index + '" value="' + arm.port.join(', ') + '">';
+            arm.port.forEach(function (port) {
+                for (var i = 0; i < portListSelect.options.length; i++) {
+                    if (portListSelect.options[i].value === port) {
+                        portListSelect.options[i].selected = true;
+                        break;
+                    }
+                }
+            });
         } else {
-            cell5.innerHTML = '<input type="text" name="armPort' + index + '" value="' + arm.port + '">';
+            // If arm.port is not an array (single value case)
+            for (var i = 0; i < portListSelect.options.length; i++) {
+                if (portListSelect.options[i].value === arm.port) {
+                    portListSelect.options[i].selected = true;
+                    break;
+                }
+            }
         }
+
 
         cell6.innerHTML = '<select name="armLayer' + index + '">' + getLayerOptions() + '</select>';
         cell6.querySelector('select').value = arm.layer; // Set selected value
@@ -160,16 +172,18 @@ function populateArmTable(armsData) {
 function updateDropdownsInArmTable() {
     var armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
-    // Update type select elements
+
+
+    // Update Port elements
     for (var i = 0; i < armsTable.length; i++) {
-        var selectElement = armsTable[i].querySelector('select[name^="armType"]');
+        var selectElement = armsTable[i].querySelector('select[name^="armPort"]');
         if (selectElement) {
             var currentValue = selectElement.value;
-            selectElement.innerHTML = '<option value="differential">Differential</option>' +
-                '<option value="single">Single</option>';
+            selectElement.innerHTML = getPortOptions();
             selectElement.value = currentValue;  // Restore previous selection
         }
     }
+
 
     // Update layer select elements
     for (var i = 0; i < armsTable.length; i++) {
@@ -194,3 +208,4 @@ function updateDropdownsInArmTable() {
 
 initializeLayerChangeObserver(updateDropdownsInArmTable);
 initializeViaPadStackChangeObserver(updateDropdownsInArmTable);
+initializePortChangeObserver(updateDropdownsInArmTable);

@@ -1,3 +1,4 @@
+
 import os
 import json
 from flask import Flask, render_template, request, jsonify, session
@@ -9,23 +10,52 @@ app.secret_key = 'your_secret_key'
 
 @app.route('/')
 def index():
+    """
+    Render the index.html template.
+
+    Returns:
+        The rendered index.html template.
+    """
     return render_template('index.html')  # Load initial SPA template
 
 @app.route('/project')
 def project():
+    """
+    Render the project.html template.
+
+    Returns:
+        The rendered project.html template.
+    """
     return render_template('project.html')  # Load Project tab content
 
 @app.route('/artwork')
 def artwork():
+    """
+    Render the artwork.html template.
+
+    Returns:
+        The rendered artwork.html template.
+    """
     return render_template('artwork.html')  # Load Artwork tab content
 
 @app.route('/sweep')
 def sweep():
+    """
+    Render the sweep.html template.
+
+    Returns:
+        The rendered sweep.html template.
+    """
     return render_template('sweep.html')  # Load Sweep tab content
 
 @app.route('/create_project', methods=['POST'])
 def create_project():
-  
+    """
+    Create a new project directory and store project data in a JSON file.
+
+    Returns:
+        A JSON response indicating the success or failure of the operation.
+    """
     data = request.json
     directory_path = data.get('directoryPath')
     
@@ -61,6 +91,12 @@ def create_project():
 
 @app.route('/save_json', methods=['POST'])
 def save_json():
+    """
+    Save JSON data to a specified file path.
+
+    Returns:
+        A JSON response indicating the success or failure of the operation.
+    """
     data = request.json
     data_to_save = data.get('data')  # Making it more generic
     save_path = data.get('savePath')
@@ -70,7 +106,7 @@ def save_json():
         try:
             # Construct full file path
             file_path = os.path.join(save_path, save_name + '.json')
-
+ 
             # Save data to specified file path
             with open(file_path, 'w') as json_file:
                 json.dump(data_to_save, json_file, indent=4)
@@ -87,10 +123,14 @@ def save_json():
     return jsonify({'success': False, 'error': 'Missing data or save path/name'})
 
 
-
-
 @app.route('/load_json', methods=['POST'])
 def load_json():
+    """
+    Load JSON data from a specified file path.
+
+    Returns:
+        A JSON response containing the loaded data or an error message.
+    """
     data = request.json
     json_path = data.get('path')
     if json_path:
