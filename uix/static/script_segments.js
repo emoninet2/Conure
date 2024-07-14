@@ -113,6 +113,8 @@ function generateSegmentTables() {
         segmentTableContainer.appendChild(table);
     }
     updateDropdownsInSegment();
+    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
+    disableJumpAndBridgeArmForDefaultType();
 }
 
 
@@ -252,6 +254,9 @@ function populateSegmentTable(segments) {
             }
         }
     }
+
+    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
+    disableJumpAndBridgeArmForDefaultType();
    
 }
 
@@ -283,6 +288,54 @@ function updateDropdownsInSegment() {
                 bridgeArmSelect.value = currentArmValue;  // Restore previous selection
             } else {
                 bridgeArmSelect.innerHTML = '<option value="">-- N/A --</option>';
+            }
+        }
+    }
+
+    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
+    disableJumpAndBridgeArmForDefaultType();
+}
+
+
+function disableJumpForDefaultType() {
+    const segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
+
+    for (let i = 0; i < segmentTables.length; i++) {
+        const rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let j = 0; j < rows.length; j++) {
+            const typeSelect = rows[j].querySelector('select[name^="type"]');
+            const jumpInput = rows[j].querySelector('input[name^="jump"]');
+            const bridgeArmSelect = rows[j].querySelector('select[name^="bridgeArm"]');
+
+            if (typeSelect.value === 'DEFAULT') {
+                jumpInput.disabled = true;
+                bridgeArmSelect.disabled = true;
+            } else {
+                jumpInput.disabled = false;
+                bridgeArmSelect.disabled = false;
+            }
+        }
+    }
+}
+
+function disableJumpAndBridgeArmForDefaultType() {
+    const segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
+
+    for (let i = 0; i < segmentTables.length; i++) {
+        const rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (let j = 0; j < rows.length; j++) {
+            const typeSelect = rows[j].querySelector('select[name^="type"]');
+            const jumpInput = rows[j].querySelector('input[name^="jump"]');
+            const bridgeArmSelect = rows[j].querySelector('select[name^="bridgeArm"]');
+
+            if (typeSelect.value === 'DEFAULT') {
+                jumpInput.disabled = true;
+                bridgeArmSelect.disabled = true;
+            } else {
+                jumpInput.disabled = false;
+                bridgeArmSelect.disabled = false;
             }
         }
     }
@@ -320,7 +373,7 @@ function myfoo(){
 }
 
 
-initializeSegmentChangeObserver(myfoo);
+initializeSegmentChangeObserver(disableJumpForDefaultType);
 
 
 initializeLayerChangeObserver(updateDropdownsInSegment);
