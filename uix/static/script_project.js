@@ -22,3 +22,38 @@ function createProject() {
         alert('Please enter a valid directory path.');
     }
 }
+
+
+function loadArtworkDescriptionFile() {
+    var jsonPath = "test/layer.json";
+
+    loadJsonData(jsonPath,
+        function (data) {
+            populateArtworkDescriptionData(data); // Call function to populate table with loaded data
+            alert('JSON data loaded successfully!');
+            updateTabsAvailability(); // Update tabs after loading data
+        },
+        function (errorMessage) {
+            alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+            updateTabsAvailability(); // Update tabs on error
+        }
+    );
+}
+
+function populateArtworkDescriptionData(jsonData) {
+    populateLayersTable(jsonData.layer);
+    populateViaTable(jsonData.via);
+    populateViaPadStackTable(jsonData.viaPadStack);
+    populateBridgeTable(jsonData.bridges);
+    populatePortsAndSimPortsTable(jsonData.ports);
+    populateArmTable(jsonData.arms);
+    
+}
+
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    loadArtworkDescriptionFile(); // Update tabs after deleting row
+});
+

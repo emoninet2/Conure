@@ -162,7 +162,7 @@ function loadPorts() {
 
     loadJsonData(portsJsonPath,
         function (data) {
-            populatePortsTable(data.ports);
+            populatePortsAndSimPortsTable(data.ports);
             alert('JSON data loaded successfully!');
             updateTabsAvailability(); // Update tabs after loading data
         },
@@ -173,32 +173,30 @@ function loadPorts() {
     );
 }
 
-function populatePortsTable(jsonData) {
+function populatePortsAndSimPortsTable(jsonData) {
     var portsData = jsonData;
 
     // Populate portsTable
     var portsTable = document.getElementById('portsTable').getElementsByTagName('tbody')[0];
     // Clear existing rows
     portsTable.innerHTML = '';
-    for (var portName in portsData.data) {
-        if (portsData.data.hasOwnProperty(portName)) {
-            var portLabel = portsData.data[portName].label;
+    Object.keys(portsData.data).forEach(function (portName) {
+        var row = portsTable.insertRow();
+        var cell1 = row.insertCell(0);
+        var cell2 = row.insertCell(1);
+        var cell3 = row.insertCell(2);
 
-            var row = portsTable.insertRow();
-            var nameCell = row.insertCell(0);
-            var labelCell = row.insertCell(1);
+        // Port Name
+        cell1.innerHTML = '<input type="text" name="portName' + portName + '" value="' + portName + '" readonly>';
 
-            var nameInput = document.createElement('input');
-            nameInput.name = 'portName';
-            nameInput.value = portName;
-            nameCell.appendChild(nameInput);
+        // Port Label
+        cell2.innerHTML = '<input type="text" name="portLabel' + portName + '" value="' + portsData.data[portName].label + '">';
 
-            var labelInput = document.createElement('input');
-            labelInput.name = 'portLabel';
-            labelInput.value = portLabel;
-            labelCell.appendChild(labelInput);
-        }
-    }
+        // Optionally add delete button or other actions if needed
+        cell3.innerHTML = '<button onclick="deletePortRow(this)">Delete</button>';
+    });
+
+
 
     // Populate simPortsTable
     var simPortsTable = document.getElementById('simPortsTable').getElementsByTagName('tbody')[0];
