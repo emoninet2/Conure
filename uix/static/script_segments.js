@@ -3,9 +3,10 @@
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('numRings').addEventListener('change', function () {
         generateSegmentTables();
-        updateDropdownsInSegment();  // Ensure dropdowns are updated after generating tables
+        //updateDropdownsInSegment();  // Ensure dropdowns are updated after generating tables
     });
 });
+
 
 function generateSegmentTables() {
     const numRings = parseInt(document.getElementById('numRings').value) || 0;
@@ -38,7 +39,7 @@ function generateSegmentTables() {
         // Create table header
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Type', 'Layer', 'Jump', 'Bridge/Arm', 'Action'].forEach(text => {
+        ['Type', 'Layer', 'Jump', 'Bridge/Arm'].forEach(text => {
             const th = document.createElement('th');
             th.innerText = text;
             headerRow.appendChild(th);
@@ -90,19 +91,19 @@ function generateSegmentTables() {
             const bridgeArmTd = document.createElement('td');
             const bridgeArmSelect = document.createElement('select');
             bridgeArmSelect.name = `bridgeArm${i + 1}_${j + 1}`;
+
+            // Set options based on type
+            if (currentValues[`type${i + 1}_${j + 1}`] === 'BRIDGE') {
+                bridgeArmSelect.innerHTML = getBridgeOptions(false);
+            } else if (currentValues[`type${i + 1}_${j + 1}`] === 'PORT') {
+                bridgeArmSelect.innerHTML = getArmOptions(false);
+            } else {
+                bridgeArmSelect.innerHTML = '<option value="">-- N/A --</option>';
+            }
+
+            bridgeArmSelect.value = currentValues[`bridgeArm${i + 1}_${j + 1}`] || '';
             bridgeArmTd.appendChild(bridgeArmSelect);
             row.appendChild(bridgeArmTd);
-
-            // Add action cell for delete button
-            const actionTd = document.createElement('td');
-            const deleteButton = document.createElement('button');
-            deleteButton.innerText = 'Delete';
-            deleteButton.onclick = function () {
-                const row = this.parentNode.parentNode;
-                row.parentNode.removeChild(row);
-            };
-            actionTd.appendChild(deleteButton);
-            row.appendChild(actionTd);
 
             tbody.appendChild(row);
         }
@@ -286,6 +287,40 @@ function updateDropdownsInSegment() {
         }
     }
 }
+
+
+
+// Function to initialize both MutationObserver and input listener for armsTable
+function initializeSegmentChangeObserver(handleChangeFunction) {
+    // Select the armsTable element
+    const armsTable = document.getElementById('segmentTable');
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the armsTable element and its children
+    observer.observe(armsTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    armsTable.addEventListener('input', handleChangeFunction);
+}
+
+
+
+function myfoo(){
+    //alert('Horray! I am called!');
+}
+
+
+initializeSegmentChangeObserver(myfoo);
 
 
 initializeLayerChangeObserver(updateDropdownsInSegment);

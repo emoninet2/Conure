@@ -41,13 +41,14 @@ function loadArtworkDescriptionFile() {
 }
 
 function populateArtworkDescriptionData(jsonData) {
+    //make sure the ORDER IS MAINTAINTED
     populateLayersTable(jsonData.layer);
     populateViaTable(jsonData.via);
     populateViaPadStackTable(jsonData.viaPadStack);
     populateBridgeTable(jsonData.bridges);
     populatePortsAndSimPortsTable(jsonData.ports);
     populateArmTable(jsonData.arms);
-    
+    populateSegmentTable(jsonData.segments);
 }
 
 
