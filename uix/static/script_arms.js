@@ -188,6 +188,30 @@ function populateArmTable(armsData) {
     updateTabsAvailability(); // Update tabs after populating arms
 }
 
+function getArmNames() {
+    var armNames = [];
+    var armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
+    var rows = armsTable.getElementsByTagName('tr');
+    for (var i = 0; i < rows.length; i++) {
+        var nameInput = rows[i].querySelector('input[name^="armName"]');
+        if (nameInput) {
+            armNames.push(nameInput.value.trim());
+        }
+    }
+    return armNames;
+}
+
+function getArmOptions(includeDefaultOption = true) {
+    var armNames = getArmNames();
+    var armOptions = armNames.map(name => `<option value="${name}">${name}</option>`).join('');
+    if (includeDefaultOption) {
+        return `<option value="">-- Select Arm --</option>${armOptions}`;
+    } else {
+        return armOptions;
+    }
+}
+
+
 
 function updateDropdownsInArmTable() {
     var armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -225,6 +249,34 @@ function updateDropdownsInArmTable() {
         }
     }
 }
+
+
+
+
+// Function to initialize both MutationObserver and input listener for armsTable
+function initializeArmChangeObserver(handleChangeFunction) {
+    // Select the armsTable element
+    const armsTable = document.getElementById('armsTable');
+
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the armsTable element and its children
+    observer.observe(armsTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    armsTable.addEventListener('input', handleChangeFunction);
+}
+
+
 
 initializeLayerChangeObserver(updateDropdownsInArmTable);
 initializeViaPadStackChangeObserver(updateDropdownsInArmTable);
