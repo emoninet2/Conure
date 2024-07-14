@@ -10,11 +10,30 @@
 
 <div id="segment" class="sub-tab-content" style="display: none;">
     <h3>Segment Designer</h3>
-    <label for="numRings">No. of Rings:</label>
-    <input type="number" id="numRings" value="" min="1" onchange="generateSegmentTables()">
-    <div id="segmentContainer">
-        <!-- Tables will be dynamically generated here -->
+    <div>
+        <label for="segmentsJsonPath">JSON File Path:</label>
+        <input type="text" id="segmentJsonPath" placeholder="Enter path to JSON file">
+        <button onclick="loadSegments()">Load JSON</button>
     </div>
+    <div style="overflow-x: auto;">
+        <label for="numRings">No. of Rings:</label>
+        <input type="number" id="numRings" value="" min="1" onchange="generateSegmentTables()">
+        <div id="segmentTable">
+            <!-- Tables will be dynamically generated here -->
+        </div>
+
+        <div>
+            <label for="segmentsSavePath">Save JSON File Path:</label>
+            <input type="text" id="segmentsSavePath" placeholder="Enter path to save JSON file">
+            <label for="segmentsSaveName">File Name:</label>
+            <input type="text" id="segmentsSaveName" placeholder="Enter file name">
+            <button onclick="saveSegments()">Save</button>
+        </div>
+
+
+    </div>
+
+
 </div>
 
 <div id="arms" class="sub-tab-content" style="display: none;">
@@ -269,16 +288,16 @@
     </div>
 </div>
 
-<!-- Correctly include scripts with src attribute -->
+<!-- Correctly include scripts with src attribute (ORDER IS IMPORTANT) -->
 <script src="/static/script_global.js"></script>
 <script src="/static/script_util.js"></script>
 <script src="/static/script_layers.js"></script>
-<script src="/static/script_segments.js"></script>
 <script src="/static/script_via.js"></script>
 <script src="/static/script_viaPadStack.js"></script>
 <script src="/static/script_bridges.js"></script>
 <script src="/static/script_ports.js"></script>
 <script src="/static/script_arms.js"></script>
+<script src="/static/script_segments.js"></script>
 
 
 

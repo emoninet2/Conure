@@ -1,167 +1,123 @@
-// Function to generate the segment tables
+document.addEventListener("DOMContentLoaded", function () {
+    // Attach the change event to numRings input
+    document.getElementById('numRings').addEventListener('change', generateSegmentTables);
+});
+
 function generateSegmentTables() {
-    var numRows = parseInt(document.getElementById('numRings').value);
+    const numRings = parseInt(document.getElementById('numRings').value) || 0;
+    const segmentTableContainer = document.getElementById('segmentTable');
 
-    // Check if numRows is 0 or negative
-    if (numRows <= 0 || isNaN(numRows)) {
-        return; // Exit function early if numRows is invalid
-    }
+    // Clear previous tables
+    segmentTableContainer.innerHTML = '';
 
-    var segmentContainer = document.getElementById('segmentContainer');
-    var existingTables = segmentContainer.querySelectorAll('table.ring-table');
-
-    // Check if tables already exist and need to be updated
-    var tablesToGenerate = 8; // Generate 8 tables as before
-    var tablesToUpdate = Math.min(existingTables.length, tablesToGenerate);
-
-    // Update existing tables or create new ones
-    for (var i = 0; i < tablesToUpdate; i++) {
-        var tbody = existingTables[i].getElementsByTagName('tbody')[0];
-        var currentRows = tbody.getElementsByTagName('tr');
-        var currentRowCount = currentRows.length;
-
-        // Update rows if the number has changed
-        if (currentRowCount !== numRows) {
-            if (currentRowCount < numRows) {
-                // Add rows if needed
-                for (var j = currentRowCount + 1; j <= numRows; j++) {
-                    var row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${i + 1}.${j}</td>
-                        <td>
-                            <select name="type${i + 1}${j}">
-                                <option value="Default">Default</option>
-                                <option value="Bridge">Bridge</option>
-                                <option value="Port">Port</option>
-                            </select>
-                        </td>
-                        <td>
-                            <select name="layer${i + 1}${j}">
-                                ${getLayerOptions()} 
-                            </select>
-                        </td>
-                    `;
-                    tbody.appendChild(row);
-                }
-            } else {
-                // Remove rows if needed
-                for (var j = currentRowCount; j > numRows; j--) {
-                    tbody.removeChild(currentRows[j - 1]);
-                }
-            }
-        }
-    }
-
-    // Generate new tables if necessary
-    for (var i = tablesToUpdate; i < tablesToGenerate; i++) {
-        var table = document.createElement('table');
-        table.classList.add('ring-table');
+    // Create 8 tables
+    for (let i = 0; i < 8; i++) {
+        const table = document.createElement('table');
+        table.id = `segmentTable${i + 1}`;
+        table.style.marginBottom = '20px';
 
         // Create table header
-        var thead = document.createElement('thead');
-        var headerRow = document.createElement('tr');
-        headerRow.innerHTML = `<th>Segment ${i + 1}</th><th>Type</th><th>Layer</th>`;
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Type', 'Layer', 'Jump', 'Bridge', 'Action'].forEach(text => {
+            const th = document.createElement('th');
+            th.innerText = text;
+            headerRow.appendChild(th);
+        });
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
         // Create table body
-        var tbody = document.createElement('tbody');
-        for (var j = 1; j <= numRows; j++) {
-            var row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i + 1}.${j}</td>
-                <td>
-                    <select name="type${i + 1}${j}">
-                        <option value="Default">Default</option>
-                        <option value="Bridge">Bridge</option>
-                        <option value="Port">Port</option>
-                    </select>
-                </td>
-                <td>
-                    <select name="layer${i + 1}${j}">
-                        ${getLayerOptions()} // Include -- Select Layer -- option
-                    </select>
-                </td>
-            `;
+        const tbody = document.createElement('tbody');
+        for (let j = 0; j < numRings; j++) {
+            const row = document.createElement('tr');
+
+            // Create the dropdown for 'type'
+            const typeTd = document.createElement('td');
+            const select = document.createElement('select');
+            select.name = `type${i + 1}_${j + 1}`;
+            ['DEFAULT', 'BRIDGE', 'PORT'].forEach(optionValue => {
+                const option = document.createElement('option');
+                option.value = optionValue;
+                option.innerText = optionValue;
+                select.appendChild(option);
+            });
+            typeTd.appendChild(select);
+            row.appendChild(typeTd);
+
+            // Create the dropdown for 'layer'
+            const layerTd = document.createElement('td');
+            const layerSelect = document.createElement('select');
+            layerSelect.name = `layer${i + 1}_${j + 1}`;
+            layerSelect.innerHTML = getLayerOptions(false);  // Generate options as HTML
+            layerTd.appendChild(layerSelect);
+            row.appendChild(layerTd);
+
+            // Create input field for 'jump'
+            const jumpTd = document.createElement('td');
+            const jumpInput = document.createElement('input');
+            jumpInput.type = 'number';
+            jumpInput.name = `jump${i + 1}_${j + 1}`;
+            jumpTd.appendChild(jumpInput);
+            row.appendChild(jumpTd);
+
+            // Create the dropdown for 'bridge'
+            const bridgeTd = document.createElement('td');
+            const bridgeSelect = document.createElement('select');
+            bridgeSelect.name = `bridge${i + 1}_${j + 1}`;
+            bridgeSelect.innerHTML = getBridgeOptions(false);  // Generate options as HTML
+            bridgeTd.appendChild(bridgeSelect);
+            row.appendChild(bridgeTd);
+
+            // Add action cell for delete button
+            const actionTd = document.createElement('td');
+            const deleteButton = document.createElement('button');
+            deleteButton.innerText = 'Delete';
+            deleteButton.onclick = function () {
+                const row = this.parentNode.parentNode;
+                row.parentNode.removeChild(row);
+            };
+            actionTd.appendChild(deleteButton);
+            row.appendChild(actionTd);
+
             tbody.appendChild(row);
         }
         table.appendChild(tbody);
 
-        // Append table to container
-        segmentContainer.appendChild(table);
+        // Append table to the container
+        segmentTableContainer.appendChild(table);
     }
-
-    // Remove extra existing tables if there are too many
-    for (var i = tablesToGenerate; i < existingTables.length; i++) {
-        segmentContainer.removeChild(existingTables[i]);
-    }
-
-    // Restore state
-    restoreSegmentState();
-    updateTabsAvailability(); // Update tabs after generating tables
 }
 
 
+// Function to update dropdowns in segment tables
+function updateDropdownsInSegment() {
+    var segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
 
-// Function to handle changes in numRings
-function handleNumRingsChange() {
-    generateSegmentTables(); // Regenerate tables when numRings changes
-}
-
-
-
-function updateSegmentDropdowns() {
-    var layerNames = getLayerNames();
-    var segmentTables = document.getElementById('segmentContainer').getElementsByTagName('table');
     for (var i = 0; i < segmentTables.length; i++) {
-        var selectElements = segmentTables[i].querySelectorAll('select[name^="layer"]');
-        for (var j = 0; j < selectElements.length; j++) {
-            var currentValue = selectElements[j].value;
-            selectElements[j].innerHTML = getLayerOptions();
-            selectElements[j].value = currentValue;  // Restore previous selection
-        }
-    }
-}
-
-function saveSegmentState() {
-    segmentState = [];
-    var segmentTables = document.getElementById('segmentContainer').getElementsByTagName('table');
-    for (var i = 0; i < segmentTables.length; i++) {
-        var tableState = [];
         var rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
         for (var j = 0; j < rows.length; j++) {
-            var rowState = {
-                type: rows[j].querySelector('input[name^="type"]').value,
-                layer: rows[j].querySelector('select[name^="layer"]').value,
-                jump: rows[j].querySelector('input[name^="jump"]').value,
-                bridge: rows[j].querySelector('input[name^="bridge"]').value
-            };
-            tableState.push(rowState);
-        }
-        segmentState.push(tableState);
-    }
-}
+            // Update layer select elements
+            var layerSelect = rows[j].querySelector('select[name^="layer"]');
+            if (layerSelect) {
+                var currentValue = layerSelect.value;
+                layerSelect.innerHTML = getLayerOptions();  // Generate options as HTML
+                layerSelect.value = currentValue;  // Restore previous selection
+            }
 
-function restoreSegmentState() {
-    var segmentTables = document.getElementById('segmentContainer').getElementsByTagName('table');
-    for (var i = 0; i < segmentTables.length && i < segmentState.length; i++) {
-        var rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-        for (var j = 0; j < rows.length && j < segmentState[i].length; j++) {
-            var row = rows[j];
-            var state = segmentState[i][j];
-            row.querySelector('input[name^="type"]').value = state.type;
-            row.querySelector('select[name^="layer"]').value = state.layer;
-            row.querySelector('input[name^="jump"]').value = state.jump;
-            row.querySelector('input[name^="bridge"]').value = state.bridge;
+            // Update bridge select elements
+            var bridgeSelect = rows[j].querySelector('select[name^="bridge"]');
+            if (bridgeSelect) {
+                var currentValue = bridgeSelect.value;
+                bridgeSelect.innerHTML = getBridgeOptions();  // Generate options as HTML
+                bridgeSelect.value = currentValue;  // Restore previous selection
+            }
         }
     }
 }
 
-// Initialize
-// Add event listener to numRings input
-document.getElementById('numRings').addEventListener('change', handleNumRingsChange);
-// Initial call to generate tables when the page loads
-generateSegmentTables();
+initializeLayerChangeObserver(updateDropdownsInSegment);
+initializeBridgeChangeObserver(updateDropdownsInSegment);
 
 
-initializeLayerChangeObserver(updateSegmentDropdowns);

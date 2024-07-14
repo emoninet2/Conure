@@ -167,6 +167,31 @@ function populateBridgeTable(bridgesData) {
     updateTabsAvailability(); // Update tabs after populating bridges
 }
 
+
+
+function getBridgeNames() {
+    var bridgeNames = [];
+    var bridgeTable = document.getElementById('bridgesTable').getElementsByTagName('tbody')[0];
+    var rows = bridgeTable.getElementsByTagName('tr');
+    for (var i = 0; i < rows.length; i++) {
+        var nameInput = rows[i].querySelector('input[name^="bridgeName"]');
+        if (nameInput) {
+            bridgeNames.push(nameInput.value.trim());
+        }
+    }
+    return bridgeNames;
+}
+
+function getBridgeOptions(includeDefaultOption = true) {
+    var bridgeNames = getBridgeNames();
+    var bridgeOptions = bridgeNames.map(name => `<option value="${name}">${name}</option>`).join('');
+    if (includeDefaultOption) {
+        return `<option value="">-- Select Bridge --</option>${bridgeOptions}`;
+    } else {
+        return bridgeOptions;
+    }
+}
+
 // Function to update via dropdowns after layer changes
 function updateDropdownsInViaBridges() {
     var bridgesTable = document.getElementById('bridgesTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
@@ -216,7 +241,28 @@ function updateDropdownsInViaBridges() {
 
 }
 
+// Function to initialize both MutationObserver and input listener for bridgesTable
+function initializeBridgeChangeObserver(handleChangeFunction) {
+    // Select the bridgesTable element
+    const bridgesTable = document.getElementById('bridgesTable');
 
+    // Create a MutationObserver instance
+    const observer = new MutationObserver(function (mutationsList) {
+        for (let mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Trigger the provided change handling function whenever a child element changes (like adding or removing rows)
+                handleChangeFunction();
+                return; // Exit the loop after triggering the function once
+            }
+        }
+    });
+
+    // Configure the observer to watch for changes in the bridgesTable element and its children
+    observer.observe(bridgesTable, { childList: true, subtree: true });
+
+    // Listen for input changes and trigger the provided change handling function
+    bridgesTable.addEventListener('input', handleChangeFunction);
+}
 
 initializeLayerChangeObserver(updateDropdownsInViaBridges);
 initializeViaChangeObserver(updateDropdownsInViaBridges)
