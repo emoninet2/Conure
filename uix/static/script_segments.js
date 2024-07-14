@@ -251,10 +251,9 @@ function populateSegmentTable(segments) {
             }
         }
     }
-    updateDropdownsInSegment(); // Ensure dropdowns are updated with the loaded data
+   
 }
 
-// Function to update dropdowns in segment tables
 function updateDropdownsInSegment() {
     var segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
 
@@ -265,18 +264,22 @@ function updateDropdownsInSegment() {
             // Update layer select elements
             var layerSelect = rows[j].querySelector('select[name^="layer"]');
             if (layerSelect) {
-                var currentValue = layerSelect.value;
+                var currentLayerValue = layerSelect.value;
                 layerSelect.innerHTML = getLayerOptions(false);  // Generate options as HTML
-                layerSelect.value = currentValue;  // Restore previous selection
+                layerSelect.value = currentLayerValue;  // Restore previous selection
             }
 
             // Update bridge/arm select elements based on type
             var typeSelect = rows[j].querySelector('select[name^="type"]');
             var bridgeArmSelect = rows[j].querySelector('select[name^="bridgeArm"]');
             if (typeSelect.value === 'BRIDGE') {
+                var currentBridgeValue = bridgeArmSelect.value;
                 bridgeArmSelect.innerHTML = getBridgeOptions(false);
+                bridgeArmSelect.value = currentBridgeValue;  // Restore previous selection
             } else if (typeSelect.value === 'PORT') {
+                var currentArmValue = bridgeArmSelect.value;
                 bridgeArmSelect.innerHTML = getArmOptions(false);
+                bridgeArmSelect.value = currentArmValue;  // Restore previous selection
             } else {
                 bridgeArmSelect.innerHTML = '<option value="">-- N/A --</option>';
             }

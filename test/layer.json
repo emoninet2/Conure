@@ -23,16 +23,16 @@
                         "type": "BRIDGE",
                         "data": {
                             "layer": "M9",
-                            "jump": 1,
-                            "bridge": "B0"
+                            "jump": 50,
+                            "bridge": "B1"
                         }
                     },
                     {
                         "type": "BRIDGE",
                         "data": {
-                            "layer": "M9",
+                            "layer": "M5",
                             "jump": -1,
-                            "bridge": "B1"
+                            "bridge": "B5"
                         }
                     },
                     {
@@ -55,7 +55,7 @@
                         "type": "PORT",
                         "data": {
                             "layer": "M9",
-                            "arm": "A0"
+                            "arm": "A2"
                         }
                     }
                 ]
