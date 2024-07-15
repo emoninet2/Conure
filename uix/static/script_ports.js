@@ -274,7 +274,7 @@ function getPortOptions(includeDefaultOption = true) {
     var portNames = getPortNames();
     var portOptions = portNames.map(name => `<option value="${name}">${name}</option>`).join('');
     if (includeDefaultOption) {
-        return `<option value="">-- Select Via --</option>${portOptions}`;
+        return `<option value="">-- Select Port --</option>${portOptions}`;
     } else {
         return portOptions;
     }
@@ -319,7 +319,7 @@ function updateDropdownsInSimPorts() {
     for (var i = 0; i < portsTable.length; i++) {
         var selectElementPlus = portsTable[i].querySelector('select[name^="portPlus"]');
         var selectElementMinus = portsTable[i].querySelector('select[name^="portMinus"]');
-        if (selectElementPlus) {
+        if (selectElementPlus || selectElementMinus  ) {
             var currentValuePlus = selectElementPlus.value;
             selectElementPlus.innerHTML = getPortOptions();
             selectElementPlus.value = currentValuePlus;  // Restore previous selection
@@ -327,6 +327,32 @@ function updateDropdownsInSimPorts() {
             var currentValueMinus = selectElementMinus.value;
             selectElementMinus.innerHTML = getPortOptions();
             selectElementMinus.value = currentValueMinus;  // Restore previous selection
+        }
+    }
+
+
+}
+
+
+
+function updatePortMinusVisibility() {
+    var simPortsTable = document.getElementById('simPortsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    // Check if portsTable is null or undefined
+    if (!simPortsTable || simPortsTable.length === 0) {
+        // Handle the case where no rows exist in simPortsTable
+        console.log('No rows found in simPortsTable.');
+        return;
+    }
+
+    // Update Port Plus and Port Minus dropdowns
+    for (var i = 0; i < simPortsTable.length; i++) {
+        const selectElementPortType = simPortsTable[i].querySelector('select[name^="portType"]');
+        if (selectElementPortType.value === 'Single') {
+            simPortsTable[i].querySelector('select[name^="portMinus"]').disabled = true;
+        }
+        else if (selectElementPortType.value === 'Differential') {
+            simPortsTable[i].querySelector('select[name^="portMinus"]').disabled = false;
         }
     }
 }
@@ -384,10 +410,8 @@ function initializeSimPortChangeObserver(handleChangeFunction) {
     simPortsTable.addEventListener('input', handleChangeFunction);
 }
 
-function updateSimPortsVisibility() {
 
-}
 
 
 initializePortChangeObserver(updateDropdownsInSimPorts);
-initializePortChangeObserver(updateSimPortsVisibility);
+initializeSimPortChangeObserver(updatePortMinusVisibility);
