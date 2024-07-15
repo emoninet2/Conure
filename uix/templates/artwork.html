@@ -1,12 +1,23 @@
 <h2>Artwork Designer</h2>
-<button onclick="showSubTab('segment')">Segment</button>
-<button onclick="showSubTab('arms')">Arms</button>
-<button onclick="showSubTab('ports')">Ports</button>
-<button onclick="showSubTab('bridges')">Bridges</button>
-<button onclick="showSubTab('viaPadStack')">ViaPadStack</button>
-<button onclick="showSubTab('via')">Via</button>
-<button onclick="showSubTab('guardRing')">GuardRing</button>
-<button onclick="showSubTab('layers')">Layers</button>
+<!-- <button id="btn-sel-artwork-segment" onclick="showSubTab('segment')">Segment</button>
+<button id="btn-sel-artwork-arms" onclick="showSubTab('arms')">Arms</button>
+<button id="btn-sel-artwork-ports" onclick="showSubTab('ports')">Ports</button>
+<button id="btn-sel-artwork-bridges" onclick="showSubTab('bridges')">Bridges</button>
+<button id="btn-sel-artwork-viaPadStack" onclick="showSubTab('viaPadStack')">ViaPadStack</button>
+<button id="btn-sel-artwork-via" onclick="showSubTab('via')">Via</button>
+<button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
+<button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button> -->
+
+<button id="btn-sel-artwork-segment" onclick="showSubTab('segment')">Segment</button>
+<button id="btn-sel-artwork-arms" onclick="showSubTab('arms')">Arms</button>
+<button id="btn-sel-artwork-ports" onclick="showSubTab('ports')">Ports</button>
+<button id="btn-sel-artwork-bridges" onclick="showSubTab('bridges')">Bridges</button>
+<button id="btn-sel-artwork-viaPadStack" onclick="showSubTab('viaPadStack')">ViaPadStack</button>
+<button id="btn-sel-artwork-via" onclick="showSubTab('via')">Via</button>
+<button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
+<button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button>
+
+
 
 <div id="segment" class="sub-tab-content" style="display: none;">
     <h3>Segment Designer</h3>
@@ -291,6 +302,7 @@
 </div>
 
 <!-- Correctly include scripts with src attribute (ORDER IS IMPORTANT) -->
+<script src="/static/script_base.js"></script>
 <script src="/static/script_global.js"></script>
 <script src="/static/script_util.js"></script>
 <script src="/static/script_layers.js"></script>
@@ -300,50 +312,4 @@
 <script src="/static/script_ports.js"></script>
 <script src="/static/script_arms.js"></script>
 <script src="/static/script_segments.js"></script>
-
-
-
-<script>
-    // JavaScript to handle sub-tab visibility
-    document.addEventListener("DOMContentLoaded", function () {
-        // Initially hide all sub-tab contents except for "Layers"
-        var subTabs = document.getElementsByClassName('sub-tab-content');
-        for (var i = 0; i < subTabs.length; i++) {
-            // if (subTabs[i].id !== 'layers') {
-            //     subTabs[i].style.display = 'none';
-            // }
-
-            subTabs[i].style.display = 'none';
-
-        }
-    });
-
-    function showSubTab(subTabName) {
-        var subTabs = document.getElementsByClassName('sub-tab-content');
-        for (var i = 0; i < subTabs.length; i++) {
-            subTabs[i].style.display = 'none';
-        }
-        document.getElementById(subTabName).style.display = 'block';
-    }
-
-
-    function updateTabsAvailability() {
-        var layersTable = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
-        var viaTable = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
-        var isLayersEmpty = layersTable.rows.length === 0;
-        var isViaEmpty = viaTable.rows.length === 0;
-
-        var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
-
-        tabsToDisable.forEach(function (tabName) {
-            var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
-            if (tabButton) {
-                if (isLayersEmpty) {
-                    tabButton.disabled = true;
-                } else {
-                    tabButton.disabled = false;
-                }
-            }
-        });
-    }
-</script>
+<script src="/static/script_artwork.js"></script>

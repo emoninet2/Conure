@@ -7,10 +7,18 @@
         /* Add your CSS styles here */
         .tab-content {
             display: none;
+
         }
 
         .tab-content.active {
             display: block;
+
+        }
+
+        .active-tab {
+            background-color: #007bff;
+            /* Highlight color */
+            color: white;
         }
     </style>
 </head>
@@ -18,31 +26,25 @@
 <body>
 
     <div id="tabs">
-        <button onclick="showTab('project')">Project</button>
-        <button onclick="showTab('artwork')">Artwork</button>
-        <button onclick="showTab('sweep')">Sweep</button>
+        <button id="btn-sel-project" onclick="showTab('project')">Project</button>
+        <button id="btn-sel-artwork" onclick="showTab('artwork')">Artwork</button>
+        <button id="btn-sel-sweep" onclick="showTab('sweep')">Sweep</button>
     </div>
 
     {% block content %}{% endblock %}
 
-    
+
 
     <script>
-        function showTab(tabName) {
-            var tabs = document.getElementsByClassName('tab-content');
-            for (var i = 0; i < tabs.length; i++) {
-                tabs[i].classList.remove('active');
-            }
-            document.getElementById(tabName).classList.add('active');
-        }
 
-        function showSubTab(subTabName) {
-            var subTabs = document.getElementsByClassName('sub-tab-content');
-            for (var i = 0; i < subTabs.length; i++) {
-                subTabs[i].style.display = 'none';
-            }
-            document.getElementById(subTabName).style.display = 'block';
-        }
+    document.addEventListener('DOMContentLoaded', function () {
+
+        showTab('project'); // Show project tab by default
+        updateTabsAvailability(); // Update tabs after deleting row
+    });
+
+
+
     </script>
 
 
