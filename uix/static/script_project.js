@@ -159,7 +159,7 @@ function populateArtworkDescriptionData(jsonData) {
 document.addEventListener('DOMContentLoaded', async function () {
 
 
-    loadArtworkDescriptionFile("test", "layer.json");
+    loadArtworkDescriptionFile("test", "ARD.json");
 
 
     // try {

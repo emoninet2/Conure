@@ -254,34 +254,40 @@
     },
     "arms": {
         "A0": {
-            "name": "A0",
-            "type": "double",
+            "type": "DOUBLE",
             "length": 200,
             "width": 20,
-            "port": "PORT0",
+            "spacing": 40,
+            "port": [
+                "PORT0",
+                "PORT1"
+            ],
             "layer": "M9"
         },
         "A1": {
-            "name": "A1",
-            "type": "double",
+            "type": "DOUBLE",
             "length": 200,
             "width": 20,
-            "port": "PORT2",
+            "spacing": 40,
+            "port": [
+                "PORT2",
+                "PORT3"
+            ],
             "layer": "M9"
         },
         "A2": {
-            "name": "A2",
-            "type": "single",
+            "type": "SINGLE",
             "length": 200,
             "width": 20,
+            "spacing": null,
             "port": "PORT4",
             "layer": "M9"
         },
         "A3": {
-            "name": "A3",
-            "type": "single",
+            "type": "SINGLE",
             "length": 200,
             "width": 10,
+            "spacing": null,
             "port": "PORT5",
             "layer": "M7",
             "viaStack": "VS_9_8"

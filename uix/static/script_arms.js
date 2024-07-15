@@ -13,7 +13,9 @@ function addArmRow() {
     var cell6 = newRow.insertCell(5);
     var cell7 = newRow.insertCell(6);
     var cell8 = newRow.insertCell(7);
-    var cell9 = newRow.insertCell(8); // New cell for the delete button
+    var cell9 = newRow.insertCell(8); 
+    var cell10 = newRow.insertCell(9); // New cell for the delete button
+    
 
     cell1.innerHTML = '<input type="text" name="armName' + rowCount + '">';
     cell2.innerHTML = '<select name="armType' + rowCount + '">' +
@@ -24,13 +26,14 @@ function addArmRow() {
 
     cell3.innerHTML = '<input type="number" name="armLength' + rowCount + '">';
     cell4.innerHTML = '<input type="number" name="armWidth' + rowCount + '">';
+    cell5.innerHTML = '<input type="number" name="armSpacing' + rowCount + '">';
 
-    cell5.innerHTML = '<select name="armPort1' + rowCount + '">' + getPortOptions('single') + '</select>';
-    cell6.innerHTML = '<select name="armPort2' + rowCount + '">' + getPortOptions('single') + '</select>';
+    cell6.innerHTML = '<select name="armPort1' + rowCount + '">' + getPortOptions('single') + '</select>';
+    cell7.innerHTML = '<select name="armPort2' + rowCount + '">' + getPortOptions('single') + '</select>';
 
-    cell7.innerHTML = '<select name="armLayer' + rowCount + '">' + getLayerOptions() + '</select>';
-    cell8.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
-    cell9.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
+    cell8.innerHTML = '<select name="armLayer' + rowCount + '">' + getLayerOptions() + '</select>';
+    cell9.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
+    cell10.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
 
     updateTabsAvailability(); // Update tabs after adding row
 }
@@ -56,6 +59,7 @@ function getArmsJSON() {
         arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
         arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
         arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
+        arm.spacing = parseInt(row.querySelector('input[name^="armSpacing"]').value);
 
         if (arm.type === "SINGLE") {
             arm.port = row.querySelector('select[name^="armPort1"]').value;
@@ -93,6 +97,7 @@ function saveArms() {
         arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
         arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
         arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
+        arm.spacing = parseInt(row.querySelector('input[name^="armSpacing"]').value);
 
         if (arm.type === "SINGLE") {
             arm.port = row.querySelector('select[name^="armPort1"]').value;
@@ -169,7 +174,8 @@ function populateArmTable(armsData) {
         var cell6 = newRow.insertCell(5);
         var cell7 = newRow.insertCell(6);
         var cell8 = newRow.insertCell(7);
-        var cell9 = newRow.insertCell(8); // New cell for the delete button
+        var cell9 = newRow.insertCell(8); 
+        var cell10 = newRow.insertCell(9); // New cell for the delete button
 
         cell1.innerHTML = '<input type="text" name="armName' + index + '" value="' + key + '">';
 
@@ -180,42 +186,44 @@ function populateArmTable(armsData) {
         cell2.querySelector('select').value = arm.type.toLowerCase(); // Set selected value based on type
         //armTypeChange(this, index);
 
-        cell3.innerHTML = '<input type="number" name="armLength' + index + '" value="' + arm.length + '">';
-
-        cell4.innerHTML = '<input type="number" name="armWidth' + index + '" value="' + arm.width + '">';
 
 
-
-
-
-
-
-        if (arm.type === 'SINGLE') {
-            cell5.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
-            cell5.querySelector('select').value = arm.port; // Set selected value
-
-            //Create a hidden cell for port2
-            cell6.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
-            //cell6.disable = true;
-        } else if (arm.type === 'DOUBLE') {
-            cell5.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
-            cell5.querySelector('select').value = arm.port[0]; // Set selected value
-            cell6.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
-            cell6.querySelector('select').value = arm.port[1]; // Set selected value
+        if ('length' in arm && Number.isInteger(arm.length)) {
+            cell3.innerHTML = '<input type="number" name="armLength' + index + '" value="' + arm.length + '">';
+        }   
+   
+        if ('width' in arm && Number.isInteger(arm.width)) {
+            cell4.innerHTML = '<input type="number" name="armWidth' + index + '" value="' + arm.width + '">';
+        }
+    
+        if ('spacing' in arm && Number.isInteger(arm.spacing)) {
+            cell5.innerHTML = '<input type="number" name="armSpacing' + index + '" value="' + arm.spacing + '">';
+        } else {
+            cell5.innerHTML = '<input type="number" name="armSpacing' + index + '">';
         }
 
 
+        if (arm.type === 'SINGLE') {
+            cell6.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
+            cell6.querySelector('select').value = arm.port; // Set selected value
 
+            //Create a hidden cell for port2
+            cell7.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
+            //cell6.disable = true;
+        } else if (arm.type === 'DOUBLE') {
+            cell6.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
+            cell6.querySelector('select').value = arm.port[0]; // Set selected value
+            cell7.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
+            cell7.querySelector('select').value = arm.port[1]; // Set selected value
+        }
 
-       
+        cell8.innerHTML = '<select name="armLayer' + index + '">' + getLayerOptions() + '</select>';
+        cell8.querySelector('select').value = arm.layer; // Set selected value
 
-        cell7.innerHTML = '<select name="armLayer' + index + '">' + getLayerOptions() + '</select>';
-        cell7.querySelector('select').value = arm.layer; // Set selected value
+        cell9.innerHTML = '<select name="armViaPadStack' + index + '">' + getViaPadStackOptions() + '</select>';
+        cell9.querySelector('select').value = arm.viaStack || ''; // Set selected value, if available
 
-        cell8.innerHTML = '<select name="armViaPadStack' + index + '">' + getViaPadStackOptions() + '</select>';
-        cell8.querySelector('select').value = arm.viaStack || ''; // Set selected value, if available
-
-        cell9.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
+        cell10.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
     });
 
     updateTabsAvailability(); // Update tabs after populating arms
