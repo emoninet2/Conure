@@ -338,13 +338,6 @@
             ],
             "layer": "M9"
         },
-        "A2": {
-            "type": "SINGLE",
-            "length": 200,
-            "width": 20,
-            "port": "PORT4",
-            "layer": "M9"
-        },
         "A3": {
             "type": "SINGLE",
             "length": 200,
@@ -352,6 +345,13 @@
             "port": "PORT5",
             "layer": "M7",
             "viaStack": "VS_9_8"
+        },
+        "A2": {
+            "type": "SINGLE",
+            "length": 200,
+            "width": 20,
+            "port": "PORT4",
+            "layer": "M9"
         }
     },
     "ports": {

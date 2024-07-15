@@ -69,6 +69,77 @@ function deleteSimPortRow(btn) {
     updateTabsAvailability(); // Update tabs after deleting row
 }
 
+
+
+
+function getPortsJSON() {
+    // Get the ports data from the tables
+    var portsData = {
+        ports: {
+            config: {
+                simulatingPorts: []
+            },
+            data: {}
+        }
+    };
+
+    // Save data from portsTable
+    var portsTable = document.getElementById('portsTable').getElementsByTagName('tbody')[0];
+    for (var i = 0; i < portsTable.rows.length; i++) {
+
+        var portName = portsTable.rows[i].querySelector('input[name^="portName"]').value.trim()
+        var portLabel = portsTable.rows[i].querySelector('input[name^="portLabel"]').value.trim()
+
+        // Populate data
+        portsData.ports.data[portName] = {
+            label: portLabel
+        };
+    }
+
+    // Save data from simPortsTable
+    var simPortsTable = document.getElementById('simPortsTable').getElementsByTagName('tbody')[0];
+    for (var j = 0; j < simPortsTable.rows.length; j++) {
+
+
+        var portID = simPortsTable.rows[j].querySelector('input[name^="portID"]')
+            ? parseInt(simPortsTable.rows[j].querySelector('input[name^="portID"]').value.trim())
+            : undefined;
+
+        var portType = simPortsTable.rows[j].querySelector('select[name^="portType"]')
+            ? simPortsTable.rows[j].querySelector('select[name^="portType"]').value.trim()
+            : undefined;
+
+        var portPlus = simPortsTable.rows[j].querySelector('select[name^="portPlus"]')
+            ? simPortsTable.rows[j].querySelector('select[name^="portPlus"]').value.trim()
+            : undefined;
+
+        var portMinus = simPortsTable.rows[j].querySelector('select[name^="portMinus"]')
+            ? simPortsTable.rows[j].querySelector('select[name^="portMinus"]').value.trim()
+            : undefined;
+
+        var enable = simPortsTable.rows[j].querySelector('input[name^="portEnable"]')
+            ? simPortsTable.rows[j].querySelector('input[name^="portEnable"]').checked
+            : undefined;
+
+        // Populate config
+        portsData.ports.config.simulatingPorts.push({
+            id: portID,
+            type: portType,
+            plus: portPlus,
+            minus: portMinus,
+            enable: enable
+        });
+    }
+
+    // Prepare data to send to Flask
+    var jsonData = portsData
+
+    return jsonData;
+}
+
+
+
+
 function savePorts() {
     // Get the ports data from the tables
     var portsData = {

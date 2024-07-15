@@ -118,9 +118,62 @@ function generateSegmentTables() {
 }
 
 
+function getSegmentsJSON() {
+    var segments = {
+        config: {
+            bridge_extension_aligned: true
+        },
+        data: {}
+    };
+
+    var segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
+
+    for (var i = 0; i < segmentTables.length; i++) {
+        var segmentId = `S${i}`;
+        segments.data[segmentId] = {
+            id: i,
+            group: []
+        };
+
+        var rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+        for (var j = 0; j < rows.length; j++) {
+            var typeSelect = rows[j].querySelector('select[name^="type"]').value;
+            var layerSelect = rows[j].querySelector('select[name^="layer"]').value;
+            var jumpInput = rows[j].querySelector('input[name^="jump"]').value;
+            var bridgeArmSelect = rows[j].querySelector('select[name^="bridgeArm"]').value;
+
+            var groupItem = {
+                type: typeSelect,
+                data: {
+                    layer: layerSelect
+                }
+            };
+
+            if (typeSelect === 'BRIDGE') {
+                groupItem.data.jump = parseInt(jumpInput) || 0;
+                groupItem.data.bridge = bridgeArmSelect;
+            } else if (typeSelect === 'PORT') {
+                groupItem.data.arm = bridgeArmSelect;
+            }
+
+            segments.data[segmentId].group.push(groupItem);
+        }
+    }
+
+    // Prepare data to send to Flask
+    var jsonData = {
+        segments: segments,
+    };
+    
+    return jsonData;
+}
+
+
 function saveSegments() {
     var segments = {
         config: {
+            //need to implement this in the UI
             bridge_extension_aligned: true
         },
         data: {}

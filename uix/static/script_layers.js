@@ -24,6 +24,37 @@ function deleteLayerRow(btn) {
 }
 
 
+function getLayersJSON() {
+    var layers = {};
+
+    // Iterate through table rows to collect data
+    var tableRows = document.querySelectorAll('#layersTable tbody tr');
+    tableRows.forEach(function (row, index) {
+        var nameInput = row.querySelector('input[name^="name"]');
+        var gdsLayerInput = row.querySelector('input[name^="gdsLayer"]');
+        var gdsDatatypeInput = row.querySelector('input[name^="gdsDatatype"]');
+
+        var name = nameInput.value.trim();
+        var gdsLayer = parseInt(gdsLayerInput.value.trim());
+        var gdsDatatype = parseInt(gdsDatatypeInput.value.trim());
+
+        if (name && !isNaN(gdsLayer) && !isNaN(gdsDatatype)) {
+            layers[name] = {
+                gds: {
+                    layer: gdsLayer,
+                    datatype: gdsDatatype
+                }
+            };
+        }
+    });
+
+    // Prepare data to send to Flask
+    var jsonData = {
+        layer : layers // Making it more generic by wrapping layers in a "data" object
+    };
+
+    return jsonData;
+}
 
 function saveLayers() {
     var layers = {};
@@ -71,6 +102,10 @@ function saveLayers() {
         }
     );
 }
+
+
+
+
 
 
 

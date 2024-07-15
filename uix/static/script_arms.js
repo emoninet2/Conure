@@ -1,12 +1,3 @@
-function armTypeChange(selectElement, rowCount) {
-    var cell5 = selectElement.parentNode.parentNode.cells[4]; // cell5 is the 5th cell in the row
-    var selectedValue = selectElement.value;
-    if (selectedValue === "single") {
-        cell5.innerHTML = '<select name="armPort' + rowCount + '">' + getPortOptions('single') + '</select>';
-    } else if (selectedValue === "double") {
-        cell5.innerHTML = '<select name="armPort' + rowCount + '" multiple>' + getPortOptions('double') + '</select>';
-    }
-}
 
 
 
@@ -21,21 +12,25 @@ function addArmRow() {
     var cell5 = newRow.insertCell(4);
     var cell6 = newRow.insertCell(5);
     var cell7 = newRow.insertCell(6);
-    var cell8 = newRow.insertCell(7); // New cell for the delete button
+    var cell8 = newRow.insertCell(7);
+    var cell9 = newRow.insertCell(8); // New cell for the delete button
 
     cell1.innerHTML = '<input type="text" name="armName' + rowCount + '">';
-    cell2.innerHTML = '<select name="armType' + rowCount + '" onchange="armTypeChange(this, ' + rowCount + ')">' +
+    cell2.innerHTML = '<select name="armType' + rowCount + '">' +
         '<option value="single">SINGLE</option>' +
         '<option value="double">DOUBLE</option>' +
         '</select>';
+
+
     cell3.innerHTML = '<input type="number" name="armLength' + rowCount + '">';
     cell4.innerHTML = '<input type="number" name="armWidth' + rowCount + '">';
 
-    cell5.innerHTML = '<select name="armPort' + rowCount + '">' + getPortOptions('single') + '</select>';
+    cell5.innerHTML = '<select name="armPort1' + rowCount + '">' + getPortOptions('single') + '</select>';
+    cell6.innerHTML = '<select name="armPort2' + rowCount + '">' + getPortOptions('single') + '</select>';
 
-    cell6.innerHTML = '<select name="armLayer' + rowCount + '">' + getLayerOptions() + '</select>';
-    cell7.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
-    cell8.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
+    cell7.innerHTML = '<select name="armLayer' + rowCount + '">' + getLayerOptions() + '</select>';
+    cell8.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
+    cell9.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
 
     updateTabsAvailability(); // Update tabs after adding row
 }
@@ -47,6 +42,44 @@ function deleteArmRow(btn) {
 }
 
 
+
+function getArmsJSON() {
+    var table = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
+    var rows = table.getElementsByTagName('tr');
+    var armsData = {};
+
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var arm = {};
+
+        var name = row.querySelector('input[name^="armName"]').value.trim();
+        arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
+        arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
+        arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
+
+        if (arm.type === "SINGLE") {
+            arm.port = row.querySelector('select[name^="armPort1"]').value;
+        } else if (arm.type === "DOUBLE") {
+            arm.port = [row.querySelector('select[name^="armPort1"]').value, row.querySelector('select[name^="armPort2"]').value];
+        }
+        
+        arm.layer = row.querySelector('select[name^="armLayer"]').value;
+
+        
+        var viaStackSelected = row.querySelector('select[name^="armViaPadStack"]').value;
+        if (viaStackSelected) {
+            arm.viaStack = viaStackSelected;
+        }
+
+        armsData[name] = arm;
+    }
+
+    var jsonData = { arms: armsData };
+
+
+    return jsonData;
+}
+
 function saveArms() {
     var table = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
     var rows = table.getElementsByTagName('tr');
@@ -56,29 +89,30 @@ function saveArms() {
         var row = rows[i];
         var arm = {};
 
-        arm.name = row.querySelector('input[name^="armName"]').value.trim();
-        arm.type = row.querySelector('select[name^="armType"]').value;
+        var name = row.querySelector('input[name^="armName"]').value.trim();
+        arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
         arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
         arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
 
-        var selectedPorts = [];
-        var portSelect = row.querySelector('select[name^="armPort"]');
-        for (var j = 0; j < portSelect.options.length; j++) {
-            if (portSelect.options[j].selected) {
-                selectedPorts.push(portSelect.options[j].value);
-            }
+        if (arm.type === "SINGLE") {
+            arm.port = row.querySelector('select[name^="armPort1"]').value;
+        } else if (arm.type === "DOUBLE") {
+            arm.port = [row.querySelector('select[name^="armPort1"]').value, row.querySelector('select[name^="armPort2"]').value];
         }
-        arm.port = selectedPorts.length === 1 ? selectedPorts[0] : selectedPorts;
-
+        
         arm.layer = row.querySelector('select[name^="armLayer"]').value;
-        arm.viaStack = row.querySelector('select[name^="armViaPadStack"]').value;
 
-        armsData[arm.name] = arm;
+        
+        var viaStackSelected = row.querySelector('select[name^="armViaPadStack"]').value;
+        if (viaStackSelected) {
+            arm.viaStack = viaStackSelected;
+        }
+
+        armsData[name] = arm;
     }
 
     var jsonData = {
-        data: armsData,
-        //arms: armsData,
+        data: { arms: armsData },
         savePath: document.getElementById('armsSavePath').value.trim(),
         saveName: document.getElementById('armsSaveName').value.trim()
     };
@@ -134,11 +168,12 @@ function populateArmTable(armsData) {
         var cell5 = newRow.insertCell(4);
         var cell6 = newRow.insertCell(5);
         var cell7 = newRow.insertCell(6);
-        var cell8 = newRow.insertCell(7); // New cell for the delete button
+        var cell8 = newRow.insertCell(7);
+        var cell9 = newRow.insertCell(8); // New cell for the delete button
 
         cell1.innerHTML = '<input type="text" name="armName' + index + '" value="' + key + '">';
 
-        cell2.innerHTML = '<select name="armType' + index + '" onchange="armTypeChange(this, ' + index + ')">' +
+        cell2.innerHTML = '<select name="armType' + index + '">' +
             '<option value="single">SINGLE</option>' +
             '<option value="double">DOUBLE</option>' +
             '</select>';
@@ -149,40 +184,38 @@ function populateArmTable(armsData) {
 
         cell4.innerHTML = '<input type="number" name="armWidth' + index + '" value="' + arm.width + '">';
 
+
+
+
+
+
+
         if (arm.type === 'SINGLE') {
-            cell5.innerHTML = '<select name="armPort' + index + '">' + getPortOptions() + '</select>';
+            cell5.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
+            cell5.querySelector('select').value = arm.port; // Set selected value
+
+            //Create a hidden cell for port2
+            cell6.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
+            //cell6.disable = true;
         } else if (arm.type === 'DOUBLE') {
-            cell5.innerHTML = '<select name="armPort' + index + '" multiple>' + getPortOptions() + '</select>';
-
+            cell5.innerHTML = '<select name="armPort1' + index + '">' + getPortOptions() + '</select>';
+            cell5.querySelector('select').value = arm.port[0]; // Set selected value
+            cell6.innerHTML = '<select name="armPort2' + index + '">' + getPortOptions() + '</select>';
+            cell6.querySelector('select').value = arm.port[1]; // Set selected value
         }
 
 
-        var portListSelect = cell5.querySelector('select');
-        if (Array.isArray(arm.port)) {
-            arm.port.forEach(function (port) {
-                for (var i = 0; i < portListSelect.options.length; i++) {
-                    if (portListSelect.options[i].value === port) {
-                        portListSelect.options[i].selected = true;
-                        break;
-                    }
-                }
-            });
-        } else {
-            for (var i = 0; i < portListSelect.options.length; i++) {
-                if (portListSelect.options[i].value === arm.port) {
-                    portListSelect.options[i].selected = true;
-                    break;
-                }
-            }
-        }
 
-        cell6.innerHTML = '<select name="armLayer' + index + '">' + getLayerOptions() + '</select>';
-        cell6.querySelector('select').value = arm.layer; // Set selected value
 
-        cell7.innerHTML = '<select name="armViaPadStack' + index + '">' + getViaPadStackOptions() + '</select>';
-        cell7.querySelector('select').value = arm.viaStack || ''; // Set selected value, if available
+       
 
-        cell8.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
+        cell7.innerHTML = '<select name="armLayer' + index + '">' + getLayerOptions() + '</select>';
+        cell7.querySelector('select').value = arm.layer; // Set selected value
+
+        cell8.innerHTML = '<select name="armViaPadStack' + index + '">' + getViaPadStackOptions() + '</select>';
+        cell8.querySelector('select').value = arm.viaStack || ''; // Set selected value, if available
+
+        cell9.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
     });
 
     updateTabsAvailability(); // Update tabs after populating arms
@@ -214,44 +247,68 @@ function getArmOptions(includeDefaultOption = true) {
 
 
 function updateDropdownsInArmTable() {
-    var armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-
+    const armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
     // Update Port elements
-    for (var i = 0; i < armsTable.length; i++) {
-        var selectElement = armsTable[i].querySelector('select[name^="armPort"]');
+    for (let i = 0; i < armsTable.length; i++) {
+        const selectElement = armsTable[i].querySelector('select[name^="armPort1"]');
         if (selectElement) {
-            var currentValue = selectElement.value;
+            const currentValue = selectElement.value;
             selectElement.innerHTML = getPortOptions();
             selectElement.value = currentValue;  // Restore previous selection
         }
+
+        const selectElement2 = armsTable[i].querySelector('select[name^="armPort2"]'); // Ensure to update armPort2
+        if (selectElement2) {
+            const currentValue2 = selectElement2.value;
+            selectElement2.innerHTML = getPortOptions();
+            selectElement2.value = currentValue2;  // Restore previous selection
+        }
+
+
     }
 
-
     // Update layer select elements
-    for (var i = 0; i < armsTable.length; i++) {
-        var selectElement = armsTable[i].querySelector('select[name^="armLayer"]');
+    for (let i = 0; i < armsTable.length; i++) {
+        const selectElement = armsTable[i].querySelector('select[name^="armLayer"]');
         if (selectElement) {
-            var currentValue = selectElement.value;
+            const currentValue = selectElement.value;
             selectElement.innerHTML = getLayerOptions();
             selectElement.value = currentValue;  // Restore previous selection
         }
     }
 
     // Update viaPadStack select elements
-    for (var i = 0; i < armsTable.length; i++) {
-        var selectElement = armsTable[i].querySelector('select[name^="armViaPadStack"]');
+    for (let i = 0; i < armsTable.length; i++) {
+        const selectElement = armsTable[i].querySelector('select[name^="armViaPadStack"]');
         if (selectElement) {
-            var currentValue = selectElement.value;
+            const currentValue = selectElement.value;
             selectElement.innerHTML = getViaPadStackOptions();
             selectElement.value = currentValue;  // Restore previous selection
         }
     }
+
+    //disablePort2ForSingleArmType(); // Call after updating the dropdowns
 }
 
 
 
+function disablePort2ForSingleArmType() {
+    const armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    for (let i = 0; i < armsTable.length; i++) {
+        const armTypeSelect = armsTable[i].querySelector('select[name^="armType"]');
+        const port2Select = armsTable[i].querySelector('select[name^="armPort2"]');
+
+        if (armTypeSelect && port2Select) {
+            if (armTypeSelect.value.toLowerCase() === 'single') {
+                port2Select.disabled = true;
+            } else {
+                port2Select.disabled = false;
+            }
+        }
+    }
+}
 
 // Function to initialize both MutationObserver and input listener for armsTable
 function initializeArmChangeObserver(handleChangeFunction) {
@@ -281,3 +338,4 @@ function initializeArmChangeObserver(handleChangeFunction) {
 initializeLayerChangeObserver(updateDropdownsInArmTable);
 initializeViaPadStackChangeObserver(updateDropdownsInArmTable);
 initializePortChangeObserver(updateDropdownsInArmTable);
+initializeArmChangeObserver(disablePort2ForSingleArmType);

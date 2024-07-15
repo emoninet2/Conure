@@ -105,7 +105,7 @@ def save_json():
     if data_to_save and save_path and save_name:
         try:
             # Construct full file path
-            file_path = os.path.join(save_path, save_name + '.json')
+            file_path = os.path.join(save_path, save_name)
  
             # Save data to specified file path
             with open(file_path, 'w') as json_file:

@@ -33,6 +33,56 @@ function deleteBridgeRow(btn) {
 
 }
 
+
+
+function getBridgeJSON() {
+    var bridges = {};
+
+    // Iterate through table rows to collect data
+    var tableRows = document.querySelectorAll('#bridgesTable tbody tr');
+    tableRows.forEach(function (row, index) {
+        var nameInput = row.querySelector('input[name^="bridgeName"]');
+        var layerSelect = row.querySelector('select[name^="bridgeLayer"]');
+        var viaSelect = row.querySelector('select[name^="bridgeVia"]');
+        var widthInput = row.querySelector('input[name^="viaWidth"]');
+        var stackCCWSelect = row.querySelector('select[name^="viaStackCCW"]');
+        var stackCWSelect = row.querySelector('select[name^="viaStackCW"]');
+
+        var name = nameInput.value.trim();
+        var layer = layerSelect.value.trim();
+        var via = viaSelect ? viaSelect.value.trim() : undefined;
+        var width = widthInput ? parseInt(widthInput.value.trim()) : undefined;
+        var stackCCW = stackCCWSelect ? stackCCWSelect.value.trim() : undefined;
+        var stackCW = stackCWSelect ? stackCWSelect.value.trim() : undefined;
+
+        if (name && layer) {
+            bridges[name] = { layer: layer };
+
+            if (via) {
+                bridges[name].Via = via;  // Updated key to camel case
+            }
+            if (!isNaN(width)) {
+                bridges[name].ViaWidth = width;  // Updated key to camel case
+            }
+            if (stackCCW) {
+                bridges[name].ViaStackCCW = stackCCW;  // Updated key to camel case
+            }
+            if (stackCW) {
+                bridges[name].ViaStackCW = stackCW;  // Updated key to camel case
+            }
+        }
+    });
+
+    // Prepare data to send to Flask
+    var jsonData = {
+        bridges: bridges
+    };
+
+    return jsonData;
+}
+
+
+
 function saveBridges() {
     var bridges = {};
 

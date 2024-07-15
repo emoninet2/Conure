@@ -31,6 +31,55 @@ function deleteViaRow(btn) {
 
 }
 
+
+
+
+function getViaJSON() {
+    var vias = {};
+
+    // Iterate through table rows to collect data
+    var tableRows = document.querySelectorAll('#viaTable tbody tr');
+    tableRows.forEach(function (row, index) {
+        var nameInput = row.querySelector('input[name^="viaName"]');
+        var lengthInput = row.querySelector('input[name^="viaLength"]');
+        var widthInput = row.querySelector('input[name^="viaWidth"]');
+        var spacingInput = row.querySelector('input[name^="viaSpacing"]');
+        var angleInput = row.querySelector('input[name^="viaAngle"]');
+        var layerSelect = row.querySelector('select[name^="viaLayer"]');
+
+        var name = nameInput.value.trim();
+        var length = parseInt(lengthInput.value.trim());
+        var width = parseInt(widthInput.value.trim());
+        var spacing = parseInt(spacingInput.value.trim());
+        var angle = parseInt(angleInput.value.trim());
+        var layer = layerSelect.value.trim(); // Get selected value from dropdown
+
+        // Validate all inputs including layer
+        if (name && !isNaN(length) && !isNaN(width) && !isNaN(spacing) && !isNaN(angle) && layer) {
+            vias[name] = {
+                length: length,
+                width: width,
+                spacing: spacing,
+                angle: angle,
+                layer: layer
+            };
+        } else {
+            // Handle invalid data if necessary (e.g., alert or console log)
+            console.log('Invalid data found in row:', index + 1);
+        }
+    });
+
+    // Prepare data to send to Flask
+    var jsonData = {
+        via: vias 
+    };
+
+    return jsonData;
+}
+
+
+
+
 function saveVia() {
     var vias = {};
 

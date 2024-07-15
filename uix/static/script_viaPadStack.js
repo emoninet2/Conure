@@ -33,6 +33,43 @@ function deleteViaPadStackRow(btn) {
   
 }
 
+function getViaPadStackJSON() {
+    var viaPadStacks = {};
+
+    // Iterate through table rows to collect data
+    var tableRows = document.querySelectorAll('#viaPadStackTable tbody tr');
+    tableRows.forEach(function (row, index) {
+        var nameInput = row.querySelector('input[name^="viaPadStackName"]');
+        var topLayerSelect = row.querySelector('select[name^="viaPadStackTopLayer"]');
+        var bottomLayerSelect = row.querySelector('select[name^="viaPadStackBottomLayer"]');
+        var marginInput = row.querySelector('input[name^="viaPadStackMargin"]');
+        var viaListSelect = row.querySelector('select[name^="viaPadStackViaList"]');
+
+        var name = nameInput.value.trim();
+        var topLayer = topLayerSelect.value.trim();
+        var bottomLayer = bottomLayerSelect.value.trim();
+        var margin = parseInt(marginInput.value.trim());
+
+        var viaList = Array.from(viaListSelect.selectedOptions).map(option => option.value.trim());
+
+        if (name && topLayer && bottomLayer && !isNaN(margin) && viaList.length > 0) {
+            viaPadStacks[name] = {
+                topLayer: topLayer,
+                bottomLayer: bottomLayer,
+                margin: margin,
+                vias: viaList
+            };
+        }
+    });
+
+    // Prepare data to send to Flask
+    var jsonData = {
+        viaPadStack: viaPadStacks
+    };
+
+    return jsonData;
+}
+
 
 function saveViaPadStack() {
     var viaPadStacks = {};
