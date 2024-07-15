@@ -1,5 +1,9 @@
+var projectDirectoryPath = '';
+
+
 function createProject() {
     var directoryPath = document.getElementById('projectDirectory').value.trim();
+    projectDirectoryPath = directoryPath;
     if (directoryPath !== '') {
         fetch('/create_project', {
             method: 'POST',
@@ -13,8 +17,17 @@ function createProject() {
                 if (data.success) {
                     document.getElementById('selectedProjectDirectory').innerHTML = '<strong>Project Directory:</strong> ' + directoryPath;
                     alert('Project created successfully!');
+                    //loadArtworkDescriptionFile(projectDirectoryPath, "ARD.json");
+
+
+                    loadArtworkDescriptionFile(projectDirectoryPath, "ARD.json"); // Load and process the data
+                    saveArtworkDescriptionData(projectDirectoryPath, "ARD_out.json"); // Save the processed data
+                 
+
+
+
                 } else {
-                    alert('Failed to create project. Please check the server logs.');
+                    alert('Failed to create project. ' + (data.error || 'Please check the server logs.'));
                 }
             })
             .catch(error => console.error('Error:', error));
@@ -22,6 +35,7 @@ function createProject() {
         alert('Please enter a valid directory path.');
     }
 }
+
 
 
 // function loadArtworkDescriptionFile(filePath, fileName) {
@@ -159,7 +173,7 @@ function populateArtworkDescriptionData(jsonData) {
 document.addEventListener('DOMContentLoaded', async function () {
 
 
-    loadArtworkDescriptionFile("test", "ARD.json");
+    //loadArtworkDescriptionFile("test", "AGDF.json");
 
 
     // try {

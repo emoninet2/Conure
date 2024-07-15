@@ -52,6 +52,7 @@ def sweep():
 def create_project():
     """
     Create a new project directory and store project data in a JSON file.
+    Also change the server's working directory to the new project directory.
 
     Returns:
         A JSON response indicating the success or failure of the operation.
@@ -61,6 +62,9 @@ def create_project():
     
     if directory_path:
         try:
+            # Expand the user path to handle the tilde (~) symbol
+            directory_path = os.path.expanduser(directory_path)
+            
             # Create directory if it doesn't exist
             os.makedirs(directory_path, exist_ok=True)
             
@@ -80,13 +84,50 @@ def create_project():
             with open(json_file_path, 'w') as json_file:
                 json.dump(project_data, json_file, indent=4)
             
+            # Change the server's working directory to the new project directory
+            os.chdir(directory_path)
+            
             return jsonify({'success': True})
         
         except Exception as e:
             print(e)  # Log the error for debugging purposes
-            return jsonify({'success': False})
+            return jsonify({'success': False, 'error': str(e)})
     
-    return jsonify({'success': False})
+    return jsonify({'success': False, 'error': 'Invalid directory path'})
+
+
+# @app.route('/save_json', methods=['POST'])
+# def save_json():
+#     """
+#     Save JSON data to a specified file path.
+
+#     Returns:
+#         A JSON response indicating the success or failure of the operation.
+#     """
+#     data = request.json
+#     data_to_save = data.get('data')  # Making it more generic
+#     save_path = data.get('savePath')
+#     save_name = data.get('saveName')
+
+#     if data_to_save and save_path and save_name:
+#         try:
+#             # Construct full file path
+#             file_path = os.path.join(save_path, save_name)
+ 
+#             # Save data to specified file path
+#             with open(file_path, 'w') as json_file:
+#                 json.dump(data_to_save, json_file, indent=4)
+
+#             # Print the full path of the saved file
+#             print(f"File saved successfully at: {file_path}")
+
+#             return jsonify({'success': True})
+        
+#         except Exception as e:
+#             print(e)  # Log the error for debugging purposes
+#             return jsonify({'success': False, 'error': str(e)})
+    
+#     return jsonify({'success': False, 'error': 'Missing data or save path/name'})
 
 
 @app.route('/save_json', methods=['POST'])
@@ -102,25 +143,64 @@ def save_json():
     save_path = data.get('savePath')
     save_name = data.get('saveName')
 
-    if data_to_save and save_path and save_name:
-        try:
-            # Construct full file path
-            file_path = os.path.join(save_path, save_name)
- 
-            # Save data to specified file path
-            with open(file_path, 'w') as json_file:
-                json.dump(data_to_save, json_file, indent=4)
+    if not data_to_save:
+        return jsonify({'success': False, 'error': 'No data to save provided'}), 400
+    if not save_path:
+        return jsonify({'success': False, 'error': 'No save path provided'}), 400
+    if not save_name:
+        return jsonify({'success': False, 'error': 'No save name provided'}), 400
 
-            # Print the full path of the saved file
-            print(f"File saved successfully at: {file_path}")
-
-            return jsonify({'success': True})
+    try:
+        # Expand user path to handle tilde (~) symbol
+        save_path = os.path.expanduser(save_path)
         
-        except Exception as e:
-            print(e)  # Log the error for debugging purposes
-            return jsonify({'success': False, 'error': str(e)})
+        # Ensure the path is absolute to prevent directory traversal attacks
+        if not os.path.isabs(save_path):
+            return jsonify({'success': False, 'error': 'Invalid save path provided'}), 400
+
+        # Create directory if it doesn't exist
+        os.makedirs(save_path, exist_ok=True)
+
+        # Construct full file path
+        file_path = os.path.join(save_path, save_name)
+ 
+        # Save data to specified file path
+        with open(file_path, 'w') as json_file:
+            json.dump(data_to_save, json_file, indent=4)
+
+        # Print the full path of the saved file
+        print(f"File saved successfully at: {file_path}")
+
+        return jsonify({'success': True, 'filePath': file_path})
     
-    return jsonify({'success': False, 'error': 'Missing data or save path/name'})
+    except Exception as e:
+        print(f"Exception occurred while saving file: {e}")  # Log the error for debugging purposes
+        return jsonify({'success': False, 'error': str(e)}), 500
+    
+    
+
+# @app.route('/load_json', methods=['POST'])
+# def load_json():
+#     """
+#     Load JSON data from a specified file path.
+
+#     Returns:
+#         A JSON response containing the loaded data or an error message.
+#     """
+#     data = request.json
+#     json_path = data.get('path')
+#     if json_path:
+#         try:
+#             with open(json_path, 'r') as json_file:
+#                 data_to_load = json.load(json_file)
+#                 #print(data_to_load)
+#             return jsonify({'success': True, 'data': data_to_load})
+#         except FileNotFoundError:
+#             return jsonify({'success': False, 'message': 'File not found.'})
+#         except Exception as e:
+#             print(e)  # Log the error for debugging purposes
+#             return jsonify({'success': False, 'message': str(e)})
+#     return jsonify({'success': False, 'message': 'No JSON path provided.'})
 
 
 @app.route('/load_json', methods=['POST'])
@@ -135,16 +215,31 @@ def load_json():
     json_path = data.get('path')
     if json_path:
         try:
+            # Log the received path
+            print(f"Received JSON path: {json_path}")
+            
+            # Expand user path to handle tilde (~) symbol
+            json_path = os.path.expanduser(json_path)
+            
+            # Ensure the path is absolute to prevent directory traversal attacks
+            if not os.path.isabs(json_path):
+                return jsonify({'success': False, 'message': 'Invalid JSON path provided.'}), 400
+            
             with open(json_path, 'r') as json_file:
                 data_to_load = json.load(json_file)
-                #print(data_to_load)
+            
             return jsonify({'success': True, 'data': data_to_load})
         except FileNotFoundError:
-            return jsonify({'success': False, 'message': 'File not found.'})
+            print(f"File not found: {json_path}")
+            return jsonify({'success': False, 'message': 'File not found.'}), 404
+        except json.JSONDecodeError:
+            print(f"Invalid JSON file: {json_path}")
+            return jsonify({'success': False, 'message': 'Invalid JSON file.'}), 400
         except Exception as e:
-            print(e)  # Log the error for debugging purposes
-            return jsonify({'success': False, 'message': str(e)})
-    return jsonify({'success': False, 'message': 'No JSON path provided.'})
+            print(f"Exception occurred: {e}")  # Log the error for debugging purposes
+            return jsonify({'success': False, 'message': str(e)}), 500
+    return jsonify({'success': False, 'message': 'No JSON path provided.'}), 400
+
 
 
 if __name__ == '__main__':

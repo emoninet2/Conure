@@ -83,7 +83,7 @@ function saveLayers() {
     // Prepare data to send to Flask
     var jsonData = {
         data: { layer: layers }, // Making it more generic by wrapping layers in a "data" object
-        savePath: document.getElementById('savePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +  document.getElementById('savePath').value.trim(),
         saveName: document.getElementById('saveName').value.trim()
     };
 

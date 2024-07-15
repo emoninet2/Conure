@@ -103,7 +103,7 @@ function saveViaPadStack() {
     // Prepare data to send to Flask
     var jsonData = {
         data: { viaPadStack: viaPadStacks },
-        savePath: document.getElementById('viaPadStackSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +  document.getElementById('viaPadStackSavePath').value.trim(),
         saveName: document.getElementById('viaPadStackSaveName').value.trim()
     };
 

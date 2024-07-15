@@ -118,7 +118,7 @@ function saveVia() {
     // Prepare data to send to Flask
     var jsonData = {
         data: { via: vias },
-        savePath: document.getElementById('viaSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +  document.getElementById('viaSavePath').value.trim(),
         saveName: document.getElementById('viaSaveName').value.trim()
     };
 

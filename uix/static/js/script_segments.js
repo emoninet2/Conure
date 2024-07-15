@@ -217,7 +217,7 @@ function saveSegments() {
     // Prepare data to send to Flask
     var jsonData = {
         data: { segments: segments },
-        savePath: document.getElementById('segmentsSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +  document.getElementById('segmentsSavePath').value.trim(),
         saveName: document.getElementById('segmentsSaveName').value.trim()
     };
 

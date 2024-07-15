@@ -118,7 +118,7 @@ function saveArms() {
 
     var jsonData = {
         data: { arms: armsData },
-        savePath: document.getElementById('armsSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +  document.getElementById('armsSavePath').value.trim(),
         saveName: document.getElementById('armsSaveName').value.trim()
     };
 

@@ -124,7 +124,7 @@ function saveBridges() {
     // Prepare data to send to Flask
     var jsonData = {
         data: { bridges: bridges },
-        savePath: document.getElementById('bridgeSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' +   document.getElementById('bridgeSavePath').value.trim(),
         saveName: document.getElementById('bridgeSaveName').value.trim()
     };
 

@@ -202,7 +202,7 @@ function savePorts() {
     // Prepare data to send to Flask
     var jsonData = {
         data: portsData,
-        savePath: document.getElementById('portsSavePath').value.trim(),
+        savePath: projectDirectoryPath + '/' + document.getElementById('portsSavePath').value.trim(),
         saveName: document.getElementById('portsSaveName').value.trim()
     };
 
