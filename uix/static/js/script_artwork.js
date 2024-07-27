@@ -1,4 +1,6 @@
 
+
+
 var tabButton = {};
 
 tabButton.segment = document.getElementById('btn-sel-artwork-segment');
@@ -84,8 +86,6 @@ function showSubTab(subTabName) {
 function updateTabsAvailability() {
 
 
-
-
     var layersTable = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
     var viaTable = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
     var isLayersEmpty = layersTable.rows.length === 0;
@@ -106,6 +106,53 @@ function updateTabsAvailability() {
 
 }
 
+
+function populateArtworkDescriptionData(jsonData) {
+    if (jsonData.layer) {
+        populateLayersTable(jsonData.layer);
+    }
+    if (jsonData.via) {
+        populateViaTable(jsonData.via);
+    }
+    if (jsonData.viaPadStack) {
+        populateViaPadStackTable(jsonData.viaPadStack);
+    }
+    if (jsonData.bridges) {
+        populateBridgeTable(jsonData.bridges);
+    }
+    if (jsonData.ports) {
+        populatePortsAndSimPortsTable(jsonData.ports);
+    }
+    if (jsonData.arms) {
+        populateArmTable(jsonData.arms);
+    }
+    if (jsonData.segments && jsonData.segments.data) {
+        populateSegmentTable(jsonData.segments);
+    }
+}
+
+
+function loadArtworkDescriptionFile(filePath, fileName) {
+    return new Promise((resolve, reject) => {
+        var jsonPath = filePath + '/' + fileName;
+
+        loadJsonData(jsonPath,
+            function (data) {
+                populateArtworkDescriptionData(data); // Call function to populate table with loaded data
+                alert('JSON data loaded successfully!');
+                updateTabsAvailability(); // Update tabs after loading data
+                resolve(); // Resolve the promise when data is loaded and processed
+            },
+            function (errorMessage) {
+                alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+                updateTabsAvailability(); // Update tabs on error
+                reject(errorMessage); // Reject the promise on error
+            }
+        );
+    });
+}
+
+
 function loadADF() {
     var bridgeJsonPath = document.getElementById('adfJsonPath').value.trim();
 
@@ -121,6 +168,7 @@ function loadADF() {
         }
     );
 }
+
 
 
 function uploadAndLoadFromADF() {

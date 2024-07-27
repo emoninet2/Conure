@@ -77,25 +77,7 @@ function createProjectAndName() {
 //     );
 // }
 
-function loadArtworkDescriptionFile(filePath, fileName) {
-    return new Promise((resolve, reject) => {
-        var jsonPath = filePath + '/' + fileName;
 
-        loadJsonData(jsonPath,
-            function (data) {
-                populateArtworkDescriptionData(data); // Call function to populate table with loaded data
-                alert('JSON data loaded successfully!');
-                updateTabsAvailability(); // Update tabs after loading data
-                resolve(); // Resolve the promise when data is loaded and processed
-            },
-            function (errorMessage) {
-                alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-                updateTabsAvailability(); // Update tabs on error
-                reject(errorMessage); // Reject the promise on error
-            }
-        );
-    });
-}
 
 
 
@@ -166,16 +148,6 @@ function saveArtworkDescriptionData(filePath, fileName) {
     );
 }
 
-function populateArtworkDescriptionData(jsonData) {
-    //make sure the ORDER IS MAINTAINTED
-    populateLayersTable(jsonData.layer);
-    populateViaTable(jsonData.via);
-    populateViaPadStackTable(jsonData.viaPadStack);
-    populateBridgeTable(jsonData.bridges);
-    populatePortsAndSimPortsTable(jsonData.ports);
-    populateArmTable(jsonData.arms);
-    populateSegmentTable(jsonData.segments);
-}
 
 
 
