@@ -104,11 +104,68 @@ function updateTabsAvailability() {
         }
     });
 
+}
+
+function loadADF() {
+    var bridgeJsonPath = document.getElementById('adfJsonPath').value.trim();
+
+    loadJsonData(bridgeJsonPath,
+        function (data) {
+            populateArtworkDescriptionData(data)
+            alert('JSON data loaded successfully!');
+            updateTabsAvailability(); // Update tabs after loading data
+        },
+        function (errorMessage) {
+            alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+            updateTabsAvailability(); // Update tabs on error
+        }
+    );
+}
 
 
+function uploadAndLoadFromADF() {
+    // Upload the file
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    const uploadFolder = projectDirectoryPath + '/temp/uploads';
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('uploadFolder', uploadFolder);
+
+    const fullPath = uploadFolder + '/' + file.name;
+    alert('Uploading file to: ' + fullPath);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload', true);
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            alert('File uploaded successfully');
+            // Load the file after successful upload
+            loadJsonData(fullPath,
+                function (data) {
+                    populateArtworkDescriptionData(data);
+                    alert('JSON data loaded successfully!');
+                    deleteFile(fullPath); // Delete the file after loading data
+                    updateTabsAvailability(); // Update tabs after loading data
+                },
+                function (errorMessage) {
+                    alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+                    deleteFile(fullPath); // Delete the file on error
+                    updateTabsAvailability(); // Update tabs on error
+                }
+            );
+        } else {
+            alert('File upload failed');
+            updateTabsAvailability(); // Update tabs on error
+        }
+    };
+
+    xhr.send(formData);
+}
 
 
-
-
-
+function saveADF() {
+    
+    //saveArtworkDescriptionData(projectDirectoryPath, "mysavedARD.json"); // Save data after loading
+    saveArtworkDescriptionData(projectDirectoryPath, projectName + ".json"); // Save data after loading
 }

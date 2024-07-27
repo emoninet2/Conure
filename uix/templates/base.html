@@ -18,22 +18,46 @@
         }
 
         .active-tab {
-            background-color: #007bff;
+            background-color: #ff5e00;
             /* Highlight color */
             color: white;
         }
+
+        .padding-between {
+            padding-bottom: 20px;
+            /* Adjust the value as needed */
+        }
+
+
+        
     </style>
 </head>
 
 <body>
     <div id="header">
-        <img id="conureLogo" src="static/images/logo/logo_nb_large.png" alt="Conure Image" style="width:100px;height:auto;">
+        <img id="conureLogo" src="static/images/logo/logo_nb_large.png" alt="Conure Image"
+            style="width:100px;height:auto;">
     </div>
 
+    <!-- Display selected project directory -->
+    <div id="selectedProjectDirectory">
+        <!-- This will be populated with selected directory path -->
+    </div>
+
+    <!-- Display selected project name -->
+    <div id="selectedProjectName">
+        <!-- This will be populated with selected name -->
+    </div>
+
+    <!-- Display selected project name -->
+    <div id="selectedProjectName" class="padding-between">
+        <!-- This will be populated with selected name -->
+    </div>
 
     <div id="tabs">
         <button id="btn-sel-project" onclick="showTab('project')">Project</button>
         <button id="btn-sel-artwork" onclick="showTab('artwork')">Artwork</button>
+        <button id="btn-sel-simulate" onclick="showTab('simulate')">Simulate</button>
         <button id="btn-sel-sweep" onclick="showTab('sweep')">Sweep</button>
     </div>
 
@@ -43,11 +67,11 @@
 
     <script>
 
-    document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function () {
 
-        showTab('project'); // Show project tab by default
-        updateTabsAvailability(); // Update tabs after deleting row
-    });
+            showTab('project'); // Show project tab by default
+            updateTabsAvailability(); // Update tabs after deleting row
+        });
 
 
 

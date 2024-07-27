@@ -1,9 +1,17 @@
 var projectDirectoryPath = '';
+var projectName = '';
+
+
 
 
 function createProject() {
+    // var directoryPath = document.getElementById('projectDirectory').value.trim();
+    // projectDirectoryPath = directoryPath;
+
     var directoryPath = document.getElementById('projectDirectory').value.trim();
+    directoryPath = directoryPath + '/' + projectName;
     projectDirectoryPath = directoryPath;
+
     if (directoryPath !== '') {
         fetch('/create_project', {
             method: 'POST',
@@ -16,12 +24,12 @@ function createProject() {
             .then(data => {
                 if (data.success) {
                     document.getElementById('selectedProjectDirectory').innerHTML = '<strong>Project Directory:</strong> ' + directoryPath;
-                    alert('Project created successfully!');
+                    
                     //loadArtworkDescriptionFile(projectDirectoryPath, "ARD.json");
 
 
-                    loadArtworkDescriptionFile(projectDirectoryPath, "ARD.json"); // Load and process the data
-                    saveArtworkDescriptionData(projectDirectoryPath, "ARD_out.json"); // Save the processed data
+                    //loadArtworkDescriptionFile(projectDirectoryPath, "ARD.json"); // Load and process the data
+                    //saveArtworkDescriptionData(projectDirectoryPath, "ARD_out.json"); // Save the processed data
                  
 
 
@@ -36,6 +44,18 @@ function createProject() {
     }
 }
 
+function createProjectName() {
+    projectName = document.getElementById('projectName').value.trim();
+    document.getElementById('selectedProjectName').innerHTML = '<strong>Project Name:</strong> ' + projectName;
+}
+
+
+function createProjectAndName() {
+    createProjectName();
+    createProject();
+    
+    alert('Project Configured!');
+}
 
 
 // function loadArtworkDescriptionFile(filePath, fileName) {
@@ -155,8 +175,6 @@ function populateArtworkDescriptionData(jsonData) {
     populatePortsAndSimPortsTable(jsonData.ports);
     populateArmTable(jsonData.arms);
     populateSegmentTable(jsonData.segments);
-
-
 }
 
 

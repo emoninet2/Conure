@@ -1,16 +1,25 @@
 <h2>Project Configurations</h2>
 
+
+
 <!-- Form to input project directory manually -->
 <form id="projectDirectoryForm" onsubmit="return false;">
     <label for="projectDirectory">Project Directory:</label>
     <input type="text" id="projectDirectory" placeholder="Enter relative path...">
-    <button onclick="createProject()">Save</button>
+    <!-- <button onclick="createProject()">Save</button> -->
 </form>
 
-<!-- Display selected project directory -->
-<div id="selectedProjectDirectory">
-    <!-- This will be populated with selected directory path -->
-</div>
+<!-- Form to input project directory manually -->
+<form id="projectNameForm" onsubmit="return false;">
+    <label for="projectName">Project Name:</label>
+    <input type="text" id="projectName" placeholder="Enter project name...">
+    <!-- <button onclick="createProjectName()">Save</button> -->
+</form>
+
+
+
+
+<button onclick="createProjectAndName()">Save</button>
 
 <!-- Correctly include project_layers.js with src attribute -->
 <script src="/static/js/script_project.js"></script>

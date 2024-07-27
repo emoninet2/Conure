@@ -3,10 +3,11 @@ import os
 import json
 from flask import Flask, render_template, request, jsonify, session
 import traceback
-
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key'
+
 
 @app.route('/')
 def index():
@@ -241,6 +242,38 @@ def load_json():
     return jsonify({'success': False, 'message': 'No JSON path provided.'}), 400
 
 
+
+
+
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files or 'uploadFolder' not in request.form:
+        return 'No file or folder part', 400
+    
+    file = request.files['file']
+    upload_folder = os.path.expanduser(request.form['uploadFolder'])
+    
+    if file.filename == '':
+        return 'No selected file', 400
+    
+    if file:
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        file.save(os.path.join(upload_folder, file.filename))
+        return 'File uploaded successfully', 200
+    
+
+@app.route('/delete_file', methods=['POST'])
+def delete_file():
+    file_path = request.form['filePath']
+    full_path = os.path.expanduser(file_path)
+    
+    if os.path.exists(full_path):
+        os.remove(full_path)
+        return 'File deleted successfully', 200
+    else:
+        return 'File not found', 400
 
 if __name__ == '__main__':
     app.run(port=8080, debug=True)

@@ -8,6 +8,24 @@
 <button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
 <button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button> -->
 
+<button onclick="saveADF()">Save</button>
+
+<form id="ADFuploadAndLoadForm">
+    <input type="file" id="fileInput" name="file" onchange="uploadAndLoadFromADF()"><br><br>
+    <!-- <input type="file" id="fileInput" name="file">
+    <input type="button" value="Load" onclick="uploadAndLoadFromADF()"><br><br> -->
+</form>
+
+
+<!-- Form to input project directory manually -->
+<!-- <form id="loadSaveADFForm" onsubmit="return false;"> -->
+    <!-- <label for="projectDirectory">ADF JSON Path :</label>
+    <input type="text" id="adfJsonPath" placeholder="Enter relative path...">
+    <button onclick="loadADF()">Load</button> -->
+    <!-- <button onclick="saveADF()">Save</button> -->
+<!-- </form> -->
+
+
 <button id="btn-sel-artwork-segment" onclick="showSubTab('segment')">Segment</button>
 <button id="btn-sel-artwork-arms" onclick="showSubTab('arms')">Arms</button>
 <button id="btn-sel-artwork-ports" onclick="showSubTab('ports')">Ports</button>
@@ -16,6 +34,9 @@
 <button id="btn-sel-artwork-via" onclick="showSubTab('via')">Via</button>
 <button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
 <button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button>
+
+
+
 
 
 

@@ -2,6 +2,7 @@ var tabButtonsMainPane = {};
 
 tabButtonsMainPane.project = document.getElementById('btn-sel-project');
 tabButtonsMainPane.artwork = document.getElementById('btn-sel-artwork');
+tabButtonsMainPane.simulate = document.getElementById('btn-sel-simulate');
 tabButtonsMainPane.sweep = document.getElementById('btn-sel-sweep');
 
 
@@ -28,6 +29,10 @@ function showTab(tabName) {
         case 'artwork':
             // Code for arms sub-tab
             tabButtonsMainPane.artwork.classList.add('active-tab');
+            break;
+        case 'simulate':
+            // Code for ports sub-tab
+            tabButtonsMainPane.simulate.classList.add('active-tab');
             break;
         case 'sweep':
             // Code for ports sub-tab
