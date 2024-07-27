@@ -83,26 +83,69 @@ function showSubTab(subTabName) {
 }
 
 
-function updateTabsAvailability() {
+function updateArtworkTabsAvailability() {
 
-
+   
     var layersTable = document.getElementById('layersTable').getElementsByTagName('tbody')[0];
     var viaTable = document.getElementById('viaTable').getElementsByTagName('tbody')[0];
-    var isLayersEmpty = layersTable.rows.length === 0;
-    var isViaEmpty = viaTable.rows.length === 0;
+    var viaPadStackTable = document.getElementById('viaPadStackTable').getElementsByTagName('tbody')[0];
+    var bridgeTable = document.getElementById('bridgesTable').getElementsByTagName('tbody')[0];
+    var portTable = document.getElementById('portsTable').getElementsByTagName('tbody')[0];
+    var armTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
+    var segmentTable = document.getElementById('segmentTable').getElementsByTagName('tbody')[0];
+
+    var isLayerTableEmpty = layersTable.rows.length === 0;
+    var isViaTableEmpty = viaTable.rows.length === 0;
+    var isViaPadStackTableEmpty = viaPadStackTable.rows.length === 0;
+    var isBridgeTableEmpty = bridgeTable.rows.length === 0;
+    var isPortTableEmpty = portTable.rows.length === 0;
+    var isArmTableEmpty = armTable.rows.length === 0;
+    //var isSegmentTableEmpty = segmentTable.rows.length === 0;
 
     var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
 
     tabsToDisable.forEach(function (tabName) {
         var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
         if (tabButton) {
-            if (isLayersEmpty) {
-                tabButton.disabled = true;
-            } else {
-                tabButton.disabled = false;
+            if (tabName === 'via') {
+                tabButton.disabled = isLayerTableEmpty;
+            }
+            if (tabName === 'viaPadStack') {
+                tabButton.disabled = isLayerTableEmpty || isViaTableEmpty;
+            }
+            if (tabName === 'bridges') {
+                tabButton.disabled = isLayerTableEmpty || isViaTableEmpty || isViaPadStackTableEmpty;
+            }
+            if (tabName === 'arms') {
+                tabButton.disabled = isLayerTableEmpty || isViaPadStackTableEmpty || isPortTableEmpty;
+            }
+            if (tabName === 'segment') {
+                tabButton.disabled = isLayerTableEmpty || (isBridgeTableEmpty && isArmTableEmpty);
+            }
+            if (tabName === 'guardRing') {
+                tabButton.disabled = isLayerTableEmpty;
             }
         }
     });
+
+
+
+
+    // var isLayersEmpty = layersTable.rows.length === 0;
+    // var isViaEmpty = viaTable.rows.length === 0;
+
+    // var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
+
+    // tabsToDisable.forEach(function (tabName) {
+    //     var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
+    //     if (tabButton) {
+    //         if (isLayersEmpty) {
+    //             tabButton.disabled = true;
+    //         } else {
+    //             tabButton.disabled = false;
+    //         }
+    //     }
+    // });
 
 }
 
@@ -140,12 +183,12 @@ function loadArtworkDescriptionFile(filePath, fileName) {
             function (data) {
                 populateArtworkDescriptionData(data); // Call function to populate table with loaded data
                 alert('JSON data loaded successfully!');
-                updateTabsAvailability(); // Update tabs after loading data
+                updateArtworkTabsAvailability(); // Update tabs after loading data
                 resolve(); // Resolve the promise when data is loaded and processed
             },
             function (errorMessage) {
                 alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-                updateTabsAvailability(); // Update tabs on error
+                updateArtworkTabsAvailability(); // Update tabs on error
                 reject(errorMessage); // Reject the promise on error
             }
         );
@@ -160,11 +203,11 @@ function loadADF() {
         function (data) {
             populateArtworkDescriptionData(data)
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 }
@@ -194,17 +237,17 @@ function uploadAndLoadFromADF() {
                     populateArtworkDescriptionData(data);
                     alert('JSON data loaded successfully!');
                     deleteFile(fullPath); // Delete the file after loading data
-                    updateTabsAvailability(); // Update tabs after loading data
+                    updateArtworkTabsAvailability(); // Update tabs after loading data
                 },
                 function (errorMessage) {
                     alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
                     deleteFile(fullPath); // Delete the file on error
-                    updateTabsAvailability(); // Update tabs on error
+                    updateArtworkTabsAvailability(); // Update tabs on error
                 }
             );
         } else {
             alert('File upload failed');
-            updateTabsAvailability(); // Update tabs on error
+            updateArtworkTabsAvailability(); // Update tabs on error
         }
     };
 

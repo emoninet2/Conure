@@ -18,7 +18,7 @@ function addViaRow() {
     cell5.innerHTML = '<input type="number" name="viaAngle' + rowCount + '">';
     cell6.innerHTML = '<select name="viaLayer' + rowCount + '">' + getLayerOptions() + '</select>';
     cell7.innerHTML = '<button onclick="deleteViaRow(this)">Delete</button>';
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
   
 }
 
@@ -27,7 +27,7 @@ function addViaRow() {
 function deleteViaRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 
 }
 
@@ -139,7 +139,7 @@ function saveVia() {
             }
         })
         .catch(error => console.error('Error:', error));
-    updateTabsAvailability(); // Update tabs after saving data
+    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 
@@ -150,11 +150,11 @@ function loadVia() {
         function (data) {
             populateViaTable(data.via);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 
@@ -194,7 +194,7 @@ function populateViaTable(viasData) {
         cell7.innerHTML = '<button onclick="deleteViaRow(this)">Delete</button>';
     });
 
-    updateTabsAvailability(); // Update tabs after populating vias
+    //updateArtworkTabsAvailability(); // Update tabs after populating vias
 
 }
 
@@ -271,4 +271,4 @@ function initializeViaChangeObserver(handleChangeFunction) {
 
 
 initializeLayerChangeObserver(updateDropdownsInVia);
-
+initializeViaChangeObserver(updateArtworkTabsAvailability); // Initialize observer for vias

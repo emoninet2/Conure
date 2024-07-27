@@ -21,7 +21,7 @@ function addViaPadStackRow() {
     cell5.innerHTML = '<select name="viaPadStackViaList' + rowCount + '" multiple>' + getViaOptions() + '</select>';
     cell6.innerHTML = '<button onclick="deleteViaPadStackRow(this)">Delete</button>';
 
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
    
 }
 
@@ -29,7 +29,7 @@ function addViaPadStackRow() {
 function deleteViaPadStackRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
   
 }
 
@@ -124,7 +124,7 @@ function saveViaPadStack() {
             }
         })
         .catch(error => console.error('Error:', error));
-    updateTabsAvailability(); // Update tabs after saving data
+    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 
@@ -135,11 +135,11 @@ function loadViaPadStack() {
         function (data) {
             populateViaPadStackTable(data.viaPadStack);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
    
@@ -181,7 +181,7 @@ function populateViaPadStackTable(viaPadStacksData) {
         cell6.innerHTML = '<button onclick="deleteViaPadStackRow(this)">Delete</button>';
     });
 
-    updateTabsAvailability(); // Update tabs after populating viaPadStacks
+    //updateArtworkTabsAvailability(); // Update tabs after populating viaPadStacks
 
 }
 
@@ -282,3 +282,4 @@ function initializeViaPadStackChangeObserver(handleChangeFunction) {
 
 initializeLayerChangeObserver(updateDropdownsInViaPadStack);
 initializeViaChangeObserver(updateDropdownsInViaPadStack)
+initializeViaPadStackChangeObserver(updateArtworkTabsAvailability); // Initialize observer for viaPadStack table changes

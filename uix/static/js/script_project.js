@@ -66,12 +66,12 @@ function createProjectAndName() {
 //         function (data) {
 //             populateArtworkDescriptionData(data); // Call function to populate table with loaded data
 //             alert('JSON data loaded successfully!');
-//             updateTabsAvailability(); // Update tabs after loading data
+//             updateArtworkTabsAvailability(); // Update tabs after loading data
 //             return 0;
 //         },
 //         function (errorMessage) {
 //             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-//             updateTabsAvailability(); // Update tabs on error
+//             updateArtworkTabsAvailability(); // Update tabs on error
 //             return errorMessage;
 //         }
 //     );
@@ -104,12 +104,12 @@ function createProjectAndName() {
 //         '/save_json',
 //         function () {
 //             alert('Data saved successfully!');
-//             updateTabsAvailability(); // Update tabs after saving data
+//             updateArtworkTabsAvailability(); // Update tabs after saving data
 //         },
 //         function (errorMessage) {
 //             alert(errorMessage);
 //             // Optionally handle further error logic here
-//             updateTabsAvailability(); // Update tabs after error
+//             updateArtworkTabsAvailability(); // Update tabs after error
 //         }
 //     );
 
@@ -138,12 +138,12 @@ function saveArtworkDescriptionData(filePath, fileName) {
         '/save_json',
         function () {
             alert('Data saved successfully!');
-            updateTabsAvailability(); // Update tabs after saving data
+            updateArtworkTabsAvailability(); // Update tabs after saving data
         },
         function (errorMessage) {
             alert(errorMessage);
             // Optionally handle further error logic here
-            updateTabsAvailability(); // Update tabs after error
+            updateArtworkTabsAvailability(); // Update tabs after error
         }
     );
 }

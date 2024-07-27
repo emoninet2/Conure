@@ -12,7 +12,7 @@ function addPortRow() {
     cell2.innerHTML = '<input type="text" name="portLabel' + rowCount + '">';
     cell3.innerHTML = '<button onclick="deletePortRow(this)">Delete</button>';
 
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
 
 }
 
@@ -20,7 +20,7 @@ function addPortRow() {
 function deletePortRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 }
 
 
@@ -60,13 +60,13 @@ function addSimPortRow() {
     // Delete button
     cell6.innerHTML = '<button onclick="deleteSimPortRow(this)">Delete</button>';
 
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
 }
 
 function deleteSimPortRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 }
 
 
@@ -225,7 +225,7 @@ function savePorts() {
         .catch(error => console.error('Error:', error));
 
     // Optional: update tabs or other UI elements after saving data
-    updateTabsAvailability();
+    //updateArtworkTabsAvailability();
 }
 
 function loadPorts() {
@@ -235,11 +235,11 @@ function loadPorts() {
         function (data) {
             populatePortsAndSimPortsTable(data.ports);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 }
@@ -308,7 +308,7 @@ function populatePortsAndSimPortsTable(jsonData) {
 
     // Update dropdowns in simPortsTable
     updateDropdownsInSimPorts();
-    updateTabsAvailability();
+    //updateArtworkTabsAvailability();
 
 }
 
@@ -486,3 +486,4 @@ function initializeSimPortChangeObserver(handleChangeFunction) {
 
 initializePortChangeObserver(updateDropdownsInSimPorts);
 initializeSimPortChangeObserver(updatePortMinusVisibility);
+initializeSimPortChangeObserver(updateArtworkTabsAvailability); // Update tabs after adding or deleting row

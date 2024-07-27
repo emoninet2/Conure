@@ -11,7 +11,7 @@ function addLayerRow() {
     cell2.innerHTML = '<input type="text" name="gdsLayer' + rowCount + '">';
     cell3.innerHTML = '<input type="text" name="gdsDatatype' + rowCount + '">';
     cell4.innerHTML = '<button onclick="deleteLayerRow(this)">Delete</button>';
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 
 }
 
@@ -19,7 +19,7 @@ function deleteLayerRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
 
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 
 }
 
@@ -93,12 +93,12 @@ function saveLayers() {
         '/save_json',
         function () {
             alert('Data saved successfully!');
-            updateTabsAvailability(); // Update tabs after saving data
+            //updateArtworkTabsAvailability(); // Update tabs after saving data
         },
         function (errorMessage) {
             alert(errorMessage);
             // Optionally handle further error logic here
-            updateTabsAvailability(); // Update tabs after error
+            //updateArtworkTabsAvailability(); // Update tabs after error
         }
     );
 }
@@ -118,11 +118,11 @@ function loadLayers() {
         function (data) {
             populateLayersTable(data.layer);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert(errorMessage);
-            updateTabsAvailability(); // Update tabs on error
+            updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 }
@@ -150,7 +150,7 @@ function populateLayersTable(layersData) {
     // Add one empty row at the end for adding new entries
     //addLayerRow();
 
-    updateTabsAvailability(); // Update tabs after populating layers
+    //updateArtworkTabsAvailability(); // Update tabs after populating layers
 }
 
 function getLayerNames() {
@@ -210,10 +210,12 @@ function initializeLayerChangeObserver(handleChangeFunction) {
 
 
 
-document.addEventListener('DOMContentLoaded', function () {
-    updateTabsAvailability(); // Update tabs after deleting row
-});
+// document.addEventListener('DOMContentLoaded', function () {
+//     updateArtworkTabsAvailability(); // Update tabs after deleting row
+// });
 
+
+initializeLayerChangeObserver(updateArtworkTabsAvailability);
 
 
 

@@ -22,14 +22,14 @@ function addBridgeRow() {
 
     cell7.innerHTML = '<button onclick="deleteBridgeRow(this)">Delete</button>';
 
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
 
 }
 
 function deleteBridgeRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 
 }
 
@@ -146,7 +146,7 @@ function saveBridges() {
         })
         .catch(error => console.error('Error:', error));
 
-    updateTabsAvailability(); // Update tabs after saving data
+    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 function loadBridges() {
@@ -156,11 +156,11 @@ function loadBridges() {
         function (data) {
             populateBridgeTable(data.bridges);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
  
@@ -214,7 +214,7 @@ function populateBridgeTable(bridgesData) {
         cell7.innerHTML = '<button onclick="deleteBridgeRow(this)">Delete</button>';
     });
 
-    updateTabsAvailability(); // Update tabs after populating bridges
+    //updateArtworkTabsAvailability(); // Update tabs after populating bridges
 }
 
 
@@ -317,3 +317,4 @@ function initializeBridgeChangeObserver(handleChangeFunction) {
 initializeLayerChangeObserver(updateDropdownsInViaBridges);
 initializeViaChangeObserver(updateDropdownsInViaBridges)
 initializeViaPadStackChangeObserver(updateDropdownsInViaBridges)
+initializeBridgeChangeObserver(updateArtworkTabsAvailability);

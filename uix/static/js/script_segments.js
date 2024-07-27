@@ -239,7 +239,7 @@ function saveSegments() {
     })
     .catch(error => console.error('Error:', error));
 
-    updateTabsAvailability(); // Update tabs after saving data
+    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 
@@ -250,11 +250,11 @@ function loadSegments() {
         function (data) {
             populateSegmentTable(data.segments);
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 }
@@ -432,3 +432,4 @@ initializeSegmentChangeObserver(disableJumpForDefaultType);
 initializeLayerChangeObserver(updateDropdownsInSegment);
 initializeBridgeChangeObserver(updateDropdownsInSegment);
 initializeArmChangeObserver(updateDropdownsInSegment);
+initializeSegmentChangeObserver(updateArtworkTabsAvailability);   // Update tabs after any change in the segment tables // NOT REALLY NEEDED

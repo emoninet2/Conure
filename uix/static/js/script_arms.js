@@ -35,13 +35,13 @@ function addArmRow() {
     cell9.innerHTML = '<select name="armViaStack' + rowCount + '">' + getViaPadStackOptions() + '</select>';
     cell10.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
 
-    updateTabsAvailability(); // Update tabs after adding row
+    //updateArtworkTabsAvailability(); // Update tabs after adding row
 }
 
 function deleteArmRow(btn) {
     var row = btn.parentNode.parentNode;
     row.parentNode.removeChild(row);
-    updateTabsAvailability(); // Update tabs after deleting row
+    //updateArtworkTabsAvailability(); // Update tabs after deleting row
 }
 
 
@@ -140,7 +140,7 @@ function saveArms() {
         })
         .catch(error => console.error('Error:', error));
 
-    updateTabsAvailability(); // Update tabs after saving data
+    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 function loadArms() {
@@ -150,11 +150,11 @@ function loadArms() {
         function (data) {
             populateArmTable(data.arms); // Call function to populate table with loaded data
             alert('JSON data loaded successfully!');
-            updateTabsAvailability(); // Update tabs after loading data
+            //updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
             alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-            updateTabsAvailability(); // Update tabs on error
+            //updateArtworkTabsAvailability(); // Update tabs on error
         }
     );
 }
@@ -226,7 +226,7 @@ function populateArmTable(armsData) {
         cell10.innerHTML = '<button onclick="deleteArmRow(this)">Delete</button>'; // Delete button
     });
 
-    updateTabsAvailability(); // Update tabs after populating arms
+    //updateArtworkTabsAvailability(); // Update tabs after populating arms
 }
 
 function getArmNames() {
@@ -347,3 +347,4 @@ initializeLayerChangeObserver(updateDropdownsInArmTable);
 initializeViaPadStackChangeObserver(updateDropdownsInArmTable);
 initializePortChangeObserver(updateDropdownsInArmTable);
 initializeArmChangeObserver(disablePort2ForSingleArmType);
+initializeArmChangeObserver(updateArtworkTabsAvailability); // Update tabs after changing arms
