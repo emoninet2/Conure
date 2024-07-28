@@ -1,7 +1,8 @@
 
 import os
+import subprocess
 import json
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, Response
 import traceback
 from werkzeug.utils import secure_filename
 
@@ -274,6 +275,82 @@ def delete_file():
         return 'File deleted successfully', 200
     else:
         return 'File not found', 400
+
+
+# @app.route('/generate_preview', methods=['POST'])
+# def generate_preview():
+#     data = request.json
+#     artwork_generator_path = "python artwork_generator/artwork_generator.py"
+#     ADFPath = data.get('ADF', '')
+#     outputPath = data.get('outputPath', '')
+#     outputName = data.get('outputName', '')
+#     #command = ADFPath + outputPath + outputName
+#     ADFPath = "artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json"
+
+#     #command = artwork_generator_path + " -a " + ADFPath +  " -o " + outputPath +  " -n " + outputName
+#     command = f"{artwork_generator_path} -a {ADFPath} -o {outputPath} -n {outputName}"
+#     print(command)
+
+#         # Call the command as a subprocess
+#     try:
+#         result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+#         output = result.stdout
+#         error = result.stderr
+#     except subprocess.CalledProcessError as e:
+#         output = e.output
+#         error = str(e)
+
+#     return jsonify({"status": "success", "command": command, "output": output, "error": error})
+
+
+
+
+
+
+@app.route('/generate_preview', methods=['POST'])
+def generate_preview():
+    data = request.json
+
+    artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
+    ADFPath = os.path.expanduser(data.get('ADF'))
+    outputPath = os.path.expanduser(data.get('outputPath', ''))
+    outputName = data.get('outputName', '')
+
+    command = f"python {artwork_generator_path} -a {ADFPath} -o {outputPath} -n {outputName}"
+
+    #print(f"Command: {command}")
+    #print(f"Current Working Directory: {os.getcwd()}")
+    #print(f"Environment Variables: {os.environ}")
+
+    # Call the command as a subprocess
+    try:
+        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        output = result.stdout
+        error = result.stderr
+    except subprocess.CalledProcessError as e:
+        output = e.output
+        error = str(e)
+
+    return jsonify({"status": "success", "command": command, "output": output, "error": error})
+
+
+@app.route('/get_svg', methods=['GET'])
+def get_svg():
+    svg_path = request.args.get('path')
+    try:
+        if not os.path.exists(svg_path):
+            raise FileNotFoundError(f"The file {svg_path} does not exist.")
+        
+        with open(svg_path, 'r') as svg_file:
+            svg_content = svg_file.read()
+        return Response(svg_content, mimetype='image/svg+xml')
+    except FileNotFoundError as fnf_error:
+        print(f"File not found error: {fnf_error}")
+        return jsonify({"status": "error", "message": str(fnf_error)}), 404
+    except Exception as e:
+        print(f"Error reading SVG file: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(port=8080, debug=True)

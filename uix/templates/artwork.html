@@ -1,12 +1,12 @@
 <h2>Artwork Designer</h2>
-<!-- <button id="btn-sel-artwork-segment" onclick="showSubTab('segment')">Segment</button>
-<button id="btn-sel-artwork-arms" onclick="showSubTab('arms')">Arms</button>
-<button id="btn-sel-artwork-ports" onclick="showSubTab('ports')">Ports</button>
-<button id="btn-sel-artwork-bridges" onclick="showSubTab('bridges')">Bridges</button>
-<button id="btn-sel-artwork-viaPadStack" onclick="showSubTab('viaPadStack')">ViaPadStack</button>
-<button id="btn-sel-artwork-via" onclick="showSubTab('via')">Via</button>
-<button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
-<button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button> -->
+<!-- <button id="btn-sel-artwork-segment" onclick="showArtworkTab('segment')">Segment</button>
+<button id="btn-sel-artwork-arms" onclick="showArtworkTab('arms')">Arms</button>
+<button id="btn-sel-artwork-ports" onclick="showArtworkTab('ports')">Ports</button>
+<button id="btn-sel-artwork-bridges" onclick="showArtworkTab('bridges')">Bridges</button>
+<button id="btn-sel-artwork-viaPadStack" onclick="showArtworkTab('viaPadStack')">ViaPadStack</button>
+<button id="btn-sel-artwork-via" onclick="showArtworkTab('via')">Via</button>
+<button id="btn-sel-artwork-guardRing" onclick="showArtworkTab('guardRing')">GuardRing</button>
+<button id="btn-sel-artwork-layers" onclick="showArtworkTab('layers')">Layers</button> -->
 
 <button onclick="saveADF()">Save</button>
 
@@ -24,17 +24,23 @@
 <!-- </form> -->
 
 
-<button id="btn-sel-artwork-segment" onclick="showSubTab('segment')">Segment</button>
-<button id="btn-sel-artwork-arms" onclick="showSubTab('arms')">Arms</button>
-<button id="btn-sel-artwork-ports" onclick="showSubTab('ports')">Ports</button>
-<button id="btn-sel-artwork-bridges" onclick="showSubTab('bridges')">Bridges</button>
-<button id="btn-sel-artwork-viaPadStack" onclick="showSubTab('viaPadStack')">ViaPadStack</button>
-<button id="btn-sel-artwork-via" onclick="showSubTab('via')">Via</button>
-<button id="btn-sel-artwork-guardRing" onclick="showSubTab('guardRing')">GuardRing</button>
-<button id="btn-sel-artwork-layers" onclick="showSubTab('layers')">Layers</button>
+<button id="btn-sel-artwork-segment" onclick="showArtworkTab('segment')">Segment</button>
+<button id="btn-sel-artwork-arms" onclick="showArtworkTab('arms')">Arms</button>
+<button id="btn-sel-artwork-ports" onclick="showArtworkTab('ports')">Ports</button>
+<button id="btn-sel-artwork-bridges" onclick="showArtworkTab('bridges')">Bridges</button>
+<button id="btn-sel-artwork-viaPadStack" onclick="showArtworkTab('viaPadStack')">ViaPadStack</button>
+<button id="btn-sel-artwork-via" onclick="showArtworkTab('via')">Via</button>
+<button id="btn-sel-artwork-guardRing" onclick="showArtworkTab('guardRing')">GuardRing</button>
+<button id="btn-sel-artwork-layers" onclick="showArtworkTab('layers')">Layers</button>
+<button id="btn-sel-artwork-preview" onclick="showArtworkTab('preview')">Preview</button>
 
 
 
+<div id="preview" class="sub-tab-content" style="display: none;">
+    <h3>Preview</h3>
+    <button id="btn-sel-artwork-preview" onclick="preview()">Preview</button>
+    <div id="svg-preview"></div>
+</div>
 
 
 
@@ -386,3 +392,4 @@
 <script src="/static/js/script_arms.js"></script>
 <script src="/static/js/script_segments.js"></script>
 <script src="/static/js/script_guardRing.js"></script>
+<script src="/static/js/script_preview.js"></script>

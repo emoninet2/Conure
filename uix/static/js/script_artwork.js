@@ -11,7 +11,7 @@ tabButton.viaPadStack = document.getElementById('btn-sel-artwork-viaPadStack');
 tabButton.via = document.getElementById('btn-sel-artwork-via');
 tabButton.guardRing = document.getElementById('btn-sel-artwork-guardRing');
 tabButton.layers = document.getElementById('btn-sel-artwork-layers');
-
+tabButton.preview = document.getElementById('btn-sel-artwork-preview');
 
 // JavaScript to handle sub-tab visibility
 document.addEventListener("DOMContentLoaded", function () {
@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 });
 
-function showSubTab(subTabName) {
+function showArtworkTab(subTabName) {
     var subTabs = document.getElementsByClassName('sub-tab-content');
     for (var i = 0; i < subTabs.length; i++) {
         subTabs[i].style.display = 'none';
@@ -76,6 +76,10 @@ function showSubTab(subTabName) {
             // Code for layers sub-tab
             tabButton.layers.classList.add('active-tab');
             break;
+        case 'preview':
+            // Code for layers sub-tab
+            tabButton.preview.classList.add('active-tab');
+            break;
         default:
             // Code for default case
             break;
@@ -105,7 +109,7 @@ function updateArtworkTabsAvailability() {
     var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
 
     tabsToDisable.forEach(function (tabName) {
-        var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
+        var tabButton = document.querySelector(`button[onclick="showArtworkTab('${tabName}')"]`);
         if (tabButton) {
             if (tabName === 'via') {
                 tabButton.disabled = isLayerTableEmpty;
@@ -137,7 +141,7 @@ function updateArtworkTabsAvailability() {
     // var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
 
     // tabsToDisable.forEach(function (tabName) {
-    //     var tabButton = document.querySelector(`button[onclick="showSubTab('${tabName}')"]`);
+    //     var tabButton = document.querySelector(`button[onclick="showArtworkTab('${tabName}')"]`);
     //     if (tabButton) {
     //         if (isLayersEmpty) {
     //             tabButton.disabled = true;
