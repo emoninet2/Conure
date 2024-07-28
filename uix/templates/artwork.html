@@ -12,17 +12,15 @@
 
 <form id="ADFuploadAndLoadForm">
     <input type="file" id="fileInput" name="file" onchange="uploadAndLoadFromADF()"><br><br>
-    <!-- <input type="file" id="fileInput" name="file">
-    <input type="button" value="Load" onclick="uploadAndLoadFromADF()"><br><br> -->
 </form>
 
 
 <!-- Form to input project directory manually -->
 <!-- <form id="loadSaveADFForm" onsubmit="return false;"> -->
-    <!-- <label for="projectDirectory">ADF JSON Path :</label>
+<!-- <label for="projectDirectory">ADF JSON Path :</label>
     <input type="text" id="adfJsonPath" placeholder="Enter relative path...">
     <button onclick="loadADF()">Load</button> -->
-    <!-- <button onclick="saveADF()">Save</button> -->
+<!-- <button onclick="saveADF()">Save</button> -->
 <!-- </form> -->
 
 
@@ -286,6 +284,59 @@
 <div id="guardRing" class="sub-tab-content" style="display: none;">
     <h3>GuardRing Designer</h3>
     <!-- Add content specific to GuardRing sub-tab -->
+
+    <div>
+        <label for="guardRingDistance">Guard Ring Distance:</label>
+        <input id="guardRingDistance" type="number">
+    </div>
+    
+
+    <h4>Guard Ring</h4>
+    <div style="overflow-x: auto;">
+        <table id="guardRingTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Shape</th>
+                    <th>Offset</th>
+                    <th>Width</th>
+                    <th>Layer</th>
+                    <th>Contacts</th>
+                    <th>ViaPadStack</th>
+                    <th>PartialCut</th>
+                    <th>Segment</th>
+                    <th>Spacing</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addGuardRingRow()">Add Row</button>
+    </div>
+
+    <h4>Dummy Fillings</h4>
+    <div style="overflow-x: auto;">
+        <table id="guardRingdummyFillTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Shape</th>
+                    <th>Length</th>
+                    <th>Height</th>
+                    <th>OffsetX</th>
+                    <th>OffsetY</th>
+                    <th>Layers</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically populated -->
+            </tbody>
+        </table>
+        <button onclick="addDummyFillRow()">Add Row</button>
+    </div>
+
+    
 </div>
 
 <div id="layers" class="sub-tab-content">
@@ -334,5 +385,4 @@
 <script src="/static/js/script_ports.js"></script>
 <script src="/static/js/script_arms.js"></script>
 <script src="/static/js/script_segments.js"></script>
-
-
+<script src="/static/js/script_guardRing.js"></script>

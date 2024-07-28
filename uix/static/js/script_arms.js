@@ -296,23 +296,29 @@ function updateDropdownsInArmTable() {
         }
     }
 
-    //disablePort2ForSingleArmType(); // Call after updating the dropdowns
 }
 
 
 
-function disablePort2ForSingleArmType() {
+function updateFieldAvailabilityBasedOnPortType() {
+
+
     const armsTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
 
     for (let i = 0; i < armsTable.length; i++) {
+
+
         const armTypeSelect = armsTable[i].querySelector('select[name^="armType"]');
         const port2Select = armsTable[i].querySelector('select[name^="armPort2"]');
+        const spacingInput = armsTable[i].querySelector('input[name^="armSpacing"]');
 
         if (armTypeSelect && port2Select) {
             if (armTypeSelect.value.toLowerCase() === 'single') {
                 port2Select.disabled = true;
+                spacingInput.disabled = true;
             } else {
                 port2Select.disabled = false;
+                spacingInput.disabled = false;
             }
         }
     }
@@ -346,5 +352,5 @@ function initializeArmChangeObserver(handleChangeFunction) {
 initializeLayerChangeObserver(updateDropdownsInArmTable);
 initializeViaPadStackChangeObserver(updateDropdownsInArmTable);
 initializePortChangeObserver(updateDropdownsInArmTable);
-initializeArmChangeObserver(disablePort2ForSingleArmType);
+initializeArmChangeObserver(updateFieldAvailabilityBasedOnPortType);
 initializeArmChangeObserver(updateArtworkTabsAvailability); // Update tabs after changing arms

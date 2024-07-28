@@ -123,7 +123,7 @@ function updateArtworkTabsAvailability() {
                 tabButton.disabled = isLayerTableEmpty || (isBridgeTableEmpty && isArmTableEmpty);
             }
             if (tabName === 'guardRing') {
-                tabButton.disabled = isLayerTableEmpty;
+                tabButton.disabled = isLayerTableEmpty ;
             }
         }
     });
@@ -172,6 +172,10 @@ function populateArtworkDescriptionData(jsonData) {
     if (jsonData.segments && jsonData.segments.data) {
         populateSegmentTable(jsonData.segments);
     }
+    if (jsonData.guardRing && jsonData.guardRing.data) {
+        populateGuardRingTable(jsonData.guardRing);
+        populateDummyFillTable(jsonData.guardRing);
+    }
 }
 
 
@@ -193,6 +197,7 @@ function loadArtworkDescriptionFile(filePath, fileName) {
             }
         );
     });
+    
 }
 
 
@@ -252,8 +257,45 @@ function uploadAndLoadFromADF() {
     };
 
     xhr.send(formData);
+
+    // Reset the file input value
+    document.getElementById('fileInput').value = '';
 }
 
+
+function saveArtworkDescriptionData(filePath, fileName) {
+    var artworkDescriptionDataJSON = {
+        layer: getLayersJSON().layer,
+        via: getViaJSON().via,
+        viaPadStack: getViaPadStackJSON().viaPadStack,
+        bridges: getBridgeJSON().bridges,
+        ports: getPortsJSON().ports,
+        arms: getArmsJSON().arms,
+        segments: getSegmentsJSON().segments,
+        guardRing: getGuardRingJSON().guardRing
+    };
+
+    var flaskJsonData = {
+        data: artworkDescriptionDataJSON,
+        savePath: filePath,
+        saveName: fileName
+    };
+
+    // Call saveJsonData to save the JSON data
+    saveJsonData(
+        flaskJsonData,
+        '/save_json',
+        function () {
+            alert('Data saved successfully!');
+            updateArtworkTabsAvailability(); // Update tabs after saving data
+        },
+        function (errorMessage) {
+            alert(errorMessage);
+            // Optionally handle further error logic here
+            updateArtworkTabsAvailability(); // Update tabs after error
+        }
+    );
+}
 
 function saveADF() {
     

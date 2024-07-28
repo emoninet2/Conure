@@ -123,7 +123,8 @@ function saveArtworkDescriptionData(filePath, fileName) {
         bridges: getBridgeJSON().bridges,
         ports: getPortsJSON().ports,
         arms: getArmsJSON().arms,
-        segments: getSegmentsJSON().segments
+        segments: getSegmentsJSON().segments,
+        guardRing: getGuardRingJSON().guardRing
     };
 
     var flaskJsonData = {
