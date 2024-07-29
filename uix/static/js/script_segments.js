@@ -114,7 +114,7 @@ function generateSegmentTables() {
     }
     updateDropdownsInSegment();
     // Call the new function to disable jump and bridge/arm fields for DEFAULT type
-    disableJumpAndBridgeArmForDefaultType();
+
 }
 
 
@@ -239,7 +239,6 @@ function saveSegments() {
     })
     .catch(error => console.error('Error:', error));
 
-    //updateArtworkTabsAvailability(); // Update tabs after saving data
 }
 
 
@@ -308,8 +307,6 @@ function populateSegmentTable(segments) {
         }
     }
 
-    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
-    disableJumpAndBridgeArmForDefaultType();
    
 }
 
@@ -345,12 +342,11 @@ function updateDropdownsInSegment() {
         }
     }
 
-    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
-    disableJumpAndBridgeArmForDefaultType();
+
 }
 
 
-function disableJumpForDefaultType() {
+function updateJumpAndBridgeArmFieldsAccessibility() {
     const segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
 
     for (let i = 0; i < segmentTables.length; i++) {
@@ -364,35 +360,22 @@ function disableJumpForDefaultType() {
             if (typeSelect.value === 'DEFAULT') {
                 jumpInput.disabled = true;
                 bridgeArmSelect.disabled = true;
-            } else {
-                jumpInput.disabled = false;
-                bridgeArmSelect.disabled = false;
-            }
-        }
-    }
-}
-
-function disableJumpAndBridgeArmForDefaultType() {
-    const segmentTables = document.getElementById('segmentTable').getElementsByTagName('table');
-
-    for (let i = 0; i < segmentTables.length; i++) {
-        const rows = segmentTables[i].getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-
-        for (let j = 0; j < rows.length; j++) {
-            const typeSelect = rows[j].querySelector('select[name^="type"]');
-            const jumpInput = rows[j].querySelector('input[name^="jump"]');
-            const bridgeArmSelect = rows[j].querySelector('select[name^="bridgeArm"]');
-
-            if (typeSelect.value === 'DEFAULT') {
+            } 
+            else if (typeSelect.value === 'PORT') {
                 jumpInput.disabled = true;
-                bridgeArmSelect.disabled = true;
-            } else {
+                bridgeArmSelect.disabled = false;
+            }
+            else {
                 jumpInput.disabled = false;
                 bridgeArmSelect.disabled = false;
             }
         }
     }
 }
+
+
+
+
 
 
 
@@ -426,8 +409,8 @@ function myfoo(){
 }
 
 
-initializeSegmentChangeObserver(disableJumpForDefaultType);
-
+//initializeSegmentChangeObserver(disableJumpForDefaultType);
+initializeSegmentChangeObserver(updateJumpAndBridgeArmFieldsAccessibility); 
 
 initializeLayerChangeObserver(updateDropdownsInSegment);
 initializeBridgeChangeObserver(updateDropdownsInSegment);

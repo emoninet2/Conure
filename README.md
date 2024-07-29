@@ -1,3 +1,5 @@
+<img src="./resources/images/logo_nb_large.png" alt="Conure Logo" width="100"/>
+
 # Conure: Passive Device Artwork Generator, Modelling, and Optimization
 
 Conure is a tool designed to generate inductor artwork and model it using Artificial Neural Networks (ANN) with options for hyperparameter tuning. Our current modeling technique employs ANNs, and the optimization algorithm utilizes NSGA-II. The supported simulator at present is EMX from Cadence.
@@ -32,12 +34,14 @@ Conure is a tool designed to generate inductor artwork and model it using Artifi
 
 - **EMX Simulation**: Seamlessly simulate using the Cadence EMX simulator.
 
+- **UiX for generating artwork description file**: Create new or load and modify existing artwork description file and generate preview.  
+
+<img src="./resources/images/uix_artwork_preview.png" alt="UiX " width="500"/>
+
 ## Work in Progress
 
 - Support for openEMS.
-  
-- A graphical user interface (GUI) for more user-friendly interactions.
-  
+
 - Additional inductor optimization techniques.
   
 - Hot encoding for process technology to be utilized in models.
@@ -66,3 +70,7 @@ $ python sweep/sweep.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_
 ```
 
 
+## Citation
+This tool has been presented as a conference proceeding in the 2024 IEEE International Symposium on Circuits and Systems (ISCAS), Singapore:
+
+*H. Rahman, A. L. Recha, S. Fasciani, P. G. Hogganvik, K. G. Kjelgård and D. T. Wisland, "Conure: Surrogate-based Artwork Generator for RFCMOS Integrated Inductors," 2024 IEEE International Symposium on Circuits and Systems (ISCAS), Singapore, Singapore, 2024, pp. 1-5, doi: [10.1109/ISCAS58744.2024.10558598](https://ieeexplore.ieee.org/document/10558598).* 
