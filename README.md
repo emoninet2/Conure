@@ -70,6 +70,17 @@ $ python sweep/sweep.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_
 ```
 
 
+## Development Team
+
+- **Habibur Rahman**, University of Oslo, Oslo, Norway
+- **Adrian Llop Recha**, University of Oslo, Oslo, Norway 
+- **Stefano Fasciani**, University of Oslo, Oslo, Norway 
+- **Pål Gunnar Hogganvik**, University of Oslo, Oslo, Norway 
+- **Kristian Kjelgård**, University of Oslo, Oslo, Norway 
+- **Dag Wisland**, University of Oslo, Oslo, Norway 
+
+
+
 ## Citation
 This tool has been presented as a conference proceeding in the 2024 IEEE International Symposium on Circuits and Systems (ISCAS), Singapore:
 
