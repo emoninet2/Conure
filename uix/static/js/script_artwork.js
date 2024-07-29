@@ -267,8 +267,27 @@ function uploadAndLoadFromADF() {
 }
 
 
+function getParametersJSON() {
+    var parameters = {
+        "name": "Inductor_Coplanar_4",
+        "class": "Spiral",
+        "type": "Coplanar",
+        "corners": 8,
+        "rings": 4,
+        "apothem": 80,
+        "width": 20,
+        "spacing": 2,
+        "precision": 0.005,
+        "outputDir": "./ARTWORK"
+    };
+
+    return { "parameters": parameters };
+}
+
+
 function saveArtworkDescriptionData(filePath, fileName) {
     var artworkDescriptionDataJSON = {
+        parameters: getParametersJSON().parameters,
         layer: getLayersJSON().layer,
         via: getViaJSON().via,
         viaPadStack: getViaPadStackJSON().viaPadStack,

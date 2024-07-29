@@ -48,7 +48,7 @@ function getViaPadStackJSON() {
         var name = nameInput.value.trim();
         var topLayer = topLayerSelect.value.trim();
         var bottomLayer = bottomLayerSelect.value.trim();
-        var margin = parseInt(marginInput.value.trim());
+        var margin = parseFloat(marginInput.value.trim());
 
         var viaList = Array.from(viaListSelect.selectedOptions).map(option => option.value.trim());
 
@@ -86,7 +86,7 @@ function saveViaPadStack() {
         var name = nameInput.value.trim();
         var topLayer = topLayerSelect.value.trim();
         var bottomLayer = bottomLayerSelect.value.trim();
-        var margin = parseInt(marginInput.value.trim());
+        var margin = parseFloat(marginInput.value.trim());
 
         var viaList = Array.from(viaListSelect.selectedOptions).map(option => option.value.trim());
 

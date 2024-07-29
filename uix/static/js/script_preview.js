@@ -1,8 +1,12 @@
 async function preview() {
-    const ADF = projectDirectoryPath + "/ARD.json";
-    const outputPath = projectDirectoryPath + "/temp/OUTPUT";
+    
+    const outputPath = projectDirectoryPath + "/temp/preview/";
     const outputName = projectName;
-    const svgFilePath = `${outputPath}/${outputName}.svg`;
+    
+
+    saveArtworkDescriptionData(outputPath, outputName + ".json");
+
+    const ADF = projectDirectoryPath + "/temp/preview/" + projectName + ".json";
 
     try {
         const response = await fetch('/generate_preview', {
@@ -15,14 +19,15 @@ async function preview() {
 
         const data = await response.json();
 
-        if (data.status === 'success') {
-            // Expand the path on the client side if necessary
-            const expandedSvgFilePath = svgFilePath.replace('~', '/Users/habiburrahman'); // Replace with the correct home directory
+        const svgFilePath = `${outputPath}/${outputName}.svg`;
 
-            const svgResponse = await fetch(`/get_svg?path=${expandedSvgFilePath}`);
+        if (data.status === 'success') {
+            // No need to expand the path on the client side
+            const svgResponse = await fetch(`/get_svg?path=${svgFilePath}`);
             const svgText = await svgResponse.text();
 
             const previewDiv = document.getElementById('svg-preview');
+            console.log('Preview Div:', previewDiv); // Debugging log
             if (!previewDiv) {
                 throw new Error('Preview div not found');
             }
@@ -36,7 +41,7 @@ async function preview() {
             //         'Content-Type': 'application/x-www-form-urlencoded',
             //     },
             //     body: new URLSearchParams({
-            //         filePath: expandedSvgFilePath
+            //         filePath: svgFilePath
             //     }),
             // });
 

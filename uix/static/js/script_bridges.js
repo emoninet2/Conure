@@ -51,7 +51,7 @@ function getBridgeJSON() {
         var name = nameInput.value.trim();
         var layer = layerSelect.value.trim();
         var via = viaSelect ? viaSelect.value.trim() : undefined;
-        var width = widthInput ? parseInt(widthInput.value.trim()) : undefined;
+        var width = widthInput ? parseFloat(widthInput.value.trim()) : undefined;
         var stackCCW = stackCCWSelect ? stackCCWSelect.value.trim() : undefined;
         var stackCW = stackCWSelect ? stackCWSelect.value.trim() : undefined;
 
@@ -99,7 +99,7 @@ function saveBridges() {
         var name = nameInput.value.trim();
         var layer = layerSelect.value.trim();
         var via = viaSelect ? viaSelect.value.trim() : undefined;
-        var width = widthInput ? parseInt(widthInput.value.trim()) : undefined;
+        var width = widthInput ? parseFloat(widthInput.value.trim()) : undefined;
         var stackCCW = stackCCWSelect ? stackCCWSelect.value.trim() : undefined;
         var stackCW = stackCWSelect ? stackCWSelect.value.trim() : undefined;
 

@@ -48,10 +48,10 @@ function getViaJSON() {
         var layerSelect = row.querySelector('select[name^="viaLayer"]');
 
         var name = nameInput.value.trim();
-        var length = parseInt(lengthInput.value.trim());
-        var width = parseInt(widthInput.value.trim());
-        var spacing = parseInt(spacingInput.value.trim());
-        var angle = parseInt(angleInput.value.trim());
+        var length = parseFloat(lengthInput.value.trim());
+        var width = parseFloat(widthInput.value.trim());
+        var spacing = parseFloat(spacingInput.value.trim());
+        var angle = parseFloat(angleInput.value.trim());
         var layer = layerSelect.value.trim(); // Get selected value from dropdown
 
         // Validate all inputs including layer
@@ -94,10 +94,10 @@ function saveVia() {
         var layerSelect = row.querySelector('select[name^="viaLayer"]');
 
         var name = nameInput.value.trim();
-        var length = parseInt(lengthInput.value.trim());
-        var width = parseInt(widthInput.value.trim());
-        var spacing = parseInt(spacingInput.value.trim());
-        var angle = parseInt(angleInput.value.trim());
+        var length = parseFloat(lengthInput.value.trim());
+        var width = parseFloat(widthInput.value.trim());
+        var spacing = parseFloat(spacingInput.value.trim());
+        var angle = parseFloat(angleInput.value.trim());
         var layer = layerSelect.value.trim(); // Get selected value from dropdown
 
         // Validate all inputs including layer

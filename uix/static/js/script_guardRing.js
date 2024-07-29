@@ -107,7 +107,7 @@ function getGuardRingJSON() {
 
 
     //var guardRingDistanceValue = document.getElementById('guardRingDistance').value;
-    var guardRingDistanceValue = parseInt(document.getElementById('guardRingDistance').value, 10);
+    var guardRingDistanceValue = parseFloat(document.getElementById('guardRingDistance').value, 10);
     
 
     

@@ -102,7 +102,7 @@ function getPortsJSON() {
 
 
         var portID = simPortsTable.rows[j].querySelector('input[name^="portID"]')
-            ? parseInt(simPortsTable.rows[j].querySelector('input[name^="portID"]').value.trim())
+            ? parseFloat(simPortsTable.rows[j].querySelector('input[name^="portID"]').value.trim())
             : undefined;
 
         var portType = simPortsTable.rows[j].querySelector('select[name^="portType"]')
@@ -170,7 +170,7 @@ function savePorts() {
 
 
         var portID = simPortsTable.rows[j].querySelector('input[name^="portID"]')
-            ? parseInt(simPortsTable.rows[j].querySelector('input[name^="portID"]').value.trim())
+            ? parseFloat(simPortsTable.rows[j].querySelector('input[name^="portID"]').value.trim())
             : undefined;
 
         var portType = simPortsTable.rows[j].querySelector('select[name^="portType"]')

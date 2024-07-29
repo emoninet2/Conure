@@ -318,7 +318,7 @@ def generate_preview():
 
     command = f"python {artwork_generator_path} -a {ADFPath} -o {outputPath} -n {outputName}"
 
-    #print(f"Command: {command}")
+    print(f"Command: {command}")
     #print(f"Current Working Directory: {os.getcwd()}")
     #print(f"Environment Variables: {os.environ}")
 
@@ -338,6 +338,9 @@ def generate_preview():
 def get_svg():
     svg_path = request.args.get('path')
     try:
+        # Expand user tilde to the full path
+        svg_path = os.path.expanduser(svg_path)
+        
         if not os.path.exists(svg_path):
             raise FileNotFoundError(f"The file {svg_path} does not exist.")
         
@@ -350,6 +353,7 @@ def get_svg():
     except Exception as e:
         print(f"Error reading SVG file: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 if __name__ == '__main__':

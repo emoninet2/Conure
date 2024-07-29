@@ -57,9 +57,9 @@ function getArmsJSON() {
 
         var name = row.querySelector('input[name^="armName"]').value.trim();
         arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
-        arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
-        arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
-        arm.spacing = parseInt(row.querySelector('input[name^="armSpacing"]').value);
+        arm.length = parseFloat(row.querySelector('input[name^="armLength"]').value);
+        arm.width = parseFloat(row.querySelector('input[name^="armWidth"]').value);
+        arm.spacing = parseFloat(row.querySelector('input[name^="armSpacing"]').value);
 
         if (arm.type === "SINGLE") {
             arm.port = row.querySelector('select[name^="armPort1"]').value;
@@ -95,9 +95,9 @@ function saveArms() {
 
         var name = row.querySelector('input[name^="armName"]').value.trim();
         arm.type = row.querySelector('select[name^="armType"]').value.toUpperCase();
-        arm.length = parseInt(row.querySelector('input[name^="armLength"]').value);
-        arm.width = parseInt(row.querySelector('input[name^="armWidth"]').value);
-        arm.spacing = parseInt(row.querySelector('input[name^="armSpacing"]').value);
+        arm.length = parseFloat(row.querySelector('input[name^="armLength"]').value);
+        arm.width = parseFloat(row.querySelector('input[name^="armWidth"]').value);
+        arm.spacing = parseFloat(row.querySelector('input[name^="armSpacing"]').value);
 
         if (arm.type === "SINGLE") {
             arm.port = row.querySelector('select[name^="armPort1"]').value;

@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 function generateSegmentTables() {
-    const numRings = parseInt(document.getElementById('numRings').value) || 0;
+    const numRings = parseFloat(document.getElementById('numRings').value) || 0;
     const segmentTableContainer = document.getElementById('segmentTable');
 
     // Store current values
@@ -151,7 +151,7 @@ function getSegmentsJSON() {
             };
 
             if (typeSelect === 'BRIDGE') {
-                groupItem.data.jump = parseInt(jumpInput) || 0;
+                groupItem.data.jump = parseFloat(jumpInput) || 0;
                 groupItem.data.bridge = bridgeArmSelect;
             } else if (typeSelect === 'PORT') {
                 groupItem.data.arm = bridgeArmSelect;
@@ -204,7 +204,7 @@ function saveSegments() {
             };
 
             if (typeSelect === 'BRIDGE') {
-                groupItem.data.jump = parseInt(jumpInput) || 0;
+                groupItem.data.jump = parseFloat(jumpInput) || 0;
                 groupItem.data.bridge = bridgeArmSelect;
             } else if (typeSelect === 'PORT') {
                 groupItem.data.arm = bridgeArmSelect;

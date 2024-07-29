@@ -35,8 +35,8 @@ function getLayersJSON() {
         var gdsDatatypeInput = row.querySelector('input[name^="gdsDatatype"]');
 
         var name = nameInput.value.trim();
-        var gdsLayer = parseInt(gdsLayerInput.value.trim());
-        var gdsDatatype = parseInt(gdsDatatypeInput.value.trim());
+        var gdsLayer = parseFloat(gdsLayerInput.value.trim());
+        var gdsDatatype = parseFloat(gdsDatatypeInput.value.trim());
 
         if (name && !isNaN(gdsLayer) && !isNaN(gdsDatatype)) {
             layers[name] = {
@@ -67,8 +67,8 @@ function saveLayers() {
         var gdsDatatypeInput = row.querySelector('input[name^="gdsDatatype"]');
 
         var name = nameInput.value.trim();
-        var gdsLayer = parseInt(gdsLayerInput.value.trim());
-        var gdsDatatype = parseInt(gdsDatatypeInput.value.trim());
+        var gdsLayer = parseFloat(gdsLayerInput.value.trim());
+        var gdsDatatype = parseFloat(gdsDatatypeInput.value.trim());
 
         if (name && !isNaN(gdsLayer) && !isNaN(gdsDatatype)) {
             layers[name] = {
