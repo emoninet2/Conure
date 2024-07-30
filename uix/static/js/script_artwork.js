@@ -200,7 +200,7 @@ function loadArtworkDescriptionFile(filePath, fileName) {
         loadJsonData(jsonPath,
             function (data) {
                 populateArtworkDescriptionData(data); // Call function to populate table with loaded data
-                alert('JSON data loaded successfully!');
+                //alert('JSON data loaded successfully!');
                 updateArtworkTabsAvailability(); // Update tabs after loading data
                 resolve(); // Resolve the promise when data is loaded and processed
             },
@@ -221,7 +221,7 @@ function loadADF() {
     loadJsonData(bridgeJsonPath,
         function (data) {
             populateArtworkDescriptionData(data)
-            alert('JSON data loaded successfully!');
+            //alert('JSON data loaded successfully!');
             updateArtworkTabsAvailability(); // Update tabs after loading data
         },
         function (errorMessage) {
@@ -243,18 +243,18 @@ function uploadAndLoadFromADF() {
     formData.append('uploadFolder', uploadFolder);
 
     const fullPath = uploadFolder + '/' + file.name;
-    alert('Uploading file to: ' + fullPath);
+    //alert('Uploading file to: ' + fullPath);
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/upload', true);
     xhr.onload = function () {
         if (xhr.status === 200) {
-            alert('File uploaded successfully');
+            //alert('File uploaded successfully');
             // Load the file after successful upload
             loadJsonData(fullPath,
                 function (data) {
                     populateArtworkDescriptionData(data);
-                    alert('JSON data loaded successfully!');
+                    //alert('JSON data loaded successfully!');
                     deleteFile(fullPath); // Delete the file after loading data
                     updateArtworkTabsAvailability(); // Update tabs after loading data
                 },
@@ -303,7 +303,7 @@ function saveArtworkDescriptionData(filePath, fileName) {
         flaskJsonData,
         '/save_json',
         function () {
-            alert('Data saved successfully!');
+            //alert('Data saved successfully!');
             updateArtworkTabsAvailability(); // Update tabs after saving data
         },
         function (errorMessage) {
@@ -315,7 +315,14 @@ function saveArtworkDescriptionData(filePath, fileName) {
 }
 
 function saveADF() {
-    
-    //saveArtworkDescriptionData(projectDirectoryPath, "mysavedARD.json"); // Save data after loading
-    saveArtworkDescriptionData(projectDirectoryPath, projectName + ".json"); // Save data after loading
+    try {
+        // Attempt to save the artwork description data
+        saveArtworkDescriptionData(projectDirectoryPath, projectName + ".json");
+
+        // If no errors occur, display success message
+        alert('ARD data saved successfully!');
+    } catch (error) {
+        // Optionally, you can handle the error here
+        console.error('An error occurred while saving JSON data:', error);
+    }
 }

@@ -54,7 +54,7 @@ function createProjectAndName() {
     createProjectName();
     createProject();
     
-    alert('Project Configured!');
+    //alert('Project Configured!');
 }
 
 

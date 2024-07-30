@@ -9,7 +9,7 @@ function deleteFile(filePath) {
     xhr.open('POST', '/delete_file', true);
     xhr.onload = function () {
         if (xhr.status === 200) {
-            alert('File deleted successfully');
+            //alert('File deleted successfully');
         } else {
             alert('File deletion failed');
         }
