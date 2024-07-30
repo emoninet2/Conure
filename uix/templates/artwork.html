@@ -23,7 +23,7 @@
 <!-- <button onclick="saveADF()">Save</button> -->
 <!-- </form> -->
 
-
+<button id="btn-sel-artwork-parameters" onclick="showArtworkTab('parameters')">Parameters</button>
 <button id="btn-sel-artwork-segment" onclick="showArtworkTab('segment')">Segment</button>
 <button id="btn-sel-artwork-arms" onclick="showArtworkTab('arms')">Arms</button>
 <button id="btn-sel-artwork-ports" onclick="showArtworkTab('ports')">Ports</button>
@@ -43,6 +43,29 @@
 </div>
 
 
+
+<div id="parameters" class="sub-tab-content" style="display: none;">
+    <h3>Design Parameters</h3>
+   
+    <div style="overflow-x: auto;">
+
+        <div id="paramTable">
+            <!-- Tables will be dynamically generated here -->
+            <label for="apothem">Apothem:</label>
+            <input type="number" id="apothem" value="" min="1">
+            <br>
+            <label for="condWidth">Conductor Width:</label>
+            <input type="number" id="condWidth" value="" min="1">
+            <br>
+            <label for="condSpacing">Conductor Spacing:</label>
+            <input type="number" id="condSpacing" value="" min="1">
+            <br>
+        </div>
+    
+    
+    </div>
+
+</div>
 
 <div id="segment" class="sub-tab-content" style="display: none;">
     <h3>Segment Designer</h3>
@@ -393,3 +416,4 @@
 <script src="/static/js/script_segments.js"></script>
 <script src="/static/js/script_guardRing.js"></script>
 <script src="/static/js/script_preview.js"></script>
+<script src="/static/js/script_parameters.js"></script>

@@ -310,8 +310,8 @@ def delete_file():
 @app.route('/generate_preview', methods=['POST'])
 def generate_preview():
     data = request.json
-
-    artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
+    artwork_generator_path = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
+    #artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
     ADFPath = os.path.expanduser(data.get('ADF'))
     outputPath = os.path.expanduser(data.get('outputPath', ''))
     outputName = data.get('outputName', '')

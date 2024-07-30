@@ -3,6 +3,7 @@
 
 var tabButton = {};
 
+tabButton.parameters = document.getElementById('btn-sel-artwork-parameters');
 tabButton.segment = document.getElementById('btn-sel-artwork-segment');
 tabButton.arms = document.getElementById('btn-sel-artwork-arms');
 tabButton.ports = document.getElementById('btn-sel-artwork-ports');
@@ -44,6 +45,10 @@ function showArtworkTab(subTabName) {
 
 
     switch (subTabName) {
+        case 'parameters':
+            // Code for segment sub-tab
+            tabButton.parameters.classList.add('active-tab');
+            break;
         case 'segment':
             // Code for segment sub-tab
             tabButton.segment.classList.add('active-tab');
@@ -155,6 +160,9 @@ function updateArtworkTabsAvailability() {
 
 
 function populateArtworkDescriptionData(jsonData) {
+    if (jsonData.parameters){
+        populateParamTable(jsonData.parameters);
+    }
     if (jsonData.layer) {
         populateLayersTable(jsonData.layer);
     }
@@ -180,6 +188,8 @@ function populateArtworkDescriptionData(jsonData) {
         populateGuardRingTable(jsonData.guardRing);
         populateDummyFillTable(jsonData.guardRing);
     }
+
+
 }
 
 
@@ -267,27 +277,11 @@ function uploadAndLoadFromADF() {
 }
 
 
-function getParametersJSON() {
-    var parameters = {
-        "name": "Inductor_Coplanar_4",
-        "class": "Spiral",
-        "type": "Coplanar",
-        "corners": 8,
-        "rings": 4,
-        "apothem": 80,
-        "width": 20,
-        "spacing": 2,
-        "precision": 0.005,
-        "outputDir": "./ARTWORK"
-    };
-
-    return { "parameters": parameters };
-}
 
 
 function saveArtworkDescriptionData(filePath, fileName) {
     var artworkDescriptionDataJSON = {
-        parameters: getParametersJSON().parameters,
+        parameters: getParamJSON().parameters,
         layer: getLayersJSON().layer,
         via: getViaJSON().via,
         viaPadStack: getViaPadStackJSON().viaPadStack,
