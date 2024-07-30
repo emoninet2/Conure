@@ -1,14 +1,20 @@
 async function preview() {
-    
     const outputPath = projectDirectoryPath + "/temp/preview/";
     const outputName = projectName;
-    
 
     saveArtworkDescriptionData(outputPath, outputName + ".json");
 
     const ADF = projectDirectoryPath + "/temp/preview/" + projectName + ".json";
 
     try {
+        // Display the "generating preview" message
+        const previewDiv = document.getElementById('svg-preview');
+        if (!previewDiv) {
+            throw new Error('Preview div not found');
+        }
+        previewDiv.innerHTML = "Generating preview, please wait...";
+        previewDiv.style.display = 'block'; // Ensure the preview div is visible
+
         const response = await fetch('/generate_preview', {
             method: 'POST',
             headers: {
@@ -22,17 +28,10 @@ async function preview() {
         const svgFilePath = `${outputPath}/${outputName}.svg`;
 
         if (data.status === 'success') {
-            // No need to expand the path on the client side
             const svgResponse = await fetch(`/get_svg?path=${svgFilePath}`);
             const svgText = await svgResponse.text();
 
-            const previewDiv = document.getElementById('svg-preview');
-            console.log('Preview Div:', previewDiv); // Debugging log
-            if (!previewDiv) {
-                throw new Error('Preview div not found');
-            }
             previewDiv.innerHTML = svgText;
-            previewDiv.style.display = 'block'; // Ensure the preview div is visible
 
             // Optionally delete the SVG file after displaying it
             // const deleteResponse = await fetch('/delete_file', {
@@ -52,8 +51,13 @@ async function preview() {
             // }
         } else {
             console.error('Error generating preview:', data.error);
+            previewDiv.innerHTML = 'Error generating preview';
         }
     } catch (error) {
         console.error('Error during preview generation:', error);
+        const previewDiv = document.getElementById('svg-preview');
+        if (previewDiv) {
+            previewDiv.innerHTML = 'Error during preview generation';
+        }
     }
 }
