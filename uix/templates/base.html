@@ -9,12 +9,10 @@
         /* Add your CSS styles here */
         .tab-content {
             display: none;
-
         }
 
         .tab-content.active {
             display: block;
-
         }
 
         .active-tab {
@@ -68,24 +66,47 @@
         <button id="btn-sel-artwork" onclick="showTab('artwork')">Artwork</button>
         <button id="btn-sel-simulate" onclick="showTab('simulate')">Simulate</button>
         <button id="btn-sel-sweep" onclick="showTab('sweep')">Sweep</button>
+        <button id="btn-sel-sweep" onclick="showTab('about')">About</button>
     </div>
 
-    {% block content %}{% endblock %}
+    <div id="content">
+        <div id="project" class="tab-content active">
+            {% include 'project.html' %}
+        </div>
 
+        <div id="artwork" class="tab-content">
+            {% include 'artwork.html' %}
+        </div>
 
+        <div id="simulate" class="tab-content">
+            {% include 'simulate.html' %}
+        </div>
+
+        <div id="sweep" class="tab-content">
+            {% include 'sweep.html' %}
+        </div>
+
+        <div id="about" class="tab-content">
+            {% include 'about.html' %}
+        </div>
+    </div>
 
     <script>
+        function showTab(tabName) {
+            var i;
+            var x = document.getElementsByClassName("tab-content");
+            for (i = 0; i < x.length; i++) {
+                x[i].classList.remove("active");
+            }
+            document.getElementById(tabName).classList.add("active");
+        }
 
         document.addEventListener('DOMContentLoaded', function () {
-
+            updateArtworkTabsAvailability();
             showTab('project'); // Show project tab by default
-            updateArtworkTabsAvailability(); // Update tabs after deleting row
+            
         });
-
-
-
     </script>
-
 
 </body>
 

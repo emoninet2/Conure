@@ -8,7 +8,7 @@ function getParamJSON() {
 
 
     var parameters = {
-        "name": "Inductor_Coplanar_4",
+        "name": projectName,
         "class": "Spiral",
         "type": "Coplanar",
         "corners": 8,
