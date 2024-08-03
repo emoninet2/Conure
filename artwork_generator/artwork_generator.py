@@ -61,12 +61,14 @@ class inductiveComp:
 		self._generate_dummy_fills()
 		self._generate_port_items()
 
+		
 		self._draw_items_to_gds(self.segment_gds_items,True, 0.005)
 		self._draw_items_to_gds(self.bridge_gds_items,True, 0.005)
 		self._draw_items_to_gds(self.arm_gds_items,True, 0.005)
-		self._draw_items_to_gds(self.guard_ring_gds_items,True, 0.005)
 		self._draw_items_to_gds(self.via_gds_items,True, 0.005,)
+		self._draw_items_to_gds(self.guard_ring_gds_items, True, 0.005)
 		self._draw_items_to_gds(self.dummy_fills_gds_items,True, 0.005, True, 0.02)
+		
 
 		gdsOutputPath = []
 		gdsOutputName = []

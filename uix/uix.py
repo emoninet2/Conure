@@ -1,6 +1,7 @@
 
 import os
 import subprocess
+import shlex
 import json
 from flask import Flask, render_template, request, jsonify, session, Response
 import traceback
@@ -218,7 +219,7 @@ def load_json():
     if json_path:
         try:
             # Log the received path
-            print(f"Received JSON path: {json_path}")
+            #print(f"Received JSON path: {json_path}")
             
             # Expand user path to handle tilde (~) symbol
             json_path = os.path.expanduser(json_path)
@@ -310,13 +311,15 @@ def delete_file():
 @app.route('/generate_preview', methods=['POST'])
 def generate_preview():
     data = request.json
-    artwork_generator_path = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
+    ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
+    
     #artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
     ADFPath = os.path.expanduser(data.get('ADF'))
     outputPath = os.path.expanduser(data.get('outputPath', ''))
     outputName = data.get('outputName', '')
 
-    command = f"python {artwork_generator_path} -a {ADFPath} -o {outputPath} -n {outputName}"
+    command = f"python {ARTWORK_GENERATOR_PATH} -a {ADFPath} -o {outputPath} -n {outputName}"
+    command_list = shlex.split(command)
 
     print(f"Command: {command}")
     #print(f"Current Working Directory: {os.getcwd()}")
@@ -324,14 +327,63 @@ def generate_preview():
 
     # Call the command as a subprocess
     try:
-        result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
-        output = result.stdout
-        error = result.stderr
+        process = subprocess.run(command_list)
+        #result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
+        #result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        output = process.stdout
+        error = process.stderr
+
+        print("Subprocess Output:\n", output)
+        if error:
+            print("Subprocess Error:\n", error)
+
     except subprocess.CalledProcessError as e:
+        print("PREVIEW ERROR")
         output = e.output
-        error = str(e)
+        #error = str(e)
+        error = e.stderr
+        print("Subprocess Error Output:\n", error)
 
     return jsonify({"status": "success", "command": command, "output": output, "error": error})
+
+
+
+@app.route('/sweep_generate', methods=['POST'])
+def sweep_generate():
+    data = request.json
+    SWEEP_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/sweep/sweep.py"
+    SIMULATOR_CONFIG_PATH = "/projects/bitstream/emon/projects/conure/simulator/config.json"
+    ADFPath = os.path.expanduser(data.get('ADFPath'))
+    sweepConfigPath = os.path.expanduser(data.get('sweepConfigPath'))
+    outputPath = os.path.expanduser(data.get('outputPath', ''))
+    outputName = data.get('uniqueSweepName', '')
+    enableSimulation = data.get('enableSimulation', False)
+
+    #command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName}"
+
+    if enableSimulation:
+        command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName} --simulate -c {SIMULATOR_CONFIG_PATH} --sim emx"
+    else:
+        command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName}"
+
+
+    command_list = shlex.split(command)
+
+
+    #print(f"Command: {command}")
+    try:
+        process = subprocess.run(command_list)
+        output = process.stdout
+        error = process.stderr
+    except subprocess.CalledProcessError as e:
+        print("SWEEP ERROR")
+        output = e.output
+        # error = str(e)
+        error = e.stderr
+
+    return jsonify({"status": "success", "command": command, "output": output, "error": error})
+
+
 
 
 @app.route('/get_svg', methods=['GET'])

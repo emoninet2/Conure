@@ -37,6 +37,25 @@
             width: 70%;
             height: auto;
         }
+
+        .parameter-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .parameter-row label {
+            width: 80px;
+        }
+
+        .parameter-row input {
+            width: 80px;
+            margin-left: 10px;
+        }
+
+        .parameter-row legend {
+            width: 100px;
+        }
     </style>
 </head>
 
@@ -104,7 +123,7 @@
         document.addEventListener('DOMContentLoaded', function () {
             updateArtworkTabsAvailability();
             showTab('project'); // Show project tab by default
-            
+
         });
     </script>
 

@@ -30,7 +30,7 @@ def emx(emxArgs):
 
     # creating the ports
     for simulatingPorts in emxArgs["simulatingPorts"]:
-        if simulatingPorts["type"] == "differential":
+        if simulatingPorts["type"].lower() == "differential":
             plusPort = simulatingPorts["plus"]
             minusPort = simulatingPorts["minus"]
             plusPortLabel = emxArgs["designPorts"]["data"][plusPort]["label"]
@@ -38,7 +38,7 @@ def emx(emxArgs):
             emxPortId = simulatingPorts["id"]
             command += "-p P" + "{:03d}".format(emxPortId) + "=" + plusPortLabel + ":" + minusPortLabel+ " "
             pass
-        elif simulatingPorts["type"] == "single":
+        elif simulatingPorts["type"].lower() == "single":
             plusPort = simulatingPorts["plus"]
             plusPortLabel = emxArgs["designPorts"]["data"][plusPort]["label"]
             emxPortId = simulatingPorts["id"]

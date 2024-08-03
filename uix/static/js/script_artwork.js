@@ -103,6 +103,7 @@ function updateArtworkTabsAvailability() {
     var armTable = document.getElementById('armsTable').getElementsByTagName('tbody')[0];
     var segmentTable = document.getElementById('segmentTable').getElementsByTagName('tbody')[0];
 
+
     var isLayerTableEmpty = layersTable.rows.length === 0;
     var isViaTableEmpty = viaTable.rows.length === 0;
     var isViaPadStackTableEmpty = viaPadStackTable.rows.length === 0;
@@ -111,7 +112,7 @@ function updateArtworkTabsAvailability() {
     var isArmTableEmpty = armTable.rows.length === 0;
     //var isSegmentTableEmpty = segmentTable.rows.length === 0;
 
-    var tabsToDisable = ['segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
+    var tabsToDisable = ['parameters','segment', 'arms', 'ports', 'bridges', 'viaPadStack', 'via', 'guardRing'];
 
     tabsToDisable.forEach(function (tabName) {
         var tabButton = document.querySelector(`button[onclick="showArtworkTab('${tabName}')"]`);
@@ -133,6 +134,9 @@ function updateArtworkTabsAvailability() {
             }
             if (tabName === 'guardRing') {
                 tabButton.disabled = isLayerTableEmpty ;
+            }
+            if (tabName === 'parameters') {
+                tabButton.disabled = isLayerTableEmpty;
             }
         }
     });
@@ -277,9 +281,7 @@ function uploadAndLoadFromADF() {
 }
 
 
-
-
-function saveArtworkDescriptionData(filePath, fileName) {
+function getArtworkDescriptionDataJSON(){
     var artworkDescriptionDataJSON = {
         parameters: getParamJSON().parameters,
         layer: getLayersJSON().layer,
@@ -291,6 +293,25 @@ function saveArtworkDescriptionData(filePath, fileName) {
         segments: getSegmentsJSON().segments,
         guardRing: getGuardRingJSON().guardRing
     };
+
+
+    return artworkDescriptionDataJSON;
+}
+
+function saveArtworkDescriptionData(filePath, fileName) {
+    // var artworkDescriptionDataJSON = {
+    //     parameters: getParamJSON().parameters,
+    //     layer: getLayersJSON().layer,
+    //     via: getViaJSON().via,
+    //     viaPadStack: getViaPadStackJSON().viaPadStack,
+    //     bridges: getBridgeJSON().bridges,
+    //     ports: getPortsJSON().ports,
+    //     arms: getArmsJSON().arms,
+    //     segments: getSegmentsJSON().segments,
+    //     guardRing: getGuardRingJSON().guardRing
+    // };
+
+    var artworkDescriptionDataJSON = getArtworkDescriptionDataJSON()
 
     var flaskJsonData = {
         data: artworkDescriptionDataJSON,

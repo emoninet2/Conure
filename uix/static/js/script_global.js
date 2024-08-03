@@ -1,3 +1,7 @@
+var projectDirectoryPath = '';
+var projectName = '';
+
+
 const layersTable = document.getElementById('layersTable');
 
 
@@ -16,4 +20,16 @@ function deleteFile(filePath) {
     };
 
     xhr.send(formData);
+}
+
+
+function downloadJSON(json, filename) {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }

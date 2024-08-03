@@ -1,5 +1,4 @@
-var projectDirectoryPath = '';
-var projectName = '';
+
 
 
 
