@@ -358,14 +358,20 @@ def sweep_generate():
     outputPath = os.path.expanduser(data.get('outputPath', ''))
     outputName = data.get('uniqueSweepName', '')
     enableSimulation = data.get('enableSimulation', False)
+    enableSVGinSweep = data.get('enableSVGinSweep', False)
 
     #command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName}"
 
-    if enableSimulation:
-        command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName} --simulate -c {SIMULATOR_CONFIG_PATH} --sim emx"
-    else:
-        command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName}"
+    # Base command
+    command = f"python {SWEEP_GENERATOR_PATH} -a {ADFPath} --sweep {sweepConfigPath} --layout -o {outputPath} -n {outputName}"
 
+    # Add simulation arguments if enableSimulation is True
+    if enableSimulation:
+        command += f" --simulate -c {SIMULATOR_CONFIG_PATH} --sim emx"
+
+    # Add SVG argument if enableSVGinSweep is True
+    if enableSVGinSweep:
+        command += " --svg"
 
     command_list = shlex.split(command)
 

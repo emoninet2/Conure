@@ -11,7 +11,7 @@ ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_gener
 SIMULATOR_PATH = "/projects/bitstream/emon/projects/conure/simulator/simulate.py"
 
 
-def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, outputName, enableLayoutGeneration, enableSimulation):
+def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, outputName, enableLayoutGeneration, generateSVG,enableSimulation):
 
 
 
@@ -106,16 +106,20 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
 
             print("Generating layout for RunID ", RunID)
             # Define the command as a list of arguments, including the JSON content
+
             command = [
                 "python",
                 ARTWORK_GENERATOR_PATH,
                 # Pass the JSON content directly
                 "-a", json.dumps(InductorDataX),
                 "-o", InductorDataX["parameters"]["outputDir"],
-                "-n", InductorDataX["parameters"]["name"]
+                "-n", InductorDataX["parameters"]["name"],
             ]
 
+            if (generateSVG):
+                command.append("--svg")
 
+            #print(command)
             process = subprocess.run(command)
             #command_list = shlex.split(command)
             #print(command_list)
@@ -157,6 +161,8 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
                 "-o", InductorDataX["parameters"]["outputDir"],
                 "-n", InductorDataX["parameters"]["name"]
             ]
+
+            
 
             process = subprocess.run(command)
 
@@ -207,6 +213,9 @@ if __name__ == "__main__":
     # Add the --layout flag to enable layout generation in GDSII
     parser.add_argument("--layout", action="store_true",
                         help="Enable generation of layout in GDSII")
+    
+    parser.add_argument("--svg", action="store_true",
+                        help="Enable generation of layout in SVG")
 
     # Add the --simulate flag to enable simulation
     parser.add_argument("--simulate", action="store_true",
@@ -237,6 +246,10 @@ if __name__ == "__main__":
     else:
         enableSimulation = 0
 
+    if args.svg:
+        generateSVG = 1
+    else:    
+        generateSVG = 0
 
     # Check if the --artwork argument is provided
     if args.artwork:
@@ -309,4 +322,4 @@ if __name__ == "__main__":
     process.communicate()
 
     sweep(args.simulator, artworkData, sweepData, args.config,
-          args.output, args.name, enableLayoutGeneration, enableSimulation)
+          args.output, args.name, enableLayoutGeneration, generateSVG, enableSimulation)

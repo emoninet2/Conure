@@ -40,6 +40,7 @@ async function sweep() {
     var outputPath = projectDirectoryPath + "/sweep/" + uniqueSweepName;
     // Get the JSON data for the sweep
     var json = getSweepJSON();
+    var enableSVGinSweep = document.getElementById('enableSVGinSweep').checked;
     var enableSimulation = document.getElementById('enableSimulation').checked;
 
     // Construct the data to be sent to the server
@@ -113,7 +114,7 @@ async function sweep() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ ADFPath, enableSimulation, sweepConfigPath, outputPath, uniqueSweepName }),
+            body: JSON.stringify({ ADFPath, enableSVGinSweep,enableSimulation, sweepConfigPath, outputPath, uniqueSweepName }),
         });
 
         if (response.ok) {
