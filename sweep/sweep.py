@@ -7,8 +7,19 @@ import itertools
 import copy
 import subprocess
 import time
-ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
-SIMULATOR_PATH = "/projects/bitstream/emon/projects/conure/simulator/simulate.py"
+
+
+#CONURE_PATH = "/home/emon/Documents/Projects/conure"
+
+CONURE_PATH = os.environ.get('CONURE_PATH')
+if CONURE_PATH is None:
+    print("CONURE_PATH is not set!")
+else:
+    print(f"CONURE_PATH is set to: {CONURE_PATH}")
+ 
+
+ARTWORK_GENERATOR_PATH = CONURE_PATH + "/artwork_generator/artwork_generator.py"
+SIMULATOR_PATH = CONURE_PATH + "/simulator/simulate.py"
 
 
 def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, outputName, enableLayoutGeneration, generateSVG,enableSimulation):

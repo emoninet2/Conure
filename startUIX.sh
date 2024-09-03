@@ -3,9 +3,15 @@
 # Determine the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Define the CONURE_PATH based on the script directory
+CONURE_PATH="$SCRIPT_DIR"
+
 # Define the paths to the Python executable and the script to run
-PYTHON_EXECUTABLE="$SCRIPT_DIR/.venv/bin/python"
-SCRIPT_TO_RUN="$SCRIPT_DIR/uix/uix.py"
+PYTHON_EXECUTABLE="$CONURE_PATH/.venv/bin/python"
+SCRIPT_TO_RUN="$CONURE_PATH/uix/uix.py"
+
+# Export CONURE_PATH so it's available to the Python script
+export CONURE_PATH
 
 # Check if the Python executable exists
 if [ ! -f "$PYTHON_EXECUTABLE" ]; then

@@ -11,6 +11,20 @@ app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key'
 
 
+CONURE_PATH = os.environ.get('CONURE_PATH')
+if CONURE_PATH is None:
+    print("CONURE_PATH is not set!")
+else:
+    print(f"CONURE_PATH is set to: {CONURE_PATH}")
+    ARTWORK_GENERATOR_PATH = CONURE_PATH + "/artwork_generator/artwork_generator.py"
+
+
+#CONURE_PATH = "/projects/bitstream/emon/projects/conure"
+#CONURE_PATH = "/home/emon/Documents/Projects/conure"
+
+
+
+
 @app.route('/')
 def index():
     """
@@ -311,10 +325,12 @@ def delete_file():
 @app.route('/generate_preview', methods=['POST'])
 def generate_preview():
     data = request.json
-    #ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
-    ARTWORK_GENERATOR_PATH = "/home/emon/Documents/Projects/conure/artwork_generator/artwork_generator.py"
 
-    #artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
+
+    
+    ARTWORK_GENERATOR_PATH = CONURE_PATH + "/artwork_generator/artwork_generator.py"
+    #ARTWORK_GENERATOR_PATH = "/home/emon/Documents/Projects/conure/artwork_generator/artwork_generator.py"
+
     ADFPath = os.path.expanduser(data.get('ADF'))
     outputPath = os.path.expanduser(data.get('outputPath', ''))
     outputName = data.get('outputName', '')
@@ -352,8 +368,9 @@ def generate_preview():
 @app.route('/sweep_generate', methods=['POST'])
 def sweep_generate():
     data = request.json
-    SWEEP_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/sweep/sweep.py"
-    SIMULATOR_CONFIG_PATH = "/projects/bitstream/emon/projects/conure/simulator/config.json"
+    SWEEP_GENERATOR_PATH = CONURE_PATH + "/sweep/sweep.py"
+    SIMULATOR_CONFIG_PATH = CONURE_PATH + "/conure/simulator/config.json"
+
     ADFPath = os.path.expanduser(data.get('ADFPath'))
     sweepConfigPath = os.path.expanduser(data.get('sweepConfigPath'))
     outputPath = os.path.expanduser(data.get('outputPath', ''))
@@ -389,8 +406,6 @@ def sweep_generate():
         error = e.stderr
 
     return jsonify({"status": "success", "command": command, "output": output, "error": error})
-
-
 
 
 @app.route('/get_svg', methods=['GET'])
