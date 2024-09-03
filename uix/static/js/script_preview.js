@@ -1,5 +1,5 @@
 async function preview() {
-    const outputPath = projectDirectoryPath + "/temp/preview/";
+    const outputPath = projectDirectoryPath + "/temp/preview";
     const outputName = projectName;
 
     saveArtworkDescriptionData(outputPath, outputName + ".json");

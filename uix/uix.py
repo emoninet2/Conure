@@ -311,14 +311,15 @@ def delete_file():
 @app.route('/generate_preview', methods=['POST'])
 def generate_preview():
     data = request.json
-    ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
-    
+    #ARTWORK_GENERATOR_PATH = "/projects/bitstream/emon/projects/conure/artwork_generator/artwork_generator.py"
+    ARTWORK_GENERATOR_PATH = "/home/emon/Documents/Projects/conure/artwork_generator/artwork_generator.py"
+
     #artwork_generator_path = "/Users/habiburrahman/Documents/Projects/Conure/artwork_generator/artwork_generator.py"
     ADFPath = os.path.expanduser(data.get('ADF'))
     outputPath = os.path.expanduser(data.get('outputPath', ''))
     outputName = data.get('outputName', '')
 
-    command = f"python {ARTWORK_GENERATOR_PATH} -a {ADFPath} -o {outputPath} -n {outputName}"
+    command = f"python {ARTWORK_GENERATOR_PATH} -a {ADFPath} -o {outputPath} -n {outputName} --svg"
     command_list = shlex.split(command)
 
     print(f"Command: {command}")
@@ -415,4 +416,4 @@ def get_svg():
 
 
 if __name__ == '__main__':
-    app.run(port=8080, debug=True)
+    app.run(host="0.0.0.0",port=8080, debug=True)
