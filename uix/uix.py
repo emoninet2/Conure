@@ -32,7 +32,7 @@ else:
 
 
 
-SESSION_MODE = False
+SESSION_MODE = True
 
 @app.route('/get_app_mode', methods=['POST'])
 def get_app_mode():
@@ -90,7 +90,7 @@ def sweep():
 
 
 
-@app.route('/create_project_public', methods=['POST'])
+@app.route('/create_project', methods=['POST'])
 def create_project_public():
     """
     Create a new project directory and store project data in a JSON file.
@@ -159,69 +159,6 @@ def create_project_public():
 
 
 
-
-
-@app.route('/create_project', methods=['POST'])
-def create_project():
-    """
-    Create a new project directory and store project data in a JSON file.
-    Also change the server's working directory to the new project directory.
-
-    Returns:
-        A JSON response indicating the success or failure of the operation.
-    """
-
-
-    if 'session_id' not in session:
-        session['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
-        print("NEW SESSION WITH ID ", session['session_id'])
-
-
-    print("PRIVATE SESSION")
-    BASE_PATH = "~/conure_workspace/sessions/"
-    data = request.json
-    print(data)
-    print(data["projectName"])
-
-    session_path = data.get('directoryPath')
-    PROJECT_PATH = session_path
-    session["session_path"] = BASE_PATH + data.get('directoryPath')
-    print("SESSION PATH IS  ", session["session_path"])
-
-    if session_path:
-        try:
-            # Expand the user path to handle the tilde (~) symbol
-            session_path = os.path.expanduser(session_path)
-            
-            # Create directory if it doesn't exist
-            os.makedirs(session_path, exist_ok=True)
-            
-            # Store directory path in session
-            session['session_path'] = session_path
-            
-            # Define project.json content (example template)
-            project_data = {
-                'name': data["projectName"],
-                'description': 'This is a sample project.',
-                'created_by': 'Your Name',
-                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            
-            # Write project.json file inside the created directory
-            json_file_path = os.path.join(session_path, 'project.json')
-            with open(json_file_path, 'w') as json_file:
-                json.dump(project_data, json_file, indent=4)
-            
-            # Change the server's working directory to the new project directory
-            os.chdir(session_path)
-            
-            return jsonify({'success': True})
-        
-        except Exception as e:
-            print(e)  # Log the error for debugging purposes
-            return jsonify({'success': False, 'error': str(e)})
-    
-    return jsonify({'success': False, 'error': 'Invalid directory path'})
 
 
 # @app.route('/save_json', methods=['POST'])

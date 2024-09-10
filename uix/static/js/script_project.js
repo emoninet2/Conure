@@ -19,7 +19,7 @@ async function createProject() {
         // Check the session mode (True = public, False = private)
         if (appModeData.session_mode === true) {
             // Public session
-            fetch('/create_project_public', {
+            fetch('/create_project', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

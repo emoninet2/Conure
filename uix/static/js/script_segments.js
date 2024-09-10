@@ -30,8 +30,25 @@ function generateSegmentTables() {
     // Clear previous tables
     segmentTableContainer.innerHTML = '';
 
+    // Segment names for each table
+    const segmentNames = [
+        "Segment 0 (EAST)",
+        "Segment 1 (NORTH-EAST)",
+        "Segment 2 (NORTH)",
+        "Segment 3 (NORTH-WEST)",
+        "Segment 4 (WEST)",
+        "Segment 5 (SOUTH-WEST)",
+        "Segment 6 (SOUTH)",
+        "Segment 7 (SOUTH-EAST)"
+    ];
+
     // Create 8 tables
     for (let i = 0; i < 8; i++) {
+        // Add segment header
+        const segmentHeader = document.createElement('h3');
+        segmentHeader.innerText = segmentNames[i];
+        segmentTableContainer.appendChild(segmentHeader);
+
         const table = document.createElement('table');
         table.id = `segmentTable${i + 1}`;
         table.style.marginBottom = '20px';
@@ -113,8 +130,6 @@ function generateSegmentTables() {
         segmentTableContainer.appendChild(table);
     }
     updateDropdownsInSegment();
-    // Call the new function to disable jump and bridge/arm fields for DEFAULT type
-
 }
 
 
