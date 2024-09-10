@@ -238,46 +238,53 @@ function loadADF() {
 
 
 function uploadAndLoadFromADF() {
-    // Upload the file
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    const uploadFolder = projectDirectoryPath + '/temp/uploads';
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('uploadFolder', uploadFolder);
+    // Fetch session path first
+    fetch('/get_session_path')
+        .then(response => response.json())
+        .then(data => {
+            if (data.session_path) {
+                const fileInput = document.getElementById('fileInput');
+                const file = fileInput.files[0];
+                const uploadFolder = data.session_path + '/temp/uploads';  // Use the fetched session path
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('uploadFolder', uploadFolder);
 
-    const fullPath = uploadFolder + '/' + file.name;
-    //alert('Uploading file to: ' + fullPath);
+                const fullPath = uploadFolder + '/' + file.name;
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload', true);
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            //alert('File uploaded successfully');
-            // Load the file after successful upload
-            loadJsonData(fullPath,
-                function (data) {
-                    populateArtworkDescriptionData(data);
-                    //alert('JSON data loaded successfully!');
-                    deleteFile(fullPath); // Delete the file after loading data
-                    updateArtworkTabsAvailability(); // Update tabs after loading data
-                },
-                function (errorMessage) {
-                    alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
-                    deleteFile(fullPath); // Delete the file on error
-                    updateArtworkTabsAvailability(); // Update tabs on error
-                }
-            );
-        } else {
-            alert('File upload failed');
-            updateArtworkTabsAvailability(); // Update tabs on error
-        }
-    };
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/upload', true);
+                xhr.onload = function () {
+                    if (xhr.status === 200) {
+                        loadJsonData(fullPath,
+                            function (data) {
+                                populateArtworkDescriptionData(data);
+                                deleteFile(fullPath);  // Delete the file after loading data
+                                updateArtworkTabsAvailability();
+                            },
+                            function (errorMessage) {
+                                alert('Error loading JSON data:\n' + JSON.stringify(errorMessage));
+                                deleteFile(fullPath);  // Delete the file on error
+                                updateArtworkTabsAvailability();
+                            }
+                        );
+                    } else {
+                        alert('File upload failed');
+                        updateArtworkTabsAvailability();
+                    }
+                };
 
-    xhr.send(formData);
+                xhr.send(formData);
 
-    // Reset the file input value
-    document.getElementById('fileInput').value = '';
+                // Reset the file input value
+                document.getElementById('fileInput').value = '';
+            } else {
+                alert('Failed to fetch session path');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching session path:', error);
+        });
 }
 
 
@@ -335,15 +342,26 @@ function saveArtworkDescriptionData(filePath, fileName) {
     );
 }
 
-function saveADF() {
+async function saveADF() {
     try {
+        // Fetch the session path first
+        const sessionResponse = await fetch('/get_session_path');
+        const sessionData = await sessionResponse.json();
+
+        if (!sessionData.session_path) {
+            throw new Error('Session path not found');
+        }
+
+        const sessionPath = sessionData.session_path;  
+
         // Attempt to save the artwork description data
-        saveArtworkDescriptionData(projectDirectoryPath, projectName + ".json");
+        saveArtworkDescriptionData(sessionPath, projectName + ".json");
 
         // If no errors occur, display success message
         alert('ARD data saved successfully!');
     } catch (error) {
-        // Optionally, you can handle the error here
+        // Handle the error here
         console.error('An error occurred while saving JSON data:', error);
+        alert('Error saving ARD data.');
     }
 }

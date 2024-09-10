@@ -3,12 +3,18 @@ import os
 import subprocess
 import shlex
 import json
-from flask import Flask, render_template, request, jsonify, session, Response
+from flask import Flask, render_template, request, jsonify, session, Response, session
+import uuid
 import traceback
 from werkzeug.utils import secure_filename
+from datetime import datetime
+
 
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key'
+
+
+
 
 
 CONURE_PATH = os.environ.get('CONURE_PATH')
@@ -21,6 +27,23 @@ else:
 
 #CONURE_PATH = "/projects/bitstream/emon/projects/conure"
 #CONURE_PATH = "/home/emon/Documents/Projects/conure"
+
+
+
+
+
+SESSION_MODE = False
+
+@app.route('/get_app_mode', methods=['POST'])
+def get_app_mode():
+    return jsonify({"session_mode": SESSION_MODE})
+
+@app.route('/get_session_path', methods=['GET'])
+def get_session_path():
+    if "session_path" in session:
+        return {'session_path': session["session_path"]}, 200
+    else:
+        return {'error': 'Session path not found'}, 404
 
 
 
@@ -65,6 +88,79 @@ def sweep():
     """
     return render_template('sweep.html')  # Load Sweep tab content
 
+
+
+@app.route('/create_project_public', methods=['POST'])
+def create_project_public():
+    """
+    Create a new project directory and store project data in a JSON file.
+    Also change the server's working directory to the new project directory.
+
+    Returns:
+        A JSON response indicating the success or failure of the operation.
+    """
+    
+    print("PUBLIC SESSION")
+
+    if SESSION_MODE == True:
+        if 'session_id' not in session:
+            session['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
+            print("NEW SESSION WITH ID ", session['session_id'])
+    else:
+        session['session_id'] = data.get('directoryPath')
+        print("NEW SESSION WITH ID ", session['session_id'])
+
+
+    BASE_PATH = "~/conure_workspace/sessions/"
+    data = request.json
+    print(data)
+    print(data["projectName"])
+
+    #session_path = data.get('directoryPath')
+    session_path = BASE_PATH + session['session_id']
+    PROJECT_PATH = session_path
+    session["session_path"] = BASE_PATH + session['session_id']
+    print("SESSION PATH IS  ", session["session_path"])
+
+    if session_path:
+        try:
+            # Expand the user path to handle the tilde (~) symbol
+            session_path = os.path.expanduser(session_path)
+            
+            # Create directory if it doesn't exist
+            os.makedirs(session_path, exist_ok=True)
+            
+            # Store directory path in session
+            session['session_path'] = session_path
+            
+            # Define project.json content (example template)
+            project_data = {
+                'name': data["projectName"],
+                'description': 'This is a sample project.',
+                'created_by': 'Your Name',
+                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            
+            # Write project.json file inside the created directory
+            json_file_path = os.path.join(session_path, 'project.json')
+            with open(json_file_path, 'w') as json_file:
+                json.dump(project_data, json_file, indent=4)
+            
+            # Change the server's working directory to the new project directory
+            os.chdir(session_path)
+            
+            return jsonify({'success': True})
+        
+        except Exception as e:
+            print(e)  # Log the error for debugging purposes
+            return jsonify({'success': False, 'error': str(e)})
+    
+    return jsonify({'success': False, 'error': 'Invalid directory path'})
+
+
+
+
+
 @app.route('/create_project', methods=['POST'])
 def create_project():
     """
@@ -74,35 +170,50 @@ def create_project():
     Returns:
         A JSON response indicating the success or failure of the operation.
     """
+
+
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
+        print("NEW SESSION WITH ID ", session['session_id'])
+
+
+    print("PRIVATE SESSION")
+    BASE_PATH = "~/conure_workspace/sessions/"
     data = request.json
-    directory_path = data.get('directoryPath')
-    
-    if directory_path:
+    print(data)
+    print(data["projectName"])
+
+    session_path = data.get('directoryPath')
+    PROJECT_PATH = session_path
+    session["session_path"] = BASE_PATH + data.get('directoryPath')
+    print("SESSION PATH IS  ", session["session_path"])
+
+    if session_path:
         try:
             # Expand the user path to handle the tilde (~) symbol
-            directory_path = os.path.expanduser(directory_path)
+            session_path = os.path.expanduser(session_path)
             
             # Create directory if it doesn't exist
-            os.makedirs(directory_path, exist_ok=True)
+            os.makedirs(session_path, exist_ok=True)
             
             # Store directory path in session
-            session['directory_path'] = directory_path
+            session['session_path'] = session_path
             
             # Define project.json content (example template)
             project_data = {
-                'name': 'My Project',
+                'name': data["projectName"],
                 'description': 'This is a sample project.',
                 'created_by': 'Your Name',
-                'created_at': '2024-07-10',
+                'created_at': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
             
             # Write project.json file inside the created directory
-            json_file_path = os.path.join(directory_path, 'project.json')
+            json_file_path = os.path.join(session_path, 'project.json')
             with open(json_file_path, 'w') as json_file:
                 json.dump(project_data, json_file, indent=4)
             
             # Change the server's working directory to the new project directory
-            os.chdir(directory_path)
+            os.chdir(session_path)
             
             return jsonify({'success': True})
         
@@ -196,28 +307,6 @@ def save_json():
     
     
 
-# @app.route('/load_json', methods=['POST'])
-# def load_json():
-#     """
-#     Load JSON data from a specified file path.
-
-#     Returns:
-#         A JSON response containing the loaded data or an error message.
-#     """
-#     data = request.json
-#     json_path = data.get('path')
-#     if json_path:
-#         try:
-#             with open(json_path, 'r') as json_file:
-#                 data_to_load = json.load(json_file)
-#                 #print(data_to_load)
-#             return jsonify({'success': True, 'data': data_to_load})
-#         except FileNotFoundError:
-#             return jsonify({'success': False, 'message': 'File not found.'})
-#         except Exception as e:
-#             print(e)  # Log the error for debugging purposes
-#             return jsonify({'success': False, 'message': str(e)})
-#     return jsonify({'success': False, 'message': 'No JSON path provided.'})
 
 
 @app.route('/load_json', methods=['POST'])
@@ -268,8 +357,14 @@ def upload_file():
         return 'No file or folder part', 400
     
     file = request.files['file']
-    upload_folder = os.path.expanduser(request.form['uploadFolder'])
+ 
+    print("PROJECT PATH BEFIORE UPLOADING", session["session_path"])
+    upload_folder = request.form['uploadFolder']
+
     
+    print("UPLOAD FOLDER", upload_folder)
+
+
     if file.filename == '':
         return 'No selected file', 400
     

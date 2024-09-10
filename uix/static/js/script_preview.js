@@ -1,12 +1,21 @@
 async function preview() {
-    const outputPath = projectDirectoryPath + "/temp/preview";
-    const outputName = projectName;
-
-    saveArtworkDescriptionData(outputPath, outputName + ".json");
-
-    const ADF = projectDirectoryPath + "/temp/preview/" + projectName + ".json";
-
     try {
+        // Fetch the session path first
+        const sessionResponse = await fetch('/get_session_path');
+        const sessionData = await sessionResponse.json();
+
+        if (!sessionData.session_path) {
+            throw new Error('Session path not found');
+        }
+
+        const sessionPath = sessionData.session_path; 
+        const outputPath = sessionPath + "/temp/preview";
+        const outputName = projectName;
+
+        saveArtworkDescriptionData(outputPath, outputName + ".json");
+
+        const ADF = `${outputPath}/${outputName}.json`;
+
         // Display the "generating preview" message
         const previewDiv = document.getElementById('svg-preview');
         if (!previewDiv) {

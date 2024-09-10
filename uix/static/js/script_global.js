@@ -2,6 +2,9 @@ var projectDirectoryPath = '';
 var projectName = '';
 
 
+const PUBLIC_SESSION = false
+
+
 const layersTable = document.getElementById('layersTable');
 
 
