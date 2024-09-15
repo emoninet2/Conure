@@ -30,13 +30,24 @@ Conure is a tool designed to generate inductor artwork and model it using Artifi
   
 - **Optimization**: Utilize the NSGA-II algorithm for inductor optimization.
 
+
+
 <img src="./resources/images/Pareto.png" alt="My Image Description" width="300"/>
 
 - **EMX Simulation**: Seamlessly simulate using the Cadence EMX simulator.
 
-- **UiX for generating artwork description file**: Create new or load and modify existing artwork description file and generate preview.  
+- **UiX for generating artwork description file**: Create new or load and modify existing artwork description file and generate preview.
+
+- #### To start the UiX
+
+```bash
+$ ./start.sh
+```
 
 <img src="./resources/images/uix_artwork_preview.png" alt="UiX " width="500"/>
+
+
+
 
 ## Work in Progress
 
