@@ -1,44 +1,54 @@
-import copy
-import os.path
-import sys
 import argparse
+import copy
+import json
+import math
+import os
 
+import gdspy
 
 from geometry.Line import Line
 from geometry.Octagon import Octagon
-from geometry.Polygon import Polygon
 from geometry.Point import Point
+from geometry.Polygon import Polygon
 
 
-import gdspy
-import json
-import math
+class InductiveComp:
+    """
+    Class representing an inductive component for GDS layout generation.
+    """
 
+    def __init__(self, inductor_data, output_path=None, output_name=None, generate_svg=True):
+        """
+        Initialize the InductiveComp object.
 
-class inductiveComp:
-    def __init__(self, InductorData, output_path, output_name, generate_svg=True):
+        Parameters:
+            inductor_data (dict): The inductor data loaded from JSON.
+            output_path (str): The output directory path.
+            output_name (str): The output file name.
+            generate_svg (bool): Flag to generate SVG output. Defaults to True.
+        """
+        # Initialize parameters from the inductor data
+        self.Parameters = inductor_data["parameters"]
+        self.Segments = inductor_data["segments"]
+        self.Bridges = inductor_data["bridges"]
+        self.Arms = inductor_data["arms"]
+        self.Ports = inductor_data["ports"]["data"]
+        self.Via = inductor_data["via"]
+        self.ViaPadStack = inductor_data["viaPadStack"]
+        self.GuardRing = inductor_data["guardRing"]
+        self.Layers = inductor_data["layer"]
 
-        # InductorData = json.loads(InductorDataJSON)
-        # Print output_path and output_name if they are defined
-
-        self.Parameters = InductorData["parameters"]
-        self.Segments = InductorData["segments"]
-        self.Bridges = InductorData["bridges"]
-        self.Arms = InductorData["arms"]
-        self.Ports = InductorData["ports"]["data"]
-        self.Via = InductorData["via"]
-        self.ViaPadStack = InductorData["viaPadStack"]
-        self.GuardRing = InductorData["guardRing"]
-        self.Layers = InductorData["layer"]
-        self.T = self.Parameters["width"]  # the width of the conductors
-        self.S = self.Parameters["spacing"]  # spacing between the conductors
+        self.T = self.Parameters["width"]   # Width of the conductors
+        self.S = self.Parameters["spacing"]  # Spacing between the conductors
         self.C = self.Parameters["corners"]
         self.N = self.Parameters["rings"]
         self.ref_Octagon = Octagon(self.Parameters["apothem"])
 
+        # Initialize GDS library and cell
         self.lib = gdspy.GdsLibrary()
         self.cell = self.lib.new_cell(self.Parameters["name"])
 
+        # Initialize lists to store GDS items
         self.segment_gds_items = []
         self.bridge_gds_items = []
         self.arm_gds_items = []
@@ -46,576 +56,529 @@ class inductiveComp:
         self.guard_ring_gds_items = []
         self.dummy_fills_gds_items = []
         self.port_gds_items = []
-
         self.port_info = []
 
-        print("CONURE")
-
+        # Generate layout items
         self._generate_segment_items()
         self._generate_bridge_items()
         self._generate_bridge_extensions_items()
         self._generate_arm_items()
-        self._generate_guardRing_items()
+        self._generate_guard_ring_items()
         self._generate_dummy_fills()
         self._generate_port_items()
 
-        self._draw_items_to_gds(self.segment_gds_items, True, 0.005)
-        self._draw_items_to_gds(self.bridge_gds_items, True, 0.005)
-        self._draw_items_to_gds(self.arm_gds_items, True, 0.005)
-        self._draw_items_to_gds(self.via_gds_items, True, 0.005,)
-        self._draw_items_to_gds(self.guard_ring_gds_items, True, 0.005)
+        # Draw items to GDS
+        self._draw_items_to_gds(self.segment_gds_items, snap_to_grid=True, grid_precision=0.005)
+        self._draw_items_to_gds(self.bridge_gds_items, snap_to_grid=True, grid_precision=0.005)
+        self._draw_items_to_gds(self.arm_gds_items, snap_to_grid=True, grid_precision=0.005)
+        self._draw_items_to_gds(self.via_gds_items, snap_to_grid=True, grid_precision=0.005)
+        self._draw_items_to_gds(self.guard_ring_gds_items, snap_to_grid=True, grid_precision=0.005)
         self._draw_items_to_gds(
-            self.dummy_fills_gds_items, True, 0.005, True, 0.02)
+            self.dummy_fills_gds_items, snap_to_grid=True, grid_precision=0.005,
+            staircase_lines=True, staircase_precision=0.02)
 
-        gdsOutputPath = []
-        gdsOutputName = []
-        if output_path:
-            gdsOutputPath = output_path
-        else:
-            gdsOutputPath = self.Parameters["outputDir"]
+        # Set output path and name
+        gds_output_path = output_path if output_path else self.Parameters["outputDir"]
+        gds_output_name = output_name if output_name else self.Parameters["name"]
 
-        if output_name:
-            gdsOutputName = output_name
-        else:
-            gdsOutputName = self.Parameters["name"]
+        # Create output directory if it doesn't exist
+        if not os.path.exists(gds_output_path):
+            os.makedirs(gds_output_path)
 
-        # if not os.path.exists(self.Parameters["outputDir"]):
-        # os.makedirs(self.Parameters["outputDir"] )
-        if not os.path.exists(gdsOutputPath):
-            os.makedirs(gdsOutputPath)
+        # Write GDS and optionally SVG files
+        self._write_output_files(gds_output_path, gds_output_name, generate_svg)
 
-        self.lib.write_gds(gdsOutputPath + "/" + gdsOutputName + ".gds")
+    def _write_output_files(self, output_path, output_name, generate_svg):
+        """
+        Write the GDS and SVG output files.
 
-        if (generate_svg == True):
-            self.cell.write_svg(gdsOutputPath + "/" + gdsOutputName + ".svg")
-        # self.lib.write_gds(self.Parameters["outputDir"] + "/" + self.Parameters["name"] + ".gds")
-        # self.cell.write_svg(self.Parameters["outputDir"] + "/" + self.Parameters["name"] + ".svg")
-        # gdspy.LayoutViewer(self.lib)
+        Parameters:
+            output_path (str): The output directory path.
+            output_name (str): The output file name.
+            generate_svg (bool): Flag to generate SVG output.
+        """
+        gds_file = os.path.join(output_path, f"{output_name}.gds")
+        self.lib.write_gds(gds_file)
+
+        if generate_svg:
+            svg_file = os.path.join(output_path, f"{output_name}.svg")
+            self.cell.write_svg(svg_file)
 
     def _generate_segment_items(self):
-        pass
+        """
+        Generate segment items based on the inductor data.
+        """
         config = self.Segments["config"]
-        SegData = self.Segments["data"]
-        # print(SegData)
+        seg_data = self.Segments["data"]
 
-        for sgName, sgData in SegData.items():
-            segId = sgData["id"]
-            for ring in range(len(sgData["group"])):
-                segData = sgData["group"][ring]
-                if segData["type"] == "DEFAULT":
-                    pass
-                    apothem = self.ref_Octagon.apothem_ref + \
-                        ring * (self.T + self.S)
-                    segPoly = self._octagon_ring_segment_polygon(
-                        apothem, self.T, segId)
-                    segLayer = segData["data"]["layer"]
-                    self._set_polygon_layer(segPoly, segLayer)
-                    self._append_gds_item(self.segment_gds_items, segPoly)
-                elif segData["type"] == "BRIDGE":
+        for sg_name, sg_data in seg_data.items():
+            seg_id = sg_data["id"]
+            for ring in range(len(sg_data["group"])):
+                seg_data_group = sg_data["group"][ring]
+                if seg_data_group["type"] == "DEFAULT":
+                    apothem = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                    seg_poly = self._octagon_ring_segment_polygon(apothem, self.T, seg_id)
+                    seg_layer = seg_data_group["data"]["layer"]
+                    self._set_polygon_layer(seg_poly, seg_layer)
+                    self._append_gds_item(self.segment_gds_items, seg_poly)
+                elif seg_data_group["type"] == "BRIDGE":
                     if self.Segments["config"]["bridge_extension_aligned"] == 1:
-                        maxJumps = max(
-                            list(map(abs, self._ccw_bridge_jumps(segId))))
-                        maxGap = maxJumps * (self.T + self.S)
-                        ccwGap = maxGap / 2.0
-                        cwGap = maxGap / 2.0
-                        ccwExt = 0
-                        cwExt = 0
+                        max_jumps = max(list(map(abs, self._ccw_bridge_jumps(seg_id))))
+                        max_gap = max_jumps * (self.T + self.S)
+                        ccw_gap = max_gap / 2.0
+                        cw_gap = max_gap / 2.0
+                        ccw_ext = 0
+                        cw_ext = 0
                     else:
-                        ccw_extensions = self._determine_gaps_on_segment_group(
-                            segId, 0)
-                        cw_extensions = self._determine_gaps_on_segment_group(
-                            segId, 1)
-                        ccwGap = abs(self._ccw_bridge_jumps(segId)[
-                                     ring]) * (self.T + self.S) / 2.0
-                        cwGap = abs(self._cw_bridge_jumps(segId)[
-                                    ring]) * (self.T + self.S) / 2.0
-                        ccwExt = ccw_extensions[ring]
-                        cwExt = cw_extensions[ring]
+                        ccw_extensions = self._determine_gaps_on_segment_group(seg_id, 0)
+                        cw_extensions = self._determine_gaps_on_segment_group(seg_id, 1)
+                        ccw_gap = abs(self._ccw_bridge_jumps(seg_id)[ring]) * (self.T + self.S) / 2.0
+                        cw_gap = abs(self._cw_bridge_jumps(seg_id)[ring]) * (self.T + self.S) / 2.0
+                        ccw_ext = ccw_extensions[ring]
+                        cw_ext = cw_extensions[ring]
 
-                    apothem = self.ref_Octagon.apothem_ref + \
-                        ring * (self.T + self.S)
-                    segPoly = self._octagon_ring_with_asymmetrical_gap_polygon(apothem, self.T, segId, ccwGap + ccwExt,
-                                                                               cwGap + cwExt)
-                    segLayer = segData["data"]["layer"]
-                    for s in segPoly:
-                        self._set_polygon_layer(s, segLayer)
+                    apothem = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                    seg_poly = self._octagon_ring_with_asymmetrical_gap_polygon(
+                        apothem, self.T, seg_id, ccw_gap + ccw_ext, cw_gap + cw_ext)
+                    seg_layer = seg_data_group["data"]["layer"]
+                    for s in seg_poly:
+                        self._set_polygon_layer(s, seg_layer)
                         self._append_gds_item(self.segment_gds_items, s)
-
-                elif segData["type"] == "PORT":
-                    pass
-                    arm_data = self.Arms[segData["data"]["arm"]]
+                elif seg_data_group["type"] == "PORT":
+                    arm_data = self.Arms[seg_data_group["data"]["arm"]]
                     if arm_data["type"] == "SINGLE":
-                        pass
-                        apothem = self.ref_Octagon.apothem_ref + \
-                            ring * (self.T + self.S)
-                        segPoly = self._octagon_ring_segment_polygon(
-                            apothem, self.T, segId)
-                        segLayer = segData["data"]["layer"]
-                        self._set_polygon_layer(segPoly, segLayer)
-                        self._append_gds_item(self.segment_gds_items, segPoly)
+                        apothem = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                        seg_poly = self._octagon_ring_segment_polygon(apothem, self.T, seg_id)
+                        seg_layer = seg_data_group["data"]["layer"]
+                        self._set_polygon_layer(seg_poly, seg_layer)
+                        self._append_gds_item(self.segment_gds_items, seg_poly)
                     elif arm_data["type"] == "DOUBLE":
-                        pass
                         spacing = arm_data["spacing"]
-                        apothem = self.ref_Octagon.apothem_ref + \
-                            ring * (self.T + self.S)
-                        segPoly = self._octagon_ring_with_asymmetrical_gap_polygon(apothem, self.T, segId,
-                                                                                   spacing / 2.0,
-                                                                                   spacing / 2.0)
-                        segLayer = segData["data"]["layer"]
-                        self._set_polygon_layer(segPoly, segLayer)
-                        self._append_gds_item(self.segment_gds_items, segPoly)
+                        apothem = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                        seg_poly = self._octagon_ring_with_asymmetrical_gap_polygon(
+                            apothem, self.T, seg_id, spacing / 2.0, spacing / 2.0)
+                        seg_layer = seg_data_group["data"]["layer"]
+                        self._set_polygon_layer(seg_poly, seg_layer)
+                        self._append_gds_item(self.segment_gds_items, seg_poly)
 
-    def _set_polygon_layer(self, polygon, layerName):
-        layer = self.Layers[layerName]
+    def _set_polygon_layer(self, polygon, layer_name):
+        """
+        Set the GDS layer and datatype for a polygon.
+
+        Parameters:
+            polygon (Polygon or list): The polygon or list of polygons.
+            layer_name (str): The name of the layer from the inductor data.
+        """
+        layer = self.Layers[layer_name]
         gds_layer = layer["gds"]["layer"]
         gds_datatype = layer["gds"]["datatype"]
 
-        if type(polygon).__name__ == "Polygon":
+        if isinstance(polygon, Polygon):
             polygon.gds_layer = gds_layer
             polygon.gds_datatype = gds_datatype
-        elif type(polygon).__name__ == "list":
+        elif isinstance(polygon, list):
             for p in polygon:
-                if type(p).__name__ == "Polygon":
+                if isinstance(p, Polygon):
                     p.gds_layer = gds_layer
                     p.gds_datatype = gds_datatype
 
     def _generate_bridge_items(self):
-        pass
+        """
+        Generate bridge items based on the inductor data.
+        """
         config = self.Segments["config"]
-        SegData = self.Segments["data"]
+        seg_data = self.Segments["data"]
 
-        for sgName, sgData in SegData.items():
-            segId = sgData["id"]
-            for ring in range(len(sgData["group"])):
-                segData = sgData["group"][ring]
-                if segData["type"] == "BRIDGE":
-                    pass
-                    angleDegree = segId * 45
-                    dx = self.ref_Octagon.apothem_ref + \
-                        ring * (self.T + self.S)
-                    dy = abs(segData["data"]["jump"]) * (self.T + self.S)
-                    bridgePoly = None
+        for sg_name, sg_data in seg_data.items():
+            seg_id = sg_data["id"]
+            for ring in range(len(sg_data["group"])):
+                seg_data_group = sg_data["group"][ring]
+                if seg_data_group["type"] == "BRIDGE":
+                    angle_degree = seg_id * 45
+                    dx = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                    dy = abs(seg_data_group["data"]["jump"]) * (self.T + self.S)
+                    bridge_poly = None
 
-                    if segData["data"]["jump"] > 0:
-                        bridgePoly = Polygon(
-                            [
-                                Point(dx, -dy / 2.0),
-                                Point(dx + self.T, -dy / 2.0),
-                                Point(dx + self.T + dy, dy / 2.0),
-                                Point(dx + dy, dy / 2.0)
-                            ]
-                        )
-                    elif segData["data"]["jump"] < 0:
-                        bridgePoly = Polygon(
-                            [
-                                Point(dx, -dy / 2.0),
-                                Point(dx + self.T, -dy / 2.0),
-                                Point(dx + self.T - dy, dy / 2.0),
-                                Point(dx - dy, dy / 2.0)
-                            ]
-                        )
+                    if seg_data_group["data"]["jump"] > 0:
+                        bridge_poly = Polygon([
+                            Point(dx, -dy / 2.0),
+                            Point(dx + self.T, -dy / 2.0),
+                            Point(dx + self.T + dy, dy / 2.0),
+                            Point(dx + dy, dy / 2.0)
+                        ])
+                    elif seg_data_group["data"]["jump"] < 0:
+                        bridge_poly = Polygon([
+                            Point(dx, -dy / 2.0),
+                            Point(dx + self.T, -dy / 2.0),
+                            Point(dx + self.T - dy, dy / 2.0),
+                            Point(dx - dy, dy / 2.0)
+                        ])
 
                     center = Point(0, 0)
-                    bridgePoly.rotate_around(center, angleDegree)
-                    segLayer = self.Bridges[segData["data"]["bridge"]]["layer"]
-                    self._set_polygon_layer(bridgePoly, segLayer)
-                    self._append_gds_item(self.bridge_gds_items, bridgePoly)
+                    bridge_poly.rotate_around(center, angle_degree)
+                    seg_layer = self.Bridges[seg_data_group["data"]["bridge"]]["layer"]
+                    self._set_polygon_layer(bridge_poly, seg_layer)
+                    self._append_gds_item(self.bridge_gds_items, bridge_poly)
 
     def _generate_bridge_extensions_items(self):
-        pass
+        """
+        Generate bridge extension items based on the inductor data.
+        """
         config = self.Segments["config"]
-        SegData = self.Segments["data"]
+        seg_data = self.Segments["data"]
 
-        for sgName, sgData in SegData.items():
-            segId = sgData["id"]
-            angleDegree = segId * 45
-            for ring in range(len(sgData["group"])):
-                segData = sgData["group"][ring]
-                if segData["type"] == "BRIDGE":
-                    dx = self.ref_Octagon.apothem_ref + \
-                        ring * (self.T + self.S)
-                    ccwGap, cwGap, ccwExt, cwExt = self._get_gap_and_extension_info(
-                        segId, ring)
+        for sg_name, sg_data in seg_data.items():
+            seg_id = sg_data["id"]
+            angle_degree = seg_id * 45
+            for ring in range(len(sg_data["group"])):
+                seg_data_group = sg_data["group"][ring]
+                if seg_data_group["type"] == "BRIDGE":
+                    dx = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
+                    ccw_gap, cw_gap, ccw_ext, cw_ext = self._get_gap_and_extension_info(seg_id, ring)
 
-                    if ccwExt > 0:
-                        extensionPolyCCW = Polygon(
-                            [
-                                Point(dx, -ccwGap),
-                                Point(dx + self.T, -ccwGap),
-                                Point(dx + self.T, -ccwGap - ccwExt),
-                                Point(dx, -ccwGap - ccwExt)
-                            ]
-                        )
-                        extensionPolyCCW.rotate_around(
-                            Point(0, 0), angleDegree)
-                        segLayer = self.Bridges[segData["data"]
-                                                ["bridge"]]["layer"]
-                        self._set_polygon_layer(extensionPolyCCW, segLayer)
-                        self._append_gds_item(
-                            self.bridge_gds_items, extensionPolyCCW)
+                    if ccw_ext > 0:
+                        extension_poly_ccw = Polygon([
+                            Point(dx, -ccw_gap),
+                            Point(dx + self.T, -ccw_gap),
+                            Point(dx + self.T, -ccw_gap - ccw_ext),
+                            Point(dx, -ccw_gap - ccw_ext)
+                        ])
+                        extension_poly_ccw.rotate_around(Point(0, 0), angle_degree)
+                        seg_layer = self.Bridges[seg_data_group["data"]["bridge"]]["layer"]
+                        self._set_polygon_layer(extension_poly_ccw, seg_layer)
+                        self._append_gds_item(self.bridge_gds_items, extension_poly_ccw)
 
-                    if "ViaWidth" in self.Bridges[segData["data"]["bridge"]]:
-                        viaWidth = self.Bridges[segData["data"]
-                                                ["bridge"]]["ViaWidth"]
-                        viaPolyCCW = Polygon(
-                            [
-                                Point(dx, -ccwGap - ccwExt),
-                                Point(dx + self.T, -ccwGap - ccwExt),
-                                Point(dx + self.T, -ccwGap -
-                                      ccwExt - viaWidth),
-                                Point(dx, -ccwGap - ccwExt - viaWidth)
-                            ]
-                        )
-                        viaPolyCCW.rotate_around(Point(0, 0), angleDegree)
+                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]]:
+                        via_width = self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"]
+                        via_poly_ccw = Polygon([
+                            Point(dx, -ccw_gap - ccw_ext),
+                            Point(dx + self.T, -ccw_gap - ccw_ext),
+                            Point(dx + self.T, -ccw_gap - ccw_ext - via_width),
+                            Point(dx, -ccw_gap - ccw_ext - via_width)
+                        ])
+                        via_poly_ccw.rotate_around(Point(0, 0), angle_degree)
+                        self._generate_via_stack_on_polygon(
+                            via_poly_ccw,
+                            self.Bridges[seg_data_group["data"]["bridge"]]["ViaStackCCW"],
+                            0)
 
-                        self._generate_via_stack_on_polygon(viaPolyCCW,
-                                                            self.Bridges[segData["data"]
-                                                                         ["bridge"]]["ViaStackCCW"],
-                                                            0)
+                    cw_ring = ring + self._ccw_bridge_jumps(seg_id)[ring]
+                    dx = self.ref_Octagon.apothem_ref + cw_ring * (self.T + self.S)
+                    ccw_gap, cw_gap, ccw_ext, cw_ext = self._get_gap_and_extension_info(seg_id, cw_ring)
+                    if cw_ext > 0:
+                        extension_poly_cw = Polygon([
+                            Point(dx, cw_gap),
+                            Point(dx + self.T, cw_gap),
+                            Point(dx + self.T, cw_gap + cw_ext),
+                            Point(dx, cw_gap + cw_ext)
+                        ])
+                        extension_poly_cw.rotate_around(Point(0, 0), angle_degree)
+                        seg_layer = self.Bridges[seg_data_group["data"]["bridge"]]["layer"]
+                        self._set_polygon_layer(extension_poly_cw, seg_layer)
+                        self._append_gds_item(self.bridge_gds_items, extension_poly_cw)
 
-                    cwRing = ring + self._ccw_bridge_jumps(segId)[ring]
-                    dx = self.ref_Octagon.apothem_ref + \
-                        cwRing * (self.T + self.S)
-                    ccwGap, cwGap, ccwExt, cwExt = self._get_gap_and_extension_info(
-                        segId, cwRing)
-                    if cwExt > 0:
-                        extensionPolyCW = Polygon(
-                            [
-                                Point(dx, cwGap),
-                                Point(dx + self.T, cwGap),
-                                Point(dx + self.T, cwGap + cwExt),
-                                Point(dx, cwGap + cwExt)
-                            ]
-                        )
-                        extensionPolyCW.rotate_around(Point(0, 0), angleDegree)
-                        segLayer = self.Bridges[segData["data"]
-                                                ["bridge"]]["layer"]
-                        self._set_polygon_layer(extensionPolyCW, segLayer)
-                        self._append_gds_item(
-                            self.bridge_gds_items, extensionPolyCW)
-
-                    if "ViaWidth" in self.Bridges[segData["data"]["bridge"]]:
-                        viaWidth = self.Bridges[segData["data"]
-                                                ["bridge"]]["ViaWidth"]
-                        viaPolyCW = Polygon(
-                            [
-                                Point(dx, cwGap + cwExt),
-                                Point(dx + self.T, cwGap + cwExt),
-                                Point(dx + self.T, cwGap + cwExt + viaWidth),
-                                Point(dx, cwGap + cwExt + viaWidth)
-                            ]
-                        )
-                        viaPolyCW.rotate_around(Point(0, 0), angleDegree)
-
-                        self._generate_via_stack_on_polygon(viaPolyCW,
-                                                            self.Bridges[segData["data"]
-                                                                         ["bridge"]]["ViaStackCW"],
-                                                            0)
+                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]]:
+                        via_width = self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"]
+                        via_poly_cw = Polygon([
+                            Point(dx, cw_gap + cw_ext),
+                            Point(dx + self.T, cw_gap + cw_ext),
+                            Point(dx + self.T, cw_gap + cw_ext + via_width),
+                            Point(dx, cw_gap + cw_ext + via_width)
+                        ])
+                        via_poly_cw.rotate_around(Point(0, 0), angle_degree)
+                        self._generate_via_stack_on_polygon(
+                            via_poly_cw,
+                            self.Bridges[seg_data_group["data"]["bridge"]]["ViaStackCW"],
+                            0)
 
     def _generate_arm_items(self):
-        pass
+        """
+        Generate arm items based on the inductor data.
+        """
         config = self.Segments["config"]
-        SegData = self.Segments["data"]
+        seg_data = self.Segments["data"]
 
-        for sgName, sgData in SegData.items():
-            segId = sgData["id"]
-            angleDegree = segId * 45
-            for ring in range(len(sgData["group"])):
-                segData = sgData["group"][ring]
-                if segData["type"] == "PORT":
-                    armData = self.Arms[segData["data"]["arm"]]
-                    dxStart = self.ref_Octagon.apothem_ref + \
-                        ring * (self.T + self.S) + self.T
-                    dxEnd = self.ref_Octagon.apothem_ref + self.N * \
-                        self.T + (self.N - 1) * self.S + armData["length"]
-                    if armData["type"] == "SINGLE":
-                        armPoly = Polygon(
-                            [
-                                Point(dxStart, armData["width"] / 2.0),
-                                Point(dxEnd, armData["width"] / 2.0),
-                                Point(dxEnd, -armData["width"] / 2.0),
-                                Point(dxStart, -armData["width"] / 2.0)
-                            ]
-                        )
-                        armPoly.rotate_around(Point(0, 0), angleDegree)
-                        armLayer = armData["layer"]
-                        self._set_polygon_layer(armPoly, armLayer)
-                        self._append_gds_item(self.arm_gds_items, armPoly)
+        for sg_name, sg_data in seg_data.items():
+            seg_id = sg_data["id"]
+            angle_degree = seg_id * 45
+            for ring in range(len(sg_data["group"])):
+                seg_data_group = sg_data["group"][ring]
+                if seg_data_group["type"] == "PORT":
+                    arm_data = self.Arms[seg_data_group["data"]["arm"]]
+                    dx_start = self.ref_Octagon.apothem_ref + ring * (self.T + self.S) + self.T
+                    dx_end = (self.ref_Octagon.apothem_ref + self.N * self.T +
+                              (self.N - 1) * self.S + arm_data["length"])
+                    if arm_data["type"] == "SINGLE":
+                        arm_poly = Polygon([
+                            Point(dx_start, arm_data["width"] / 2.0),
+                            Point(dx_end, arm_data["width"] / 2.0),
+                            Point(dx_end, -arm_data["width"] / 2.0),
+                            Point(dx_start, -arm_data["width"] / 2.0)
+                        ])
+                        arm_poly.rotate_around(Point(0, 0), angle_degree)
+                        arm_layer = arm_data["layer"]
+                        self._set_polygon_layer(arm_poly, arm_layer)
+                        self._append_gds_item(self.arm_gds_items, arm_poly)
 
-                        PortLine = copy.deepcopy(Line(
-                            Point(dxEnd, armData["width"] / 2.0), Point(dxEnd, -armData["width"] / 2.0)))
-                        PortLine.rotate_around(Point(0, 0), angleDegree)
-                        PortPoint = PortLine.midpoint()
-                        PortLayer = armData["layer"]
-                        Port = armData["port"]
-                        PortInfo = {"Line": PortLine, "Point": PortPoint,
-                                    "Port": Port, "Layer": PortLayer}
-                        self.port_info.append(copy.deepcopy(PortInfo))
+                        port_line = copy.deepcopy(Line(
+                            Point(dx_end, arm_data["width"] / 2.0),
+                            Point(dx_end, -arm_data["width"] / 2.0)))
+                        port_line.rotate_around(Point(0, 0), angle_degree)
+                        port_point = port_line.midpoint()
+                        port_layer = arm_data["layer"]
+                        port = arm_data["port"]
+                        port_info = {"Line": port_line, "Point": port_point,
+                                     "Port": port, "Layer": port_layer}
+                        self.port_info.append(copy.deepcopy(port_info))
 
-                        if "viaStack" in armData:
-                            viaPoly = Polygon(
-                                (
-                                    Point(dxStart, armData["width"] / 2.0),
-                                    Point(dxStart - self.T,
-                                          armData["width"] / 2.0),
-                                    Point(dxStart - self.T, -
-                                          armData["width"] / 2.0),
-                                    Point(dxStart, -armData["width"] / 2.0)
-                                )
-                            )
-                            viaPoly.rotate_around(Point(0, 0), angleDegree)
-                            self._generate_via_stack_on_polygon(
-                                viaPoly, armData["viaStack"], 0)
+                        if "viaStack" in arm_data:
+                            via_poly = Polygon([
+                                Point(dx_start, arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, -arm_data["width"] / 2.0),
+                                Point(dx_start, -arm_data["width"] / 2.0)
+                            ])
+                            via_poly.rotate_around(Point(0, 0), angle_degree)
+                            self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
+                    elif arm_data["type"] == "DOUBLE":
+                        dy = (arm_data["spacing"] + arm_data["width"]) / 2.0
+                        # First arm
+                        arm1_poly = Polygon([
+                            Point(dx_start, dy + arm_data["width"] / 2.0),
+                            Point(dx_end, dy + arm_data["width"] / 2.0),
+                            Point(dx_end, dy - arm_data["width"] / 2.0),
+                            Point(dx_start, dy - arm_data["width"] / 2.0)
+                        ])
+                        arm1_poly.rotate_around(Point(0, 0), angle_degree)
+                        arm_layer = arm_data["layer"]
+                        self._set_polygon_layer(arm1_poly, arm_layer)
+                        self._append_gds_item(self.arm_gds_items, arm1_poly)
 
-                    elif armData["type"] == "DOUBLE":
-                        dy = (armData["spacing"] + armData["width"]) / 2.0
-                        arm1Poly = Polygon(
-                            [
-                                Point(dxStart, dy + armData["width"] / 2.0),
-                                Point(dxEnd, dy + armData["width"] / 2.0),
-                                Point(dxEnd, dy - armData["width"] / 2.0),
-                                Point(dxStart, dy - armData["width"] / 2.0)
-                            ]
-                        )
-                        arm1Poly.rotate_around(Point(0, 0), angleDegree)
-                        armLayer = armData["layer"]
-                        self._set_polygon_layer(arm1Poly, armLayer)
-                        self._append_gds_item(self.arm_gds_items, arm1Poly)
+                        if "viaStack" in arm_data:
+                            via_poly = Polygon([
+                                Point(dx_start, dy + arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, dy + arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, dy - arm_data["width"] / 2.0),
+                                Point(dx_start, dy - arm_data["width"] / 2.0)
+                            ])
+                            via_poly.rotate_around(Point(0, 0), angle_degree)
+                            self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
 
-                        if "viaStack" in armData:
-                            viaPoly = Polygon(
-                                (
-                                    Point(dxStart, dy +
-                                          armData["width"] / 2.0),
-                                    Point(dxStart - self.T, dy +
-                                          armData["width"] / 2.0),
-                                    Point(dxStart - self.T, dy -
-                                          armData["width"] / 2.0),
-                                    Point(dxStart, dy + -
-                                          armData["width"] / 2.0)
-                                )
-                            )
+                        port_line = copy.deepcopy(Line(
+                            Point(dx_end, dy + arm_data["width"] / 2.0),
+                            Point(dx_end, dy - arm_data["width"] / 2.0)))
+                        port_line.rotate_around(Point(0, 0), angle_degree)
+                        port_point = port_line.midpoint()
+                        port_layer = arm_data["layer"]
+                        port = arm_data["port"][0]
+                        port_info = {"Line": port_line, "Point": port_point,
+                                     "Port": port, "Layer": port_layer}
+                        self.port_info.append(copy.deepcopy(port_info))
 
-                            viaPoly.rotate_around(Point(0, 0), angleDegree)
-                            self._generate_via_stack_on_polygon(
-                                viaPoly, armData["viaStack"], 0)
+                        # Second arm
+                        arm2_poly = Polygon([
+                            Point(dx_start, -dy - arm_data["width"] / 2.0),
+                            Point(dx_end, -dy - arm_data["width"] / 2.0),
+                            Point(dx_end, -dy + arm_data["width"] / 2.0),
+                            Point(dx_start, -dy + arm_data["width"] / 2.0)
+                        ])
+                        arm2_poly.rotate_around(Point(0, 0), angle_degree)
+                        self._set_polygon_layer(arm2_poly, arm_layer)
+                        self._append_gds_item(self.arm_gds_items, arm2_poly)
 
-                        PortLine = copy.deepcopy(Line(Point(
-                            dxEnd, dy + armData["width"] / 2.0), Point(dxEnd, dy - armData["width"] / 2.0)))
-                        PortLine.rotate_around(Point(0, 0), angleDegree)
-                        PortPoint = PortLine.midpoint()
-                        PortLayer = armData["layer"]
-                        Port = armData["port"][0]
-                        PortInfo = {"Line": PortLine, "Point": PortPoint,
-                                    "Port": Port, "Layer": PortLayer}
-                        self.port_info.append(copy.deepcopy(PortInfo))
+                        if "viaStack" in arm_data:
+                            via_poly = Polygon([
+                                Point(dx_start, -dy + arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, -dy + arm_data["width"] / 2.0),
+                                Point(dx_start - self.T, -dy - arm_data["width"] / 2.0),
+                                Point(dx_start, -dy - arm_data["width"] / 2.0)
+                            ])
+                            via_poly.rotate_around(Point(0, 0), angle_degree)
+                            self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
 
-                        arm1Poly = Polygon(
-                            [
-                                Point(dxStart, -dy - armData["width"] / 2.0),
-                                Point(dxEnd, -dy - armData["width"] / 2.0),
-                                Point(dxEnd, -dy + armData["width"] / 2.0),
-                                Point(dxStart, -dy + armData["width"] / 2.0)
-                            ]
-                        )
-                        arm1Poly.rotate_around(Point(0, 0), angleDegree)
-                        armLayer = armData["layer"]
-                        self._set_polygon_layer(arm1Poly, armLayer)
-                        self._append_gds_item(self.arm_gds_items, arm1Poly)
+                        port_line = copy.deepcopy(Line(
+                            Point(dx_end, -dy - arm_data["width"] / 2.0),
+                            Point(dx_end, -dy + arm_data["width"] / 2.0)))
+                        port_line.rotate_around(Point(0, 0), angle_degree)
+                        port_point = port_line.midpoint()
+                        port_layer = arm_data["layer"]
+                        port = arm_data["port"][1]
+                        port_info = {"Line": port_line, "Point": port_point,
+                                     "Port": port, "Layer": port_layer}
+                        self.port_info.append(copy.deepcopy(port_info))
 
-                        if "viaStack" in armData:
-                            viaPoly = Polygon(
-                                (
-                                    Point(dxStart, -dy +
-                                          armData["width"] / 2.0),
-                                    Point(dxStart - self.T, -dy +
-                                          armData["width"] / 2.0),
-                                    Point(dxStart - self.T, -dy -
-                                          armData["width"] / 2.0),
-                                    Point(dxStart, -dy + -
-                                          armData["width"] / 2.0)
-                                )
-                            )
+    def _generate_guard_ring_items(self):
+        """
+        Generate guard ring items based on the inductor data.
+        """
+        ref_apothem = (self.Parameters["apothem"] + self.N * self.T +
+                       (self.N - 1) * self.S + self.GuardRing["data"]["distance"])
 
-                            viaPoly.rotate_around(Point(0, 0), angleDegree)
-                            self._generate_via_stack_on_polygon(
-                                viaPoly, armData["viaStack"], 0)
+        for guard_ring_item in self.GuardRing["data"]["segments"]:
+            segment = self.GuardRing["data"]["segments"][guard_ring_item]
+            shape = segment["shape"]
+            offset = segment["offset"]
+            layer = segment["layer"]
 
-                        PortLine = copy.deepcopy(Line(Point(
-                            dxEnd, -dy - armData["width"] / 2.0), Point(dxEnd, -dy + armData["width"] / 2.0)))
-                        PortLine.rotate_around(Point(0, 0), angleDegree)
-                        PortPoint = PortLine.midpoint()
-                        PortLayer = armData["layer"]
-                        Port = armData["port"][1]
-                        PortInfo = {"Line": PortLine, "Point": PortPoint,
-                                    "Port": Port, "Layer": PortLayer}
-                        self.port_info.append(copy.deepcopy(PortInfo))
-
-    def _generate_guardRing_items(self):
-        pass
-        ref_apothem = self.Parameters["apothem"] + self.N * self.T + \
-            (self.N - 1) * self.S + self.GuardRing["data"]["distance"]
-
-        for guardRingItems in self.GuardRing["data"]["segments"]:
-            if (self.GuardRing["data"]["segments"][guardRingItems]["shape"] == "hex"):
-                offset = self.GuardRing["data"]["segments"][guardRingItems]["offset"]
-                oct = Octagon(ref_apothem + offset)
-                poly = Polygon(oct.vertices)
-                layer = self.GuardRing["data"]["segments"][guardRingItems]["layer"]
-
+            if shape == "hex":
+                octagon = Octagon(ref_apothem + offset)
+                poly = Polygon(octagon.vertices)
                 self._set_polygon_layer(poly, layer)
                 self._append_gds_item(self.guard_ring_gds_items, poly)
-            elif (self.GuardRing["data"]["segments"][guardRingItems]["shape"] == "hexRing"):
-                offset = self.GuardRing["data"]["segments"][guardRingItems]["offset"]
-                width = self.GuardRing["data"]["segments"][guardRingItems]["width"]
-
-                if ("partialCut" in self.GuardRing["data"]["segments"][guardRingItems] and
-                        self.GuardRing["data"]["segments"][guardRingItems]["partialCut"]["use"]):
+            elif shape == "hexRing":
+                width = segment["width"]
+                if ("partialCut" in segment and segment["partialCut"]["use"]):
                     for i in range(self.C):
-                        partialCutSegment = self.GuardRing["data"]["segments"][guardRingItems]["partialCut"][
-                            "segment"]
-                        if i == partialCutSegment:
-                            spacing = self.GuardRing["data"]["segments"][guardRingItems]["partialCut"][
-                                "spacing"]
+                        if i == segment["partialCut"]["segment"]:
+                            spacing = segment["partialCut"]["spacing"]
                             segments = self._octagon_ring_with_asymmetrical_gap_polygon(
                                 ref_apothem + offset, width, i, spacing / 2.0, spacing / 2.0)
-                            layer = self.GuardRing["data"]["segments"][guardRingItems]["layer"]
-
                             self._set_polygon_layer(segments, layer)
-                            self._append_gds_item(
-                                self.guard_ring_gds_items, segments)
+                            self._append_gds_item(self.guard_ring_gds_items, segments)
 
-                            if "contacts" in self.GuardRing["data"]["segments"][guardRingItems]:
-                                if self.GuardRing["data"]["segments"][guardRingItems]["contacts"][
-                                        "use"]:
-                                    viaStack = self.GuardRing["data"]["segments"][guardRingItems]["contacts"]["viaStack"]
-                                    viaStackData = self.ViaPadStack[viaStack]
-                                    viaMargin = viaStackData["margin"]
-                                    self._generate_via_stack_on_polygon(
-                                        segments[0], viaStack, viaMargin)
-                                    self._generate_via_stack_on_polygon(
-                                        segments[1], viaStack, viaMargin)
-
+                            if "contacts" in segment and segment["contacts"]["use"]:
+                                via_stack = segment["contacts"]["viaStack"]
+                                via_stack_data = self.ViaPadStack[via_stack]
+                                via_margin = via_stack_data["margin"]
+                                self._generate_via_stack_on_polygon(
+                                    segments[0], via_stack, via_margin)
+                                self._generate_via_stack_on_polygon(
+                                    segments[1], via_stack, via_margin)
                         else:
-                            spacing = self.GuardRing["data"]["segments"][guardRingItems]["partialCut"][
-                                "spacing"]
-                            segment = self._octagon_ring_segment_polygon(
+                            segment_poly = self._octagon_ring_segment_polygon(
                                 ref_apothem + offset, width, i)
-                            layer = self.GuardRing["data"]["segments"][guardRingItems]["layer"]
-                            self._set_polygon_layer(segment, layer)
-                            self._append_gds_item(
-                                self.guard_ring_gds_items, segment)
+                            self._set_polygon_layer(segment_poly, layer)
+                            self._append_gds_item(self.guard_ring_gds_items, segment_poly)
 
-                            if "contacts" in self.GuardRing["data"]["segments"][guardRingItems]:
-                                if self.GuardRing["data"]["segments"][guardRingItems]["contacts"][
-                                        "use"]:
-                                    viaStack = self.GuardRing["data"]["segments"][guardRingItems]["contacts"]["viaStack"]
-                                    viaStackData = self.ViaPadStack[viaStack]
-                                    viaMargin = viaStackData["margin"]
-                                    self._generate_via_stack_on_polygon(
-                                        segment, viaStack, viaMargin)
-
+                            if "contacts" in segment and segment["contacts"]["use"]:
+                                via_stack = segment["contacts"]["viaStack"]
+                                via_stack_data = self.ViaPadStack[via_stack]
+                                via_margin = via_stack_data["margin"]
+                                self._generate_via_stack_on_polygon(
+                                    segment_poly, via_stack, via_margin)
                 else:
                     for i in range(self.C):
-                        segment = self._octagon_ring_segment_polygon(
+                        segment_poly = self._octagon_ring_segment_polygon(
                             ref_apothem + offset, width, i)
-                        layer = self.GuardRing["data"]["segments"][guardRingItems]["layer"]
-                        self._set_polygon_layer(segment, layer)
-                        self._append_gds_item(
-                            self.guard_ring_gds_items, segment)
+                        self._set_polygon_layer(segment_poly, layer)
+                        self._append_gds_item(self.guard_ring_gds_items, segment_poly)
 
-                        if "contacts" in self.GuardRing["data"]["segments"][guardRingItems]:
-                            if self.GuardRing["data"]["segments"][guardRingItems]["contacts"][
-                                    "use"]:
-                                viaStack = self.GuardRing["data"]["segments"][guardRingItems]["contacts"]["viaStack"]
-                                viaStackData = self.ViaPadStack[viaStack]
-                                viaMargin = viaStackData["margin"]
-                                self._generate_via_stack_on_polygon(
-                                    segment, viaStack, viaMargin)
+                        if "contacts" in segment and segment["contacts"]["use"]:
+                            via_stack = segment["contacts"]["viaStack"]
+                            via_stack_data = self.ViaPadStack[via_stack]
+                            via_margin = via_stack_data["margin"]
+                            self._generate_via_stack_on_polygon(
+                                segment_poly, via_stack, via_margin)
 
     def _generate_dummy_fills(self):
-        ref_apothem = self.Parameters["apothem"] + self.N * self.T + \
-            (self.N - 1) * self.S + self.GuardRing["data"]["distance"]
-        dummyFill = self.GuardRing["data"]["dummyFills"]
-        if (dummyFill["type"] == "checkered"):
-            groupSpacing = dummyFill["groupSpacing"]
-            groupItems = []
-            for itemsName, item in dummyFill["items"].items():
+        """
+        Generate dummy fill items based on the inductor data.
+        """
+        ref_apothem = (self.Parameters["apothem"] + self.N * self.T +
+                       (self.N - 1) * self.S + self.GuardRing["data"]["distance"])
+        dummy_fill = self.GuardRing["data"]["dummyFills"]
+        if dummy_fill["type"] == "checkered":
+            group_spacing = dummy_fill["groupSpacing"]
+            group_items = []
+            for item_name, item in dummy_fill["items"].items():
                 if item["shape"] == "rect":
                     dx = item["offsetX"]
                     dy = item["offsetY"]
                     length = item["length"]
                     height = item["height"]
 
-                    rect = Polygon(
-                        [
-                            Point(dx - length / 2.0, dy - height / 2.0),
-                            Point(dx + length / 2.0, dy - height / 2.0),
-                            Point(dx + length / 2.0, dy + height / 2.0),
-                            Point(dx - length / 2.0, dy + height / 2.0),
-                        ]
-                    )
+                    rect = Polygon([
+                        Point(dx - length / 2.0, dy - height / 2.0),
+                        Point(dx + length / 2.0, dy - height / 2.0),
+                        Point(dx + length / 2.0, dy + height / 2.0),
+                        Point(dx - length / 2.0, dy + height / 2.0),
+                    ])
                     for layer in item["layers"]:
                         r = rect.copy()
                         self._set_polygon_layer(r, layer)
-                        groupItems.append(r)
+                        group_items.append(r)
 
-            guardRingOctagon = Octagon(ref_apothem)
+            guard_ring_octagon = Octagon(ref_apothem)
 
             for i in range(8):
                 if i < 7:
-                    line = Line(
-                        guardRingOctagon.vertices[i], guardRingOctagon.vertices[i + 1])
+                    line = Line(guard_ring_octagon.vertices[i], guard_ring_octagon.vertices[i + 1])
                 else:
-                    line = Line(
-                        guardRingOctagon.vertices[i], guardRingOctagon.vertices[0])
-                self._fill_line_with_dummy_poly_group(
-                    groupItems, line, groupSpacing)
+                    line = Line(guard_ring_octagon.vertices[i], guard_ring_octagon.vertices[0])
+                self._fill_line_with_dummy_poly_group(group_items, line, group_spacing)
 
     def _generate_port_items(self):
-        pass
-
+        """
+        Generate port items based on the inductor data.
+        """
         for p in self.port_info:
-            # print(p)
-            labelText = self.Ports[p["Port"]]["label"]
+            label_text = self.Ports[p["Port"]]["label"]
             position = p["Point"]
             gds_layer = self.Layers[p["Layer"]]["gds"]["layer"]
             gds_datatype = self.Layers[p["Layer"]]["gds"]["datatype"]
-            label = gdspy.Label(labelText, (position.x, position.y),
-                                'o', 0, 20, 0, gds_layer, gds_datatype)
+            label = gdspy.Label(
+                label_text, (position.x, position.y), 'o', 0, 20, 0, gds_layer, gds_datatype)
             self.cell.add(label)
 
-    def _fill_line_with_dummy_poly_group(self, dummyPolyGroup, line, groupSpacing, midSpacing=0):
-        pass
-        boundingBox = Polygon.bounding_box_polygons(dummyPolyGroup)
-        groupLength = Line(boundingBox[0], boundingBox[1]).length()
-        lineLength = line.length()
-        noOfGroups = lineLength / (groupLength + groupSpacing)
-        interval = lineLength / noOfGroups
+    def _fill_line_with_dummy_poly_group(self, dummy_poly_group, line, group_spacing, mid_spacing=0):
+        """
+        Fill a line with a group of dummy polygons.
 
-        for i in range(-math.floor(noOfGroups / 2.0) + 1, math.floor(noOfGroups / 2.0)):
+        Parameters:
+            dummy_poly_group (list): List of polygons representing the dummy fill group.
+            line (Line): The line along which to place the dummy fills.
+            group_spacing (float): The spacing between dummy fill groups.
+            mid_spacing (float): The spacing within a dummy fill group.
+        """
+        bounding_box = Polygon.bounding_box_polygons(dummy_poly_group)
+        group_length = Line(bounding_box[0], bounding_box[1]).length()
+        line_length = line.length()
+        no_of_groups = line_length / (group_length + group_spacing)
+        interval = line_length / no_of_groups
+
+        for i in range(-math.floor(no_of_groups / 2.0) + 1, math.floor(no_of_groups / 2.0)):
             x_offset = i * interval
-            # print(x_offset)
-            dummyPolyGroupInstance = Polygon.copy_polygons(dummyPolyGroup)
+            dummy_poly_group_instance = Polygon.copy_polygons(dummy_poly_group)
             Polygon.move_polygons_on_line(
-                dummyPolyGroupInstance, Point(0, 0), line, x_offset, 0)
-            for p in dummyPolyGroupInstance:
-                if not self._polygon_is_near_or_intersecting(p, self.arm_gds_items, groupSpacing):
+                dummy_poly_group_instance, Point(0, 0), line, x_offset, 0)
+            for p in dummy_poly_group_instance:
+                if not self._polygon_is_near_or_intersecting(p, self.arm_gds_items, group_spacing):
                     self._append_gds_item(self.dummy_fills_gds_items, p)
 
-    def _polygon_is_near_or_intersecting(self, polygon, otherPolygons, distanceThreshold=0):
-        cnt = 0
-        retVal = False
-        for otherPolygon in otherPolygons:
-            if polygon.gds_layer == otherPolygon.gds_layer and polygon.gds_datatype == otherPolygon.gds_datatype and (
-                    polygon._is_near_edge(otherPolygon, distanceThreshold) or polygon.is_inside(otherPolygon)):
-                retVal = retVal or True
-            else:
-                retVal = retVal or False
-        return retVal
+    def _polygon_is_near_or_intersecting(self, polygon, other_polygons, distance_threshold=0):
+        """
+        Check if a polygon is near or intersecting with other polygons.
+
+        Parameters:
+            polygon (Polygon): The polygon to check.
+            other_polygons (list): List of other polygons to compare against.
+            distance_threshold (float): The distance threshold for "nearness".
+
+        Returns:
+            bool: True if near or intersecting, False otherwise.
+        """
+        ret_val = False
+        for other_polygon in other_polygons:
+            if (polygon.gds_layer == other_polygon.gds_layer and
+                    polygon.gds_datatype == other_polygon.gds_datatype and
+                    (polygon._is_near_edge(other_polygon, distance_threshold) or
+                     polygon.is_inside(other_polygon))):
+                ret_val = True
+                break
+        return ret_val
 
     def _octagon_ring_segment_polygon(self, apothem, width, segment):
+        """
+        Create a polygon representing a segment of an octagonal ring.
 
+        Parameters:
+            apothem (float): The apothem of the inner octagon.
+            width (float): The width of the ring.
+            segment (int): The segment index (0-7).
+
+        Returns:
+            Polygon: The polygon representing the segment.
+        """
         inner_octagon_points = Octagon(apothem).vertices
         outer_octagon_points = Octagon(apothem + width).vertices
 
@@ -626,62 +589,59 @@ class inductiveComp:
             return Polygon([inner_octagon_points[segment], outer_octagon_points[segment], outer_octagon_points[0],
                             inner_octagon_points[0]])
 
-    def _octagon_ring_with_asymmetrical_gap_polygon(self, apothem, width, segmentId, gapCCW=0, gapCW=0):
+    def _octagon_ring_with_asymmetrical_gap_polygon(self, apothem, width, segment_id, gap_ccw=0, gap_cw=0):
+        """
+        Create polygons representing a segment of an octagonal ring with asymmetrical gaps.
 
-        segment_poly = self._octagon_ring_segment_polygon(
-            apothem, width, segmentId)
+        Parameters:
+            apothem (float): The apothem of the inner octagon.
+            width (float): The width of the ring.
+            segment_id (int): The segment index (0-7).
+            gap_ccw (float): The gap size in the counter-clockwise direction.
+            gap_cw (float): The gap size in the clockwise direction.
+
+        Returns:
+            list: A list of two polygons representing the segmented ring.
+        """
+        segment_poly = self._octagon_ring_segment_polygon(apothem, width, segment_id)
         segment_midpoint = segment_poly.midpoint()
 
-        # vertices of the segment polygon
-        P0 = Point(segment_poly.vertices[0].x, segment_poly.vertices[0].y)
-        P1 = Point(segment_poly.vertices[1].x, segment_poly.vertices[1].y)
-        P2 = Point(segment_poly.vertices[3].x, segment_poly.vertices[3].y)
-        P3 = Point(segment_poly.vertices[2].x, segment_poly.vertices[2].y)
+        # Vertices of the segment polygon
+        P0 = segment_poly.vertices[0]
+        P1 = segment_poly.vertices[1]
+        P2 = segment_poly.vertices[3]
+        P3 = segment_poly.vertices[2]
 
         # The vertices of the gap
-        G0 = Point(segment_midpoint.x + width /
-                   2.0, segment_midpoint.y - gapCCW)
-        G1 = Point(segment_midpoint.x - width /
-                   2.0, segment_midpoint.y - gapCCW)
-        G2 = Point(segment_midpoint.x + width /
-                   2.0, segment_midpoint.y + gapCW)
-        G3 = Point(segment_midpoint.x - width /
-                   2.0, segment_midpoint.y + gapCW)
+        G0 = Point(segment_midpoint.x + width / 2.0, segment_midpoint.y - gap_ccw)
+        G1 = Point(segment_midpoint.x - width / 2.0, segment_midpoint.y - gap_ccw)
+        G2 = Point(segment_midpoint.x + width / 2.0, segment_midpoint.y + gap_cw)
+        G3 = Point(segment_midpoint.x - width / 2.0, segment_midpoint.y + gap_cw)
 
         # Rotating the vertices of the gap
-        G0.rotate_around(segment_midpoint, segmentId * 45)
-        G1.rotate_around(segment_midpoint, segmentId * 45)
-        G2.rotate_around(segment_midpoint, segmentId * 45)
-        G3.rotate_around(segment_midpoint, segmentId * 45)
-        Poly1 = Polygon([G0, G1, P0, P1])
-        Poly2 = Polygon([G2, G3, P2, P3])
+        G0.rotate_around(segment_midpoint, segment_id * 45)
+        G1.rotate_around(segment_midpoint, segment_id * 45)
+        G2.rotate_around(segment_midpoint, segment_id * 45)
+        G3.rotate_around(segment_midpoint, segment_id * 45)
 
-        return [Poly1, Poly2]
+        poly1 = Polygon([G0, G1, P0, P1])
+        poly2 = Polygon([G2, G3, P2, P3])
 
-    def _octagonal_ring_polygon(self, apothem, width):
-        pass
-        inner_octagon_points = Octagon(apothem)
-        outer_octagon_points = Octagon(apothem + width)
-
-        RingPoly = Polygon(
-            [
-                inner_octagon_points.vertices[0], inner_octagon_points.vertices[1], inner_octagon_points.vertices[2],
-                inner_octagon_points.vertices[3],
-                inner_octagon_points.vertices[4], inner_octagon_points.vertices[5], inner_octagon_points.vertices[6],
-                inner_octagon_points.vertices[7],
-                inner_octagon_points.vertices[0], outer_octagon_points.vertices[0], outer_octagon_points.vertices[7],
-                outer_octagon_points.vertices[6],
-                outer_octagon_points.vertices[5], outer_octagon_points.vertices[4], outer_octagon_points.vertices[3],
-                outer_octagon_points.vertices[2],
-                outer_octagon_points.vertices[1], outer_octagon_points.vertices[0]
-            ]
-        )
-        return RingPoly
+        return [poly1, poly2]
 
     def _ccw_bridge_jumps(self, segment):
+        """
+        Compute the counter-clockwise bridge jumps for a given segment.
+
+        Parameters:
+            segment (int): The segment index.
+
+        Returns:
+            list: A list of bridge jumps for each ring in the segment.
+        """
         ccw_bridge_jumps_array = []
         sg = self.Segments["data"]["S" + str(segment)]["group"]
-        for j in range(len(self.Segments["data"]["S" + str(segment)]["group"])):
+        for j in range(len(sg)):
             if sg[j]["type"] == "BRIDGE":
                 ccw_bridge_jumps_array.append(sg[j]["data"]["jump"])
             else:
@@ -689,160 +649,190 @@ class inductiveComp:
         return ccw_bridge_jumps_array
 
     def _cw_bridge_jumps(self, segment):
+        """
+        Compute the clockwise bridge jumps for a given segment.
+
+        Parameters:
+            segment (int): The segment index.
+
+        Returns:
+            list: A list of bridge jumps for each ring in the segment.
+        """
         ccw_bridge_jumps_array = self._ccw_bridge_jumps(segment)
         cw_bridge_jumps_array = [0] * len(ccw_bridge_jumps_array)
         for i in range(len(ccw_bridge_jumps_array)):
-            cw_bridge_jumps_array[i + ccw_bridge_jumps_array[i]
-                                  ] = -ccw_bridge_jumps_array[i]
+            if i + ccw_bridge_jumps_array[i] < len(cw_bridge_jumps_array):
+                cw_bridge_jumps_array[i + ccw_bridge_jumps_array[i]] = -ccw_bridge_jumps_array[i]
         return cw_bridge_jumps_array
 
-    def _get_gap_and_extension_info(self, segmentId, ring):
+    def _get_gap_and_extension_info(self, segment_id, ring):
+        """
+        Get gap and extension information for a given segment and ring.
+
+        Parameters:
+            segment_id (int): The segment index.
+            ring (int): The ring index.
+
+        Returns:
+            tuple: (ccw_gap, cw_gap, ccw_ext, cw_ext)
+        """
         if self.Segments["config"]["bridge_extension_aligned"] == 1:
-            maxJumps = max(list(map(abs, self._ccw_bridge_jumps(segmentId))))
-            maxGap = maxJumps * (self.T + self.S)
-            ccwGap = abs(self._ccw_bridge_jumps(segmentId)
-                         [ring] * (self.T + self.S) / 2.0)
-            cwGap = abs(self._cw_bridge_jumps(segmentId)
-                        [ring] * (self.T + self.S) / 2.0)
-            ccwExt = (maxGap / 2.0 - ccwGap)
-            cwExt = (maxGap / 2.0 - cwGap)
+            max_jumps = max(list(map(abs, self._ccw_bridge_jumps(segment_id))))
+            max_gap = max_jumps * (self.T + self.S)
+            ccw_gap = abs(self._ccw_bridge_jumps(segment_id)[ring] * (self.T + self.S) / 2.0)
+            cw_gap = abs(self._cw_bridge_jumps(segment_id)[ring] * (self.T + self.S) / 2.0)
+            ccw_ext = (max_gap / 2.0 - ccw_gap)
+            cw_ext = (max_gap / 2.0 - cw_gap)
         else:
-            ccwGap = abs(self._ccw_bridge_jumps(segmentId)
-                         [ring] * (self.T + self.S) / 2.0)
-            cwGap = abs(self._cw_bridge_jumps(segmentId)
-                        [ring] * (self.T + self.S) / 2.0)
-            ccwExt = abs(self._determine_gaps_on_segment_group(
-                segmentId, 0)[ring])
-            cwExt = abs(self._determine_gaps_on_segment_group(
-                segmentId, 1)[ring])
+            ccw_gap = abs(self._ccw_bridge_jumps(segment_id)[ring] * (self.T + self.S) / 2.0)
+            cw_gap = abs(self._cw_bridge_jumps(segment_id)[ring] * (self.T + self.S) / 2.0)
+            ccw_ext = abs(self._determine_gaps_on_segment_group(segment_id, 0)[ring])
+            cw_ext = abs(self._determine_gaps_on_segment_group(segment_id, 1)[ring])
 
-        return ccwGap, cwGap, ccwExt, cwExt
+        return ccw_gap, cw_gap, ccw_ext, cw_ext
 
-    def _determine_gaps_on_segment_group(self, segment, ccwCw):
-        # Contribution by Adrian Miguel Llop Recha,
-        if ccwCw == 0:
-            jumpArray = self._ccw_bridge_jumps(segment)
+    def _determine_gaps_on_segment_group(self, segment, ccw_cw):
+        """
+        Determine the gaps on a segment group.
+
+        Parameters:
+            segment (int): The segment index.
+            ccw_cw (int): 0 for CCW, 1 for CW.
+
+        Returns:
+            list: A list of extensions for each ring.
+        """
+        if ccw_cw == 0:
+            jump_array = self._ccw_bridge_jumps(segment)
         else:
-            jumpArray = self._cw_bridge_jumps(segment)
-        absolute_jumpArray = list(map(abs, jumpArray))
-        maxJump = max(absolute_jumpArray)
+            jump_array = self._cw_bridge_jumps(segment)
+        absolute_jump_array = list(map(abs, jump_array))
+        max_jump = max(absolute_jump_array)
         extensions = []
 
-        bb = [[0] * len(jumpArray) for i in range(len(jumpArray))]
-        # print("id current\t id other \t delta ID \t box_current\t box_other\t deltaBox \t ccw_ext \t\tbb ")
-        for id_current in range(len(jumpArray)):
-            for id_other in range(len(jumpArray)):
-                current_ext_unit = (maxJump - absolute_jumpArray[id_current])
-                other_ext_unit = (maxJump - absolute_jumpArray[id_other])
-                deltaId = abs(id_current - id_other)
+        bb = [[0] * len(jump_array) for _ in range(len(jump_array))]
+        for id_current in range(len(jump_array)):
+            for id_other in range(len(jump_array)):
+                current_ext_unit = (max_jump - absolute_jump_array[id_current])
+                other_ext_unit = (max_jump - absolute_jump_array[id_other])
+                delta_id = abs(id_current - id_other)
                 if current_ext_unit - other_ext_unit >= 0 and (id_current != id_other):
-                    ext = abs(current_ext_unit - other_ext_unit) - \
-                        2 * (deltaId - 1)
+                    ext = abs(current_ext_unit - other_ext_unit) - 2 * (delta_id - 1)
                     if ext < 0:
                         ext = 0
-                    if id_current - id_other < 0 and jumpArray[id_other] < 0:
+                    if id_current - id_other < 0 and jump_array[id_other] < 0:
                         bb[id_current][id_other] = ext
-                    elif id_current - id_other > 0 and jumpArray[id_other] > 0:
+                    elif id_current - id_other > 0 and jump_array[id_other] > 0:
                         bb[id_current][id_other] = ext
                     else:
                         bb[id_current][id_other] = 0
                 else:
                     bb[id_current][id_other] = 0
 
-        for i in range(7):
+        for i in range(len(jump_array)):
             x = (max(bb[i][0:])) * (self.T + self.S) / 2.0
             extensions.append(x)
 
         return extensions
 
-    def _generate_via_stack_on_polygon(self, poly, ViaStack, margin=0):
-        pass
-        viaStackData = self.ViaPadStack[ViaStack]
+    def _generate_via_stack_on_polygon(self, poly, via_stack, margin=0):
+        """
+        Generate a via stack on a given polygon.
 
-        boundingBox = poly.bounding_box()
-        boundingBoxPoly = Polygon(boundingBox)
-        Bounding_box_bottom_left = boundingBoxPoly.vertices[0]
-        Bounding_box_bottom_right = boundingBoxPoly.vertices[1]
-        Bounding_box_top_left = boundingBoxPoly.vertices[3]
-        Length_bounding_box = Bounding_box_bottom_left.distance(
-            Bounding_box_bottom_right)
-        Height_bounding_box = Bounding_box_bottom_left.distance(
-            Bounding_box_top_left)
-        topLayer = viaStackData["topLayer"]
-        bottomLayer = viaStackData["bottomLayer"]
-        gdsTopLayer = self.Layers[topLayer]["gds"]
-        gdsBottomLayer = self.Layers[bottomLayer]["gds"]
-        polyTop = poly.copy()
-        polyBottom = poly.copy()
-        polyTop.gds_layer = gdsTopLayer["layer"]
-        polyTop.gds_datatype = gdsTopLayer["datatype"]
-        polyBottom.gds_layer = gdsBottomLayer["layer"]
-        polyBottom.gds_datatype = gdsBottomLayer["datatype"]
+        Parameters:
+            poly (Polygon): The polygon to place the via stack on.
+            via_stack (str): The name of the via stack from the inductor data.
+            margin (float): Margin to keep from the polygon edges.
+        """
+        via_stack_data = self.ViaPadStack[via_stack]
 
-        self._append_gds_item(self.via_gds_items, polyTop)
-        self._append_gds_item(self.via_gds_items, polyBottom)
+        bounding_box = poly.bounding_box()
+        bounding_box_poly = Polygon(bounding_box)
+        length_bounding_box = Line(bounding_box_poly.vertices[0], bounding_box_poly.vertices[1]).length()
+        height_bounding_box = Line(bounding_box_poly.vertices[0], bounding_box_poly.vertices[3]).length()
 
-        for vs in viaStackData["vias"]:
-            ViaData = self.Via[vs]
-            Via_L = ViaData["length"]
-            Via_W = ViaData["width"]
-            Via_S = ViaData["spacing"]
-            Via_Layer = ViaData["layer"]
-            Via_Angle = ViaData["angle"]
-            dx = (Via_L + Via_S)
-            dy = (Via_W + Via_S)
-            c_max = ((Length_bounding_box - Via_S) / (Via_L + Via_S))
-            r_max = ((Height_bounding_box - Via_S) / (Via_W + Via_S))
+        top_layer = via_stack_data["topLayer"]
+        bottom_layer = via_stack_data["bottomLayer"]
+        gds_top_layer = self.Layers[top_layer]["gds"]
+        gds_bottom_layer = self.Layers[bottom_layer]["gds"]
+        poly_top = poly.copy()
+        poly_bottom = poly.copy()
+        poly_top.gds_layer = gds_top_layer["layer"]
+        poly_top.gds_datatype = gds_top_layer["datatype"]
+        poly_bottom.gds_layer = gds_bottom_layer["layer"]
+        poly_bottom.gds_datatype = gds_bottom_layer["datatype"]
+
+        self._append_gds_item(self.via_gds_items, poly_top)
+        self._append_gds_item(self.via_gds_items, poly_bottom)
+
+        for vs in via_stack_data["vias"]:
+            via_data = self.Via[vs]
+            via_l = via_data["length"]
+            via_w = via_data["width"]
+            via_s = via_data["spacing"]
+            via_layer = via_data["layer"]
+            via_angle = via_data["angle"]
+            dx = (via_l + via_s)
+            dy = (via_w + via_s)
+            c_max = ((length_bounding_box - via_s) / (via_l + via_s))
+            r_max = ((height_bounding_box - via_s) / (via_w + via_s))
 
             for r in range(-round(r_max / 2) + 1, round(r_max / 2)):
                 for c in range(-round(c_max / 2) + 1, round(c_max / 2)):
                     x = poly.midpoint().x + dx * c
                     y = poly.midpoint().y + dy * r
-                    viaMidPoint = Point(x, y)
-                    viaPoly = Polygon(
-                        [
-                            Point(x - Via_L / 2.0, y - Via_W / 2.0),
-                            Point(x + Via_L / 2.0, y - Via_W / 2.0),
-                            Point(x + Via_L / 2.0, y + Via_W / 2.0),
-                            Point(x - Via_L / 2.0, y + Via_W / 2.0),
-                        ]
-                    )
-                    viaPoly.rotate_around(viaMidPoint, Via_Angle)
-                    if viaPoly.is_inside(poly) and not viaPoly._is_near_edge(poly, margin) and not viaPoly._is_near_edge(poly, Via_S):
-                        pass
-                        self._set_polygon_layer(viaPoly, Via_Layer)
-                        self._append_gds_item(self.via_gds_items, viaPoly)
+                    via_midpoint = Point(x, y)
+                    via_poly = Polygon([
+                        Point(x - via_l / 2.0, y - via_w / 2.0),
+                        Point(x + via_l / 2.0, y - via_w / 2.0),
+                        Point(x + via_l / 2.0, y + via_w / 2.0),
+                        Point(x - via_l / 2.0, y + via_w / 2.0),
+                    ])
+                    via_poly.rotate_around(via_midpoint, via_angle)
+                    if (via_poly.is_inside(poly) and
+                            not via_poly._is_near_edge(poly, margin) and
+                            not via_poly._is_near_edge(poly, via_s)):
+                        self._set_polygon_layer(via_poly, via_layer)
+                        self._append_gds_item(self.via_gds_items, via_poly)
 
     def _append_gds_item(self, item_list, poly):
-        if type(poly).__name__ == "Polygon":
+        """
+        Append a polygon or list of polygons to a GDS item list.
+
+        Parameters:
+            item_list (list): The list to append to.
+            poly (Polygon or list): The polygon or list of polygons to append.
+        """
+        if isinstance(poly, Polygon):
             item_list.append(poly)
-        elif type(poly).__name__ == "list":
+        elif isinstance(poly, list):
             for p in poly:
-                if type(p).__name__ == "Polygon":
+                if isinstance(p, Polygon):
                     item_list.append(p)
-        else:
-            pass
 
-    def _draw_items_to_gds(self, item_list, sanpToGrid=True, gridPrecision=0.005, staircaseLines=False, staircasePrecision=0.05):
+    def _draw_items_to_gds(self, item_list, snap_to_grid=True, grid_precision=0.005,
+                           staircase_lines=False, staircase_precision=0.05):
+        """
+        Draw items to the GDS cell.
 
-        for p in item_list:
-            poly = p
-
-            if sanpToGrid == True:
-                poly.snap_to_grid(gridPrecision)
-            if staircaseLines == True:
-                poly.generate_staircase_lines(staircasePrecision)
-
-            self.cell.add(poly.to_gdspy_polygon(
-                poly.gds_layer, poly.gds_datatype))
-            pass
+        Parameters:
+            item_list (list): The list of GDS items (polygons) to draw.
+            snap_to_grid (bool): Flag to snap polygons to grid.
+            grid_precision (float): The grid precision for snapping.
+            staircase_lines (bool): Flag to generate staircase lines.
+            staircase_precision (float): The precision for staircase lines.
+        """
+        for poly in item_list:
+            if snap_to_grid:
+                poly.snap_to_grid(grid_precision)
+            if staircase_lines:
+                poly.generate_staircase_lines(staircase_precision)
+            self.cell.add(poly.to_gdspy_polygon(poly.gds_layer, poly.gds_datatype))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Your script description here")
-
-    # Add command-line argument for JSON input (file or string)
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Inductive Component GDS Generator")
     parser.add_argument("--artwork", "-a", required=True,
                         help="JSON file path or JSON string")
     parser.add_argument("--output", "-o", help="Output path")
@@ -851,7 +841,7 @@ if __name__ == "__main__":
                         help="Enable generation of layout in SVG")
     args = parser.parse_args()
 
-    # Check if the --artwork argument is provided
+    # Load the artwork JSON input
     if args.artwork:
         try:
             # Try to load the input as a JSON string
@@ -868,5 +858,6 @@ if __name__ == "__main__":
         print("Error: --artwork argument is required.")
         exit(1)
 
-    inductive_component = inductiveComp(
+    # Instantiate the InductiveComp object
+    inductive_component = InductiveComp(
         artwork_json_input, args.output, args.name, args.svg)
