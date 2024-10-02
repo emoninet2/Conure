@@ -7,24 +7,31 @@ import itertools
 import copy
 import subprocess
 import time
+import os
+import json
+import numpy as np
+import skrf as rf
+import glob
 
 
-#CONURE_PATH = "/home/emon/Documents/Projects/conure"
+
+
+
+
+# CONURE_PATH = "/home/emon/Documents/Projects/conure"
 
 CONURE_PATH = os.environ.get('CONURE_PATH')
 if CONURE_PATH is None:
     print("CONURE_PATH is not set!")
 else:
     print(f"CONURE_PATH is set to: {CONURE_PATH}")
- 
+
 
 ARTWORK_GENERATOR_PATH = CONURE_PATH + "/artwork_generator/artwork_generator.py"
 SIMULATOR_PATH = CONURE_PATH + "/simulator/simulate.py"
 
 
-def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, outputName, enableLayoutGeneration, generateSVG,enableSimulation):
-
-
+def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, outputName, enableLayoutGeneration, generateSVG, enableSimulation, packSimulationResults):
 
     sweepPar = []
     sweepData = []
@@ -41,19 +48,14 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
     status = {
         "total_permutations": total_permutations,
         "completed_runs": 0,
-        "status_message" : ''
+        "status_message": ''
     }
-
-
 
     STATUS_FILE_PATH = os.path.join(outputDir, "status.json")
 
     RunID = 0
     completedRuns = 0
     for permutation in permutations:
-
-        
-
 
         InductorDataX = copy.deepcopy(artworkData)
         InductorDataX["parameters"]["outputDir"] = outputDir + \
@@ -76,7 +78,7 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
 
         else:
             runData = {
-                "runID": None,
+                "runID": RunID,
                 "parameters": {},
             }
 
@@ -98,8 +100,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
 
             RunID += 1
 
-
-
         portCount = len(InductorDataX["ports"]["config"]["simulatingPorts"])
         gdsPath = InductorDataX["parameters"]["outputDir"] + \
             "/" + InductorDataX["parameters"]["name"] + ".gds"
@@ -113,7 +113,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
             status["status_message"] = f"Generating Artwork for RunID: {RunID}"
             with open(STATUS_FILE_PATH, "w") as status_file:
                 json.dump(status, status_file, indent=4)
-
 
             print("Generating layout for RunID ", RunID)
             # Define the command as a list of arguments, including the JSON content
@@ -130,13 +129,13 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
             if (generateSVG):
                 command.append("--svg")
 
-            #print(command)
+            # print(command)
             process = subprocess.run(command)
-            #command_list = shlex.split(command)
-            #print(command_list)
+            # command_list = shlex.split(command)
+            # print(command_list)
 
             # Use subprocess to run the command
-            #process = subprocess.Popen(
+            # process = subprocess.Popen(
             #    command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             # # Capture the output and error
@@ -150,14 +149,14 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
             else:
                 print(f"Script failed with return code {return_code}")
                 print("Error output:")
-                #print(stderr.decode('utf-8'))
+                # print(stderr.decode('utf-8'))
 
         if enableSimulation and os.path.exists(gdsPath) and not os.path.exists(sParamPath):
 
-            status["status_message"] = f"Performing EM simulation for RunID: {RunID}"
+            status["status_message"] = f"Performing EM simulation for RunID: {
+                RunID}"
             with open(STATUS_FILE_PATH, "w") as status_file:
                 json.dump(status, status_file, indent=4)
-
 
             print("Performing EM simulation for RunID ", RunID)
             json_content = json.dumps(InductorDataX)
@@ -172,8 +171,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
                 "-o", InductorDataX["parameters"]["outputDir"],
                 "-n", InductorDataX["parameters"]["name"]
             ]
-
-            
 
             process = subprocess.run(command)
 
@@ -197,8 +194,11 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
             else:
                 print(f"Script failed with return code {return_code}")
                 print("Error output:")
-                #print(stderr.decode('utf-8'))
-        
+                # print(stderr.decode('utf-8'))
+
+
+
+
 
         completedRuns = completedRuns + 1
         status["completed_runs"] = completedRuns
@@ -206,8 +206,93 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, outputDir, output
             json.dump(status, status_file, indent=4)
 
         pass
+    
 
+    if packSimulationResults:
+        print("PACKING RESULTS ", outputDir, " (***) " ,outputName)
+        pack(outputDir)
     pass
+
+
+
+
+
+def pack(sweep_dir):
+
+    data_dir = sweep_dir
+    print(f"Data directory: {data_dir}")
+    features_list = []
+    targets_list = []
+    feature_names = None  # Initialize to store feature names
+    target_names = None   # Initialize to store target (S-parameter) names
+    frequency_points = None  # Initialize to store frequency points
+
+    # Loop through each run folder
+    for run_folder in os.listdir(data_dir):
+        if run_folder.startswith('RunID'):
+            run_id = run_folder
+            
+            # Load the parameters from parameters.json
+            with open(os.path.join(data_dir, run_folder, 'parameters.json'), 'r') as param_file:
+                params = json.load(param_file)
+                params_values = list(params['parameters'].values())
+                
+                # Save feature names only once
+                if feature_names is None:
+                    feature_names = list(params['parameters'].keys())
+                
+                features_list.append(params_values)
+            
+            # Find any touchstone file (e.g., .s2p, .s4p, .sNp) in the folder
+            touchstone_files = glob.glob(os.path.join(data_dir, run_folder, f"*.s*p"))
+
+            if touchstone_files:  # Check if there's at least one file found
+                touchstone_path = touchstone_files[0]  # Take the first matching file
+                print(f"Touchstone file found: {touchstone_path}")  # Print the path of the touchstone file
+                network = rf.Network(touchstone_path)
+                
+                # Get the number of frequency points
+                num_freqs = network.frequency.npoints
+                num_ports = network.s.shape[1]  # Number of ports (shape: [freqs, ports, ports])
+                
+                # Save the frequency points only once
+                if frequency_points is None:
+                    frequency_points = network.f  # Frequency points in Hz
+                
+                # Save target names (S-parameter keys) only once
+                if target_names is None:
+                    target_names = []
+                    for i in range(num_ports):
+                        for j in range(num_ports):
+                            target_names.append(f"S{i+1}{j+1}_real")
+                            target_names.append(f"S{i+1}{j+1}_imag")
+
+                # Prepare real and imaginary parts for all S-parameters at each frequency
+                s_real_imag = []
+                for i in range(num_ports):
+                    for j in range(num_ports):
+                        s_real_imag.append(network.s[:, i, j].real)  # Append real part
+                        s_real_imag.append(network.s[:, i, j].imag)  # Append imaginary part
+
+                # Stack the real and imaginary parts in alternating order
+                s_real_imag = np.stack(s_real_imag, axis=0)  # Shape: [2*num_ports^2, num_freqs]
+
+                # Append this run's target data, keeping the shape [2*num_ports^2, num_freqs]
+                targets_list.append(s_real_imag)
+            else:
+                print(f"TOUCHSTONE FILE NOT FOUND for {run_id}")
+
+    # Convert lists to arrays
+    features_array = np.array(features_list)
+    targets_array = np.array(targets_list)  # Shape: [num_runs, 2*num_ports^2, num_freqs]
+
+    # Save the data in npz format, including feature names, target names, and frequency points
+    np.savez(os.path.join(data_dir, 's_parameters_data.npz'), 
+             features=features_array, 
+             targets=targets_array, 
+             feature_names=feature_names, 
+             target_names=target_names,
+             frequency_points=frequency_points)  # Store frequency points
 
 
 if __name__ == "__main__":
@@ -224,13 +309,17 @@ if __name__ == "__main__":
     # Add the --layout flag to enable layout generation in GDSII
     parser.add_argument("--layout", action="store_true",
                         help="Enable generation of layout in GDSII")
-    
+
     parser.add_argument("--svg", action="store_true",
                         help="Enable generation of layout in SVG")
 
     # Add the --simulate flag to enable simulation
     parser.add_argument("--simulate", action="store_true",
                         help="Enable simulation")
+    
+    # Add the --pack_sim flag to enable simulation
+    parser.add_argument("--pack_sim", action="store_true",
+                        help="Package the simulated results")
 
     # Add the --simulator or -s argument with choices
     parser.add_argument("--simulator", "--sim",
@@ -246,6 +335,7 @@ if __name__ == "__main__":
     sweepData = []
     enableLayoutGeneration = 0
     enableSimulation = 0
+    packSimRes = 0
 
     if args.layout:
         enableLayoutGeneration = 1
@@ -257,9 +347,15 @@ if __name__ == "__main__":
     else:
         enableSimulation = 0
 
+    if args.pack_sim:
+        packSimRes = 1
+    else:
+        packSimRes = 0
+
+
     if args.svg:
         generateSVG = 1
-    else:    
+    else:
         generateSVG = 0
 
     # Check if the --artwork argument is provided
@@ -304,11 +400,9 @@ if __name__ == "__main__":
         print("Error: --sweep argument is required.")
         exit(1)
 
-
     if args.simulator:
         if args.simulator == "emx":
             print("Simulator available")
-            
 
     config = None
     if args.config:
@@ -333,4 +427,4 @@ if __name__ == "__main__":
     process.communicate()
 
     sweep(args.simulator, artworkData, sweepData, args.config,
-          args.output, args.name, enableLayoutGeneration, generateSVG, enableSimulation)
+          args.output, args.name, enableLayoutGeneration, generateSVG, enableSimulation, packSimRes)
