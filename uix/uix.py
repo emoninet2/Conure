@@ -9,13 +9,8 @@ import traceback
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
-
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key'
-
-
-
-
 
 CONURE_PATH = os.environ.get('CONURE_PATH')
 if CONURE_PATH is None:
@@ -24,15 +19,16 @@ else:
     print(f"CONURE_PATH is set to: {CONURE_PATH}")
     ARTWORK_GENERATOR_PATH = CONURE_PATH + "/artwork_generator/artwork_generator.py"
 
+WORKSPACE_PATH = "/projects/bitstream/emon/conure_workspace/sessions/"
+SWEEP_GENERATOR_PATH = CONURE_PATH + "/sweep/sweep.py"
+SIMULATOR_CONFIG_PATH = CONURE_PATH + "/simulator/config.json"
 
 #CONURE_PATH = "/projects/bitstream/emon/projects/conure"
 #CONURE_PATH = "/home/emon/Documents/Projects/conure"
 
 
 
-
-
-SESSION_MODE = True
+SESSION_MODE = False
 
 @app.route('/get_app_mode', methods=['POST'])
 def get_app_mode():
@@ -111,15 +107,15 @@ def create_project_public():
         print("NEW SESSION WITH ID ", session['session_id'])
 
 
-    BASE_PATH = "~/conure_workspace/sessions/"
+    
     data = request.json
     print(data)
     print(data["projectName"])
 
     #session_path = data.get('directoryPath')
-    session_path = BASE_PATH + session['session_id']
+    session_path = WORKSPACE_PATH + session['session_id']
     PROJECT_PATH = session_path
-    session["session_path"] = BASE_PATH + session['session_id']
+    session["session_path"] = WORKSPACE_PATH + session['session_id']
     print("SESSION PATH IS  ", session["session_path"])
 
     if session_path:
@@ -400,8 +396,7 @@ def generate_preview():
 @app.route('/sweep_generate', methods=['POST'])
 def sweep_generate():
     data = request.json
-    SWEEP_GENERATOR_PATH = CONURE_PATH + "/sweep/sweep.py"
-    SIMULATOR_CONFIG_PATH = CONURE_PATH + "/conure/simulator/config.json"
+    
 
     ADFPath = os.path.expanduser(data.get('ADFPath'))
     sweepConfigPath = os.path.expanduser(data.get('sweepConfigPath'))
@@ -417,11 +412,14 @@ def sweep_generate():
 
     # Add simulation arguments if enableSimulation is True
     if enableSimulation:
-        command += f" --simulate -c {SIMULATOR_CONFIG_PATH} --sim emx"
+        command += f" --simulate --pack_sim -c {SIMULATOR_CONFIG_PATH} --sim emx"
 
     # Add SVG argument if enableSVGinSweep is True
     if enableSVGinSweep:
         command += " --svg"
+
+
+    print("COMMAND: ",command )
 
     command_list = shlex.split(command)
 
