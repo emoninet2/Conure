@@ -21,7 +21,7 @@ emxConfig = {
     "dumpConnectivity": True,
     "quasistatic": True,
     "fullwave": False,
-    "parallelCPU": 128,
+    "parallelCPU": 64,
     "simultaneousFrequencies": 0,
     "recommendedMemory": True,
     "dumpConnectivity": True,

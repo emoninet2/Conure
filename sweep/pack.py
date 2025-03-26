@@ -4,14 +4,15 @@ import numpy as np
 import skrf as rf
 import glob
 
-def pack(sweep_dir, sweep_name):
 
-    data_dir = os.path.join(sweep_dir, sweep_name)
+def pack(sweep_dir):
+
+    data_dir = sweep_dir
     print(f"Data directory: {data_dir}")
-    features_list = []
-    targets_list = []
-    feature_names = None  # Initialize to store feature names
-    target_names = None   # Initialize to store target (S-parameter) names
+    geometric_paremeters = []
+    s_paremeters = []
+    geometric_paremeters_names = None  # Initialize to store feature names
+    s_parameter_names = None   # Initialize to store target (S-parameter) names
     frequency_points = None  # Initialize to store frequency points
 
     # Loop through each run folder
@@ -25,10 +26,10 @@ def pack(sweep_dir, sweep_name):
                 params_values = list(params['parameters'].values())
                 
                 # Save feature names only once
-                if feature_names is None:
-                    feature_names = list(params['parameters'].keys())
+                if geometric_paremeters_names is None:
+                    geometric_paremeters_names = list(params['parameters'].keys())
                 
-                features_list.append(params_values)
+                geometric_paremeters.append(params_values)
             
             # Find any touchstone file (e.g., .s2p, .s4p, .sNp) in the folder
             touchstone_files = glob.glob(os.path.join(data_dir, run_folder, f"*.s*p"))
@@ -47,12 +48,12 @@ def pack(sweep_dir, sweep_name):
                     frequency_points = network.f  # Frequency points in Hz
                 
                 # Save target names (S-parameter keys) only once
-                if target_names is None:
-                    target_names = []
+                if s_parameter_names is None:
+                    s_parameter_names = []
                     for i in range(num_ports):
                         for j in range(num_ports):
-                            target_names.append(f"S{i+1}{j+1}_real")
-                            target_names.append(f"S{i+1}{j+1}_imag")
+                            s_parameter_names.append(f"S{i+1}{j+1}_real")
+                            s_parameter_names.append(f"S{i+1}{j+1}_imag")
 
                 # Prepare real and imaginary parts for all S-parameters at each frequency
                 s_real_imag = []
@@ -65,21 +66,22 @@ def pack(sweep_dir, sweep_name):
                 s_real_imag = np.stack(s_real_imag, axis=0)  # Shape: [2*num_ports^2, num_freqs]
 
                 # Append this run's target data, keeping the shape [2*num_ports^2, num_freqs]
-                targets_list.append(s_real_imag)
+                s_paremeters.append(s_real_imag)
             else:
                 print(f"TOUCHSTONE FILE NOT FOUND for {run_id}")
 
     # Convert lists to arrays
-    features_array = np.array(features_list)
-    targets_array = np.array(targets_list)  # Shape: [num_runs, 2*num_ports^2, num_freqs]
+    geometric_parameter_array = np.array(geometric_paremeters)
+    s_parameter_array = np.array(s_paremeters)  # Shape: [num_runs, 2*num_ports^2, num_freqs]
 
     # Save the data in npz format, including feature names, target names, and frequency points
     np.savez(os.path.join(data_dir, 's_parameters_data.npz'), 
-             features=features_array, 
-             targets=targets_array, 
-             feature_names=feature_names, 
-             target_names=target_names,
+             geometric_parameters=geometric_parameter_array, 
+             s_parameters=s_parameter_array, 
+             geometric_paremeters_names=geometric_paremeters_names, 
+             s_parameter_names=s_parameter_names,
              frequency_points=frequency_points)  # Store frequency points
+
 
 
 def unpack_and_print(npz_file_path):
@@ -88,12 +90,41 @@ def unpack_and_print(npz_file_path):
     
     # Get the frequency points and target names
     frequency_points = data['frequency_points']
+    feature_names = data['feature_names']
     target_names = data['target_names']
+    
+    features = data['features']
     targets = data['targets']
+
+
+    nSamples = np.shape(features)[0]
+    print(nSamples)
+
+
+    targets_flattened = targets.reshape(nSamples,-1)
+
+    print(np.shape(targets_flattened))
+
+    print(feature_names)
+    print(target_names)
+
+    return
     
     # Print the first frequency point
     print(f"Frequency point: {frequency_points[4]:.6e} Hz")
     
+    # Print the feature 
+    print(f"Target : {feature_names} ")
+
+    # Print the feature 
+    print(f"Features : {features[:,:-1]} ")
+
+    # Print the Target 
+    print(f"Targets shape : {np.shape(targets)} ")
+
+
+    print(f"Targets : {(targets[0])} ")
+
     # Loop through the target names and print corresponding values for the first run and first frequency point
     print("S-parameter values for the first frequency point:")
     for i, target_name in enumerate(target_names):
@@ -101,10 +132,12 @@ def unpack_and_print(npz_file_path):
 
 
 # Example usage:
-pack('/projects/bitstream/emon/conure_workspace/sessions/c8b07d3d-21c5-478e-b5e9-7df39b02041c/sweep/', '1727798547633')
+#pack('/projects/bitstream/emon/conure_workspace/sessions/c8b07d3d-21c5-478e-b5e9-7df39b02041c/sweep/1727798547633')
 
 
 
-
+#transformer_1_1  transformer_2_1  transformer_2_2  transformer_3_2  transformer_3_3  transformer_4_3  Transformer_Coplanar_1_1
 # Example usage
-unpack_and_print('/projects/bitstream/emon/conure_workspace/sessions/c8b07d3d-21c5-478e-b5e9-7df39b02041c/sweep/1727798547633/s_parameters_data.npz')
+filename = '/projects/bitstream/emon/conure_workspace/Transformers/transformer_4_3/'
+pack(filename)
+#unpack_and_print('/projects/bitstream/emon/conure_workspace/Transformers/transformer_1_1/s_parameters_data.npz')

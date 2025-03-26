@@ -9,14 +9,19 @@ from sklearn.metrics import r2_score,mean_absolute_error, mean_squared_error
 from keras.models import Sequential, load_model
 from keras.layers import Dense, Flatten
 from keras.optimizers import Adam
+from keras.losses import MeanSquaredError
 from tensorflow import keras
-from kerastuner import tuners as kt
+#from kerastuner import tuners as kt
 from keras.callbacks import EarlyStopping
 
 import os
 import joblib
 import json
 import matplotlib.pyplot as plt
+import numpy as np  # Added missing numpy import
+
+import keras
+#import kerastuner as kt
 
 
 def load_data(filename):
@@ -37,80 +42,126 @@ def create_sets_for_training(features, target, test_size, train_size, random_sta
 
 
 
+def normalize_data_sets(feature_train, feature_test, target_train, target_test, feature_method="standard", target_method="minmax"):
+    """
+    Normalizes feature and target datasets using the specified scaling methods.
 
+    Parameters:
+    - feature_train: Training feature data
+    - feature_test: Testing feature data
+    - target_train: Training target data
+    - target_test: Testing target data
+    - feature_method: Normalization method for features ("standard" or "minmax")
+    - target_method: Normalization method for targets ("standard" or "minmax")
 
+    Returns:
+    - feature_train_norm: Normalized training features
+    - feature_test_norm: Normalized testing features
+    - target_train_norm: Normalized training targets
+    - target_test_norm: Normalized testing targets
+    - feature_scaler: Scaler used for features
+    - target_scaler: Scaler used for targets
+    """
 
-def normalize_data(feature_train, feature_test, target_train, target_test, feature_method="standard", target_method="minmax"):
-
-    # Choose normalization method for features
+    # Select the appropriate scaler for features
     if feature_method == "standard":
-        feature_scaler = StandardScaler().fit(feature_train)
+        feature_scaler = StandardScaler()
     elif feature_method == "minmax":
-        feature_scaler = MinMaxScaler().fit(feature_train)
+        feature_scaler = MinMaxScaler()
     else:
-        raise ValueError("Invalid feature_method. Choose either 'standard' or 'minmax'.")
+        raise ValueError("Invalid feature normalization method. Choose 'standard' or 'minmax'.")
+
+    # Select the appropriate scaler for targets
+    if target_method == "standard":
+        target_scaler = StandardScaler()
+    elif target_method == "minmax":
+        target_scaler = MinMaxScaler()
+    else:
+        raise ValueError("Invalid target normalization method. Choose 'standard' or 'minmax'.")
+
+    # Fit and transform feature data
+    feature_train_norm = feature_scaler.fit_transform(feature_train)
+    feature_test_norm = feature_scaler.transform(feature_test)
+
+    # Fit and transform target data
+    target_train_norm = target_scaler.fit_transform(target_train)
+    target_test_norm = target_scaler.transform(target_test)
+
+    return feature_train_norm, feature_test_norm, target_train_norm, target_test_norm, feature_scaler, target_scaler
+
+
+# def normalize_data(feature_train, feature_test, target_train, target_test, feature_method="standard", target_method="minmax"):
+
+#     # Choose normalization method for features
+#     if feature_method == "standard":
+#         feature_scaler = StandardScaler().fit(feature_train)
+#     elif feature_method == "minmax":
+#         feature_scaler = MinMaxScaler().fit(feature_train)
+#     else:
+#         raise ValueError("Invalid feature_method. Choose either 'standard' or 'minmax'.")
         
-    feature_train_normalized = feature_scaler.transform(feature_train)
-    feature_test_normalized = feature_scaler.transform(feature_test)
+#     feature_train_normalized = feature_scaler.transform(feature_train)
+#     feature_test_normalized = feature_scaler.transform(feature_test)
 
-    # Normalize target data
-    target_train_normalized = np.empty_like(target_train)
-    target_test_normalized = np.empty_like(target_test)
-    target_scalers = []
+#     # Normalize target data
+#     target_train_normalized = np.empty_like(target_train)
+#     target_test_normalized = np.empty_like(target_test)
+#     target_scalers = []
 
-    for i in range(target_train.shape[1]):
-        # Choose normalization method for targets
-        if target_method == "standard":
-            scaler = StandardScaler().fit(target_train[:, i, :])
-        elif target_method == "minmax":
-            scaler = MinMaxScaler().fit(target_train[:, i, :])
-        else:
-            raise ValueError("Invalid target_method. Choose either 'standard' or 'minmax'.")
+#     for i in range(target_train.shape[1]):
+#         # Choose normalization method for targets
+#         if target_method == "standard":
+#             scaler = StandardScaler().fit(target_train[:, i, :])
+#         elif target_method == "minmax":
+#             scaler = MinMaxScaler().fit(target_train[:, i, :])
+#         else:
+#             raise ValueError("Invalid target_method. Choose either 'standard' or 'minmax'.")
             
-        target_train_normalized[:, i, :] = scaler.transform(target_train[:, i, :])
-        target_test_normalized[:, i, :] = scaler.transform(target_test[:, i, :])
-        target_scalers.append(scaler)
+#         target_train_normalized[:, i, :] = scaler.transform(target_train[:, i, :])
+#         target_test_normalized[:, i, :] = scaler.transform(target_test[:, i, :])
+#         target_scalers.append(scaler)
     
-    return feature_train_normalized, feature_test_normalized, target_train_normalized, target_test_normalized, feature_scaler, target_scalers
+#     return feature_train_normalized, feature_test_normalized, target_train_normalized, target_test_normalized, feature_scaler, target_scalers
 
 
 
-def normalize_data_test(data, scalers):
-    if data.ndim == 3:  # Shape is [a:b:c]
-        data_normalized = np.zeros_like(data)
-        for i, scaler in enumerate(scalers):
-            data_normalized[:, i, :] = scaler.transform(data[:, i, :])
-    elif data.ndim == 2:  # Shape is [a:b]
-        data_normalized = np.zeros_like(data)
-        for i, scaler in enumerate(scalers):
-            data_normalized[:, i] = scaler.transform(data[:, i].reshape(-1, 1)).flatten()
-    else:
-        raise ValueError(f"Unexpected number of dimensions: {data.ndim}")
+
+
+# def denormalize_data(data_normalized, scalers):
+#     if data_normalized.ndim == 3:  # Shape is [a:b:c]
+#         data_denormalized = np.zeros_like(data_normalized)
+#         for i, scaler in enumerate(scalers):
+#             data_denormalized[:, i, :] = scaler.inverse_transform(data_normalized[:, i, :])
+#     elif data_normalized.ndim == 2:  # Shape is [a:b]
+#         data_denormalized = np.zeros_like(data_normalized)
+#         for i, scaler in enumerate(scalers):
+#             data_denormalized[:, i] = scaler.inverse_transform(data_normalized[:, i].reshape(-1, 1)).flatten()
+#     else:
+#         raise ValueError(f"Unexpected number of dimensions: {data_normalized.ndim}")
     
-    return data_normalized
+#     return data_denormalized
 
-def denormalize_data(data_normalized, scalers):
-    if data_normalized.ndim == 3:  # Shape is [a:b:c]
-        data_denormalized = np.zeros_like(data_normalized)
-        for i, scaler in enumerate(scalers):
-            data_denormalized[:, i, :] = scaler.inverse_transform(data_normalized[:, i, :])
-    elif data_normalized.ndim == 2:  # Shape is [a:b]
-        data_denormalized = np.zeros_like(data_normalized)
-        for i, scaler in enumerate(scalers):
-            data_denormalized[:, i] = scaler.inverse_transform(data_normalized[:, i].reshape(-1, 1)).flatten()
-    else:
-        raise ValueError(f"Unexpected number of dimensions: {data_normalized.ndim}")
+
+def denormalize_data(data_normalized, scaler):
+    """
+    Reverses normalization using the provided scaler.
+
+    Parameters:
+    - data_normalized: The normalized data.
+    - scaler: The scaler object used for normalization.
+
+    Returns:
+    - data_original: The denormalized (original scale) data.
+    """
     
-    return data_denormalized
+    if scaler is None:
+        raise ValueError("Scaler object is required for denormalization.")
 
-
-
-
-
+    return scaler.inverse_transform(data_normalized)
 
 def generate_model(feature_train, feature_test, target_train, target_test, 
                    epochs=50, batch_size=32, optimizer='adam', 
-                   loss='mse', metrics=['mae']):
+                   loss='mse', metrics=['mae'], learning_rate=0.001):
     """
     Generate and train a simple neural network model.
     
@@ -121,6 +172,7 @@ def generate_model(feature_train, feature_test, target_train, target_test,
     - optimizer : Optimizer for training
     - loss : Loss function
     - metrics : List of metrics to monitor
+    - learning_rate : Learning rate for optimizer
     
     Returns:
     - model : Trained Keras model
@@ -129,48 +181,50 @@ def generate_model(feature_train, feature_test, target_train, target_test,
     
     # Ensure input data shapes are compatible
     if feature_train.shape[0] != target_train.shape[0] or feature_test.shape[0] != target_test.shape[0]:
-        raise ValueError("Mismatched data shapes.")
+        raise ValueError("Mismatched data shapes: check sample counts.")
+    if feature_train.shape[1] != feature_test.shape[1]:
+        raise ValueError("Mismatched feature dimensions between train and test sets.")
     
-    # 1. Define the Model Architecture
-    # model = Sequential([
-    #     Dense(32, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
-    #     Dense(1024, activation='tanh'),  # Hidden layer
-    #     Dense(4096, activation='relu'),  # Hidden layer
-    #     Dense(target_train.shape[1], activation='linear')  # Output layer
-    # ])
+    # If optimizer is 'adam', define the Adam optimizer with the custom learning rate
+    if optimizer == 'adam':
+        optimizer = Adam(learning_rate=learning_rate)
+    # You can add more optimizers here if you want to support others, e.g., SGD, RMSprop
 
+
+    # # 1. Define the Model Architecture (selected after hyperparameter tuning)
     # model = Sequential([
-    #     Dense(160, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
+    #     Dense(288, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
+    #     Dense(3584, activation='relu'),  # Hidden layer
     #     Dense(3584, activation='relu'),  # Hidden layer
     #     Dense(target_train.shape[1], activation='linear')  # Output layer
     # ])
 
 
-    #From Hyperparameter tuning
+    # Define the Model Architecture
     model = Sequential([
-        Dense(288, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
-        Dense(3584, activation='relu'),  # Hidden layer
-        Dense(3584, activation='relu'),  # Hidden layer
+        Dense(1000, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
+        Dense(100, activation='relu'),
+        Dense(4000, activation='relu'),
+        Dense(100, activation='relu'),
         Dense(target_train.shape[1], activation='linear')  # Output layer
     ])
 
-    # model = Sequential([
-    #     Dense(288, activation='relu', input_shape=(feature_train.shape[1],)),  # Input layer
-    #     Dense(4096, activation='relu'),  # Hidden layer
-    #     Dense(4096, activation='relu'),  # Hidden layer
-    #     Dense(target_train.shape[1], activation='linear')  # Output layer
-    # ])
-
-    # 2. Compile the Model
+    # Compile the model with the specified optimizer and loss function
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
-    # 3. Train the Model
+    # Optional: Early Stopping to prevent overfitting
+    early_stopping = EarlyStopping(monitor='val_loss', patience=50, restore_best_weights=True)
+
+
+
+    # Train the model
     history = model.fit(
         feature_train, 
         target_train, 
         validation_data=(feature_test, target_test), 
         epochs=epochs,
-        batch_size=batch_size
+        batch_size=batch_size,
+        callbacks=[early_stopping]  # Optional: Early stopping callback
     )
     
     return model, history
@@ -178,8 +232,7 @@ def generate_model(feature_train, feature_test, target_train, target_test,
 
 
 
-import keras
-import kerastuner as kt
+
 
 def optimize_model(feature_train, feature_test, target_train, target_test, directory, project_name):
    # Define a function to create the Keras model for hyperparameter tuning
@@ -265,7 +318,7 @@ def optimize_model(feature_train, feature_test, target_train, target_test, direc
 
 
 def predict_from_model(model_name, model_path, feature, target_shape):
-    loaded_model = load_model(model_path + "/" + model_name +  ".h5")
+    loaded_model = load_model(model_path + "/" + model_name +  ".keras")
     
     # To load them back:
     feature_scaler_loaded = joblib.load(model_path + '/feature_scaler.pkl')
@@ -293,7 +346,40 @@ def predict_from_model(model_name, model_path, feature, target_shape):
 
     return denormalized_predictions
 
+def predict_from_model_new(model_name, model_path, feature):
+    # Load the model
+    loaded_model = load_model(model_path + "/" + model_name + ".keras")
+    
+    # Load scalers
+    feature_scaler_loaded = joblib.load(model_path + '/feature_scaler.pkl')
+    target_scaler_loaded = joblib.load(model_path + '/target_scalers.pkl')
 
+    # Load the history (optional, you can remove if you don't need it)
+    with open(model_path + '/history.json', 'r') as f:
+        loaded_history = json.load(f)
+
+    # Reshape the feature input for prediction if it's a single sample
+    if feature.ndim == 1:  # Single sample
+        new_feature_data_reshaped = feature.reshape(1, -1)
+    else:  # Multiple samples
+        new_feature_data_reshaped = feature
+
+    # Normalize the feature input using the trained scaler
+    new_feature_data_norm = feature_scaler_loaded.transform(new_feature_data_reshaped)
+
+    # Make predictions
+    predictions_norm = loaded_model.predict(new_feature_data_norm)
+
+    # If predictions are 1D (for single sample), reshape them to 2D for inverse transformation
+    if predictions_norm.ndim == 1:
+        predictions_norm = predictions_norm.reshape(1, -1)
+
+    # Denormalize the predictions using the target scaler
+    predictions_reshaped = target_scaler_loaded.inverse_transform(predictions_norm)
+
+    return predictions_reshaped
+
+    
 
 # def print_model_metrics(model_name, model_path, feature_test, target_test ):
 
@@ -342,8 +428,12 @@ def predict_from_model(model_name, model_path, feature, target_shape):
 #     std_errors = np.std(errors)
 #     print(f"Standard Deviation of Errors: {std_errors:.4f}")
 
-def print_model_metrics(model_name, model_path, feature_test, target_test):
-    model = load_model(model_path + "/" + model_name + ".h5")
+
+def get_model_metrics(model_name, model_path, feature_test, target_test):
+    # Load the model
+    model = load_model(model_path + "/" + model_name + ".keras")
+    
+    # Load the feature and target scalers
     feature_scaler = joblib.load(model_path + '/feature_scaler.pkl')
     target_scaler = joblib.load(model_path + '/target_scalers.pkl')
 
@@ -353,7 +443,7 @@ def print_model_metrics(model_name, model_path, feature_test, target_test):
     # Predict using the model
     predictions_norm = model.predict(feature_test_norm)
 
-    # Reshape the predictions to the original target_test shape
+    # Reshape the predictions to match the target_test shape
     predictions_norm_reshaped = predictions_norm.reshape(target_test.shape)
 
     # Denormalize the predictions
@@ -363,14 +453,117 @@ def print_model_metrics(model_name, model_path, feature_test, target_test):
     target_test_flat = target_test.reshape(-1)
     predictions_flat = predictions.reshape(-1)
 
-    # Calculate and print metrics
+    # Calculate metrics
     r2 = r2_score(target_test_flat, predictions_flat)
     mae = mean_absolute_error(target_test_flat, predictions_flat)
     mse = mean_squared_error(target_test_flat, predictions_flat)
     rmse = np.sqrt(mse)
-    mape = 100 * np.mean(np.abs((target_test_flat - predictions_flat) / target_test_flat))
+
+    # Avoid division by zero in MAPE calculation by adding a small epsilon
+    epsilon = 1e-8
+    mape = 100 * np.mean(np.abs((target_test_flat - predictions_flat) / (target_test_flat + epsilon)))
+
+    # Standard deviation of errors
     std_errors = np.std(target_test_flat - predictions_flat)
 
+    #Print metrics
+    print(f"R^2 Score: {r2:.4f}")
+    print(f"Mean Absolute Error (MAE): {mae:.4f}")
+    print(f"Mean Squared Error (MSE): {mse:.4f}")
+    print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+    print(f"Mean Absolute Percentage Error (MAPE): {mape:.4f}%")
+    print(f"Standard Deviation of Errors: {std_errors:.4f}")
+
+    return r2,mae,mse
+
+
+
+def get_inverse_model_metrics(model_name, model_path, target_test, feature_test):
+    # Load the model
+    model = load_model(model_path + "/" + model_name + ".keras")
+    
+    # Load the feature and target scalers
+    feature_scaler = joblib.load(model_path + '/feature_scaler.pkl')
+    target_scaler = joblib.load(model_path + '/target_scalers.pkl')
+
+    # Normalize features using the feature_scaler
+    feature_test_norm = feature_scaler.transform(feature_test)
+
+    # Predict using the model
+    predictions_norm = model.predict(feature_test_norm)
+
+    # Reshape the predictions to match the target_test shape
+    predictions_norm_reshaped = predictions_norm.reshape(target_test.shape)
+
+    # Denormalize the predictions
+    predictions = denormalize_data(predictions_norm_reshaped, target_scaler)
+
+    # Flatten the arrays for metric computation
+    target_test_flat = target_test.reshape(-1)
+    predictions_flat = predictions.reshape(-1)
+
+    # Calculate metrics
+    r2 = r2_score(target_test_flat, predictions_flat)
+    mae = mean_absolute_error(target_test_flat, predictions_flat)
+    mse = mean_squared_error(target_test_flat, predictions_flat)
+    rmse = np.sqrt(mse)
+
+    # Avoid division by zero in MAPE calculation by adding a small epsilon
+    epsilon = 1e-8
+    mape = 100 * np.mean(np.abs((target_test_flat - predictions_flat) / (target_test_flat + epsilon)))
+
+    # Standard deviation of errors
+    std_errors = np.std(target_test_flat - predictions_flat)
+
+    #Print metrics
+    print(f"R^2 Score: {r2:.4f}")
+    print(f"Mean Absolute Error (MAE): {mae:.4f}")
+    print(f"Mean Squared Error (MSE): {mse:.4f}")
+    print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
+    print(f"Mean Absolute Percentage Error (MAPE): {mape:.4f}%")
+    print(f"Standard Deviation of Errors: {std_errors:.4f}")
+
+    return r2,mae,mse
+
+
+def print_model_metrics(model_name, model_path, feature_test, target_test):
+    # Load the model
+    model = load_model(model_path + "/" + model_name + ".keras")
+    
+    # Load the feature and target scalers
+    feature_scaler = joblib.load(model_path + '/feature_scaler.pkl')
+    target_scaler = joblib.load(model_path + '/target_scalers.pkl')
+
+    # Normalize features using the feature_scaler
+    feature_test_norm = feature_scaler.transform(feature_test)
+
+    # Predict using the model
+    predictions_norm = model.predict(feature_test_norm)
+
+    # Reshape the predictions to match the target_test shape
+    predictions_norm_reshaped = predictions_norm.reshape(target_test.shape)
+
+    # Denormalize the predictions
+    predictions = denormalize_data(predictions_norm_reshaped, target_scaler)
+
+    # Flatten the arrays for metric computation
+    target_test_flat = target_test.reshape(-1)
+    predictions_flat = predictions.reshape(-1)
+
+    # Calculate metrics
+    r2 = r2_score(target_test_flat, predictions_flat)
+    mae = mean_absolute_error(target_test_flat, predictions_flat)
+    mse = mean_squared_error(target_test_flat, predictions_flat)
+    rmse = np.sqrt(mse)
+
+    # Avoid division by zero in MAPE calculation by adding a small epsilon
+    epsilon = 1e-8
+    mape = 100 * np.mean(np.abs((target_test_flat - predictions_flat) / (target_test_flat + epsilon)))
+
+    # Standard deviation of errors
+    std_errors = np.std(target_test_flat - predictions_flat)
+
+    # Print metrics
     print(f"R^2 Score: {r2:.4f}")
     print(f"Mean Absolute Error (MAE): {mae:.4f}")
     print(f"Mean Squared Error (MSE): {mse:.4f}")

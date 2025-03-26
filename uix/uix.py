@@ -9,6 +9,10 @@ import traceback
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
+
+SESSION_MODE = False
+
+
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key'
 
@@ -28,7 +32,7 @@ SIMULATOR_CONFIG_PATH = CONURE_PATH + "/simulator/config.json"
 
 
 
-SESSION_MODE = False
+
 
 @app.route('/get_app_mode', methods=['POST'])
 def get_app_mode():
