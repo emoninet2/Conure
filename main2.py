@@ -459,13 +459,14 @@ import numpy as np
 
 
 
-#r2,mae,mse = generate_inverse_RI_model('/projects/bitstream/emon/conure_workspace/Transformers/transformer_4_3/s_parameters_data.npz',"test", train_portion= 0.8)
-#r2,mae,mse = generate_RI_model('/projects/bitstream/emon/conure_workspace/Transformers/transformer_2_1/s_parameters_data.npz',"test", train_portion= 0.8)
-#print(r2,mae,mse)
+r2,mae,mse = generate_inverse_RI_model('/mnt/storage/conure_data/tsmc65/transformers/transformer_3_3/s_parameters_data.npz',"Fmodel", train_portion= 0.8)
+r2,mae,mse = generate_RI_model('/mnt/storage/conure_data/tsmc65/transformers/transformer_3_3/s_parameters_data.npz',"Imodel", train_portion= 0.8)
+print(r2,mae,mse)
+
+exit()
 
 
-
-npz_file_path = '/projects/bitstream/emon/conure_workspace/Transformers/transformer_4_3/s_parameters_data.npz'
+npz_file_path = '/mnt/storage/conure_data/tsmc65/transformers/transformer_3_3/s_parameters_data.npz'
 data = np.load(npz_file_path)
 
 

@@ -46,7 +46,10 @@ check_pip3() {
 }
 
 # List of required packages
-packages=("gdspy" "numpy" "flask" "datetime")
+#packages=("gdspy" "numpy" "flask" "datetime")
+packages=("numpy" "matplotlib" "scikit-learn" "scipy" "joblib" "json" "keras" "tensorflow" 'tensorflow[and-cuda]'  "scikit-rf" "kerastuner==1.1.0")
+
+
 
 # Function to check if a package is installed in the virtual environment
 check_and_install() {
@@ -77,4 +80,4 @@ done
 echo "All packages are installed in the virtual environment '.venv'."
 
 
-./startUIX.sh
+#./startUIX.sh
