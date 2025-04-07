@@ -44,6 +44,15 @@ class InductiveComp:
         self.N = self.Parameters["rings"]
         self.ref_Octagon = Octagon(self.Parameters["apothem"])
 
+
+        # Dynamically set parameters as attributes
+        for key, value in self.Parameters.items():
+            setattr(self, key, value)
+
+
+
+
+
         # Initialize GDS library and cell
         self.lib = gdspy.GdsLibrary()
         self.cell = self.lib.new_cell(self.Parameters["name"])
@@ -87,6 +96,17 @@ class InductiveComp:
 
         # Write GDS and optionally SVG files
         self._write_output_files(gds_output_path, gds_output_name, generate_svg)
+
+
+    def _resolve_parameter(self, value):
+        if isinstance(value, str):
+            # If it's a string, use it as a key to fetch the value from self.Parameters.
+            retVal = self.Parameters[value]
+        else:
+            # Otherwise, assume it's a numeric value and use it directly.
+            retVal = value
+
+        return retVal
 
     def _write_output_files(self, output_path, output_name, generate_svg):
         """
@@ -153,7 +173,8 @@ class InductiveComp:
                         self._set_polygon_layer(seg_poly, seg_layer)
                         self._append_gds_item(self.segment_gds_items, seg_poly)
                     elif arm_data["type"] == "DOUBLE":
-                        spacing = arm_data["spacing"]
+                        #spacing = arm_data["spacing"]
+                        spacing = self._resolve_parameter(arm_data["spacing"])
                         apothem = self.ref_Octagon.apothem_ref + ring * (self.T + self.S)
                         seg_poly = self._octagon_ring_with_asymmetrical_gap_polygon(
                             apothem, self.T, seg_id, spacing / 2.0, spacing / 2.0)
@@ -291,6 +312,12 @@ class InductiveComp:
                             self.Bridges[seg_data_group["data"]["bridge"]]["ViaStackCW"],
                             0)
 
+
+
+
+
+
+
     def _generate_arm_items(self):
         """
         Generate arm items based on the inductor data.
@@ -304,16 +331,33 @@ class InductiveComp:
             for ring in range(len(sg_data["group"])):
                 seg_data_group = sg_data["group"][ring]
                 if seg_data_group["type"] == "PORT":
+
                     arm_data = self.Arms[seg_data_group["data"]["arm"]]
+
+
+                    # arm_length_value = arm_data["length"]
+
+                    # if isinstance(arm_length_value, str):
+                    #     # If it's a string, use it as a key to fetch the value from self.Parameters.
+                    #     arm_length = self.Parameters[arm_length_value]
+                    # else:
+                    #     # Otherwise, assume it's a numeric value and use it directly.
+                    #     arm_length = arm_length_value
+
+
+                    arm_length = self._resolve_parameter(arm_data["length"])
+                    arm_width = self._resolve_parameter(arm_data["width"])
+                    
+
                     dx_start = self.ref_Octagon.apothem_ref + ring * (self.T + self.S) + self.T
                     dx_end = (self.ref_Octagon.apothem_ref + self.N * self.T +
-                              (self.N - 1) * self.S + arm_data["length"])
+                              (self.N - 1) * self.S + arm_length)
                     if arm_data["type"] == "SINGLE":
                         arm_poly = Polygon([
-                            Point(dx_start, arm_data["width"] / 2.0),
-                            Point(dx_end, arm_data["width"] / 2.0),
-                            Point(dx_end, -arm_data["width"] / 2.0),
-                            Point(dx_start, -arm_data["width"] / 2.0)
+                            Point(dx_start, arm_width / 2.0),
+                            Point(dx_end, arm_width / 2.0),
+                            Point(dx_end, -arm_width / 2.0),
+                            Point(dx_start, -arm_width / 2.0)
                         ])
                         arm_poly.rotate_around(Point(0, 0), angle_degree)
                         arm_layer = arm_data["layer"]
@@ -321,8 +365,8 @@ class InductiveComp:
                         self._append_gds_item(self.arm_gds_items, arm_poly)
 
                         port_line = copy.deepcopy(Line(
-                            Point(dx_end, arm_data["width"] / 2.0),
-                            Point(dx_end, -arm_data["width"] / 2.0)))
+                            Point(dx_end, arm_width / 2.0),
+                            Point(dx_end, -arm_width / 2.0)))
                         port_line.rotate_around(Point(0, 0), angle_degree)
                         port_point = port_line.midpoint()
                         port_layer = arm_data["layer"]
@@ -333,21 +377,22 @@ class InductiveComp:
 
                         if "viaStack" in arm_data:
                             via_poly = Polygon([
-                                Point(dx_start, arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, -arm_data["width"] / 2.0),
-                                Point(dx_start, -arm_data["width"] / 2.0)
+                                Point(dx_start, arm_width / 2.0),
+                                Point(dx_start - self.T, arm_width / 2.0),
+                                Point(dx_start - self.T, -arm_width / 2.0),
+                                Point(dx_start, -arm_width/ 2.0)
                             ])
                             via_poly.rotate_around(Point(0, 0), angle_degree)
                             self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
                     elif arm_data["type"] == "DOUBLE":
-                        dy = (arm_data["spacing"] + arm_data["width"]) / 2.0
+                        double_arm_spacing = self._resolve_parameter(arm_data["spacing"])
+                        dy = (double_arm_spacing + arm_width) / 2.0
                         # First arm
                         arm1_poly = Polygon([
-                            Point(dx_start, dy + arm_data["width"] / 2.0),
-                            Point(dx_end, dy + arm_data["width"] / 2.0),
-                            Point(dx_end, dy - arm_data["width"] / 2.0),
-                            Point(dx_start, dy - arm_data["width"] / 2.0)
+                            Point(dx_start, dy + arm_width / 2.0),
+                            Point(dx_end, dy + arm_width / 2.0),
+                            Point(dx_end, dy -arm_width / 2.0),
+                            Point(dx_start, dy -arm_width / 2.0)
                         ])
                         arm1_poly.rotate_around(Point(0, 0), angle_degree)
                         arm_layer = arm_data["layer"]
@@ -356,17 +401,17 @@ class InductiveComp:
 
                         if "viaStack" in arm_data:
                             via_poly = Polygon([
-                                Point(dx_start, dy + arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, dy + arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, dy - arm_data["width"] / 2.0),
-                                Point(dx_start, dy - arm_data["width"] / 2.0)
+                                Point(dx_start, dy + arm_width / 2.0),
+                                Point(dx_start - self.T, dy + arm_width / 2.0),
+                                Point(dx_start - self.T, dy - arm_width / 2.0),
+                                Point(dx_start, dy - arm_width / 2.0)
                             ])
                             via_poly.rotate_around(Point(0, 0), angle_degree)
                             self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
 
                         port_line = copy.deepcopy(Line(
-                            Point(dx_end, dy + arm_data["width"] / 2.0),
-                            Point(dx_end, dy - arm_data["width"] / 2.0)))
+                            Point(dx_end, dy + arm_width / 2.0),
+                            Point(dx_end, dy - arm_width / 2.0)))
                         port_line.rotate_around(Point(0, 0), angle_degree)
                         port_point = port_line.midpoint()
                         port_layer = arm_data["layer"]
@@ -377,10 +422,10 @@ class InductiveComp:
 
                         # Second arm
                         arm2_poly = Polygon([
-                            Point(dx_start, -dy - arm_data["width"] / 2.0),
-                            Point(dx_end, -dy - arm_data["width"] / 2.0),
-                            Point(dx_end, -dy + arm_data["width"] / 2.0),
-                            Point(dx_start, -dy + arm_data["width"] / 2.0)
+                            Point(dx_start, -dy - arm_width / 2.0),
+                            Point(dx_end, -dy - arm_width / 2.0),
+                            Point(dx_end, -dy + arm_width / 2.0),
+                            Point(dx_start, -dy + arm_width/ 2.0)
                         ])
                         arm2_poly.rotate_around(Point(0, 0), angle_degree)
                         self._set_polygon_layer(arm2_poly, arm_layer)
@@ -388,17 +433,17 @@ class InductiveComp:
 
                         if "viaStack" in arm_data:
                             via_poly = Polygon([
-                                Point(dx_start, -dy + arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, -dy + arm_data["width"] / 2.0),
-                                Point(dx_start - self.T, -dy - arm_data["width"] / 2.0),
-                                Point(dx_start, -dy - arm_data["width"] / 2.0)
+                                Point(dx_start, -dy + arm_width / 2.0),
+                                Point(dx_start - self.T, -dy + arm_width/ 2.0),
+                                Point(dx_start - self.T, -dy - arm_width / 2.0),
+                                Point(dx_start, -dy - arm_width/ 2.0)
                             ])
                             via_poly.rotate_around(Point(0, 0), angle_degree)
                             self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
 
                         port_line = copy.deepcopy(Line(
-                            Point(dx_end, -dy - arm_data["width"] / 2.0),
-                            Point(dx_end, -dy + arm_data["width"] / 2.0)))
+                            Point(dx_end, -dy - arm_width / 2.0),
+                            Point(dx_end, -dy + arm_width / 2.0)))
                         port_line.rotate_around(Point(0, 0), angle_degree)
                         port_point = port_line.midpoint()
                         port_layer = arm_data["layer"]
@@ -430,16 +475,21 @@ class InductiveComp:
                 if ("partialCut" in segment and segment["partialCut"]["use"]):
                     for i in range(self.C):
                         if i == segment["partialCut"]["segment"]:
-                            spacing = segment["partialCut"]["spacing"]
+                            partial_cut_spacing = self._resolve_parameter(segment["partialCut"]["spacing"])
+
                             segments = self._octagon_ring_with_asymmetrical_gap_polygon(
-                                ref_apothem + offset, width, i, spacing / 2.0, spacing / 2.0)
+                                ref_apothem + offset, width, i, partial_cut_spacing / 2.0, partial_cut_spacing / 2.0)
                             self._set_polygon_layer(segments, layer)
                             self._append_gds_item(self.guard_ring_gds_items, segments)
 
                             if "contacts" in segment and segment["contacts"]["use"]:
                                 via_stack = segment["contacts"]["viaStack"]
                                 via_stack_data = self.ViaPadStack[via_stack]
-                                via_margin = via_stack_data["margin"]
+
+                                via_margin = self._resolve_parameter(via_stack_data["margin"])
+
+
+
                                 self._generate_via_stack_on_polygon(
                                     segments[0], via_stack, via_margin)
                                 self._generate_via_stack_on_polygon(
@@ -453,7 +503,7 @@ class InductiveComp:
                             if "contacts" in segment and segment["contacts"]["use"]:
                                 via_stack = segment["contacts"]["viaStack"]
                                 via_stack_data = self.ViaPadStack[via_stack]
-                                via_margin = via_stack_data["margin"]
+                                via_margin = self._resolve_parameter(via_stack_data["margin"])
                                 self._generate_via_stack_on_polygon(
                                     segment_poly, via_stack, via_margin)
                 else:
@@ -466,7 +516,7 @@ class InductiveComp:
                         if "contacts" in segment and segment["contacts"]["use"]:
                             via_stack = segment["contacts"]["viaStack"]
                             via_stack_data = self.ViaPadStack[via_stack]
-                            via_margin = via_stack_data["margin"]
+                            via_margin = self._resolve_parameter(via_stack_data["margin"])
                             self._generate_via_stack_on_polygon(
                                 segment_poly, via_stack, via_margin)
 
@@ -478,14 +528,21 @@ class InductiveComp:
                        (self.N - 1) * self.S + self.GuardRing["data"]["distance"])
         dummy_fill = self.GuardRing["data"]["dummyFills"]
         if dummy_fill["type"] == "checkered":
-            group_spacing = dummy_fill["groupSpacing"]
+            group_spacing = self._resolve_parameter(dummy_fill["groupSpacing"])
+
+            #group_spacing = dummy_fill["groupSpacing"]
             group_items = []
             for item_name, item in dummy_fill["items"].items():
                 if item["shape"] == "rect":
-                    dx = item["offsetX"]
-                    dy = item["offsetY"]
-                    length = item["length"]
-                    height = item["height"]
+                    # dx = item["offsetX"]
+                    # dy = item["offsetY"]
+                    # length = item["length"]
+                    # height = item["height"]
+
+                    dx = self._resolve_parameter(item["offsetX"])
+                    dy = self._resolve_parameter(item["offsetY"])
+                    length = self._resolve_parameter(item["length"])
+                    height = self._resolve_parameter(item["height"])
 
                     rect = Polygon([
                         Point(dx - length / 2.0, dy - height / 2.0),
@@ -767,11 +824,15 @@ class InductiveComp:
 
         for vs in via_stack_data["vias"]:
             via_data = self.Via[vs]
-            via_l = via_data["length"]
-            via_w = via_data["width"]
-            via_s = via_data["spacing"]
             via_layer = via_data["layer"]
-            via_angle = via_data["angle"]
+
+
+            via_l = self._resolve_parameter(via_data["length"])
+            via_w = self._resolve_parameter(via_data["width"])
+            via_s = self._resolve_parameter(via_data["spacing"])
+            via_angle = self._resolve_parameter(via_data["angle"])
+
+
             dx = (via_l + via_s)
             dy = (via_w + via_s)
             c_max = ((length_bounding_box - via_s) / (via_l + via_s))

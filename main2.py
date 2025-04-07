@@ -493,7 +493,7 @@ targets = geometric_parameters[:,:-1] #this is to remove the fourth member "N" w
 
 
 
-predictions = modelProcess.predict_from_model_new("test", '/projects/bitstream/emon/projects/conure/model_library/test', features[72])
+predictions = modelProcess.predict_from_model_new("test", './model_library/test', features[72])
 print(predictions)
 exit()
 
