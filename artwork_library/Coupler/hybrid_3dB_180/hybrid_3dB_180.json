@@ -165,8 +165,8 @@
         "A0": {
             "type": "DOUBLE",
             "length": "armLen",
-            "width": "arm0width",
-            "spacing": 40,
+            "width": "width",
+            "spacing": "spacing",
             "port": [
                 "PORT0",
                 "PORT1"

@@ -100,24 +100,27 @@ def create_project_public():
         A JSON response indicating the success or failure of the operation.
     """
     
-    print("PUBLIC SESSION")
-
+    data = request.json
+    session_path = None
     if SESSION_MODE == True:
+        print("PUBLIC SESSION")
         if 'session_id' not in session:
             session['session_id'] = str(uuid.uuid4())  # Generate a unique session ID
             print("NEW SESSION WITH ID ", session['session_id'])
+            session_path = WORKSPACE_PATH + session['session_id']
     else:
+        print("PRIVATE SESSION")
         session['session_id'] = data.get('directoryPath')
-        print("NEW SESSION WITH ID ", session['session_id'])
-
+        #print("NEW SESSION WITH ID ", session['session_id'])
+        session_path = data.get('directoryPath')
 
     
-    data = request.json
+    
     print(data)
     print(data["projectName"])
 
     #session_path = data.get('directoryPath')
-    session_path = WORKSPACE_PATH + session['session_id']
+    #session_path = WORKSPACE_PATH + session['session_id']
     PROJECT_PATH = session_path
     session["session_path"] = WORKSPACE_PATH + session['session_id']
     print("SESSION PATH IS  ", session["session_path"])
