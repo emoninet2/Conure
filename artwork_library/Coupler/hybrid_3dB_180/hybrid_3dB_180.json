@@ -23,10 +23,10 @@
                 "datatype": 60
             }
         },
-        "INDDMY_dr2": {
+        "INDDMY_drw": {
             "gds": {
                 "layer": 144,
-                "datatype": 2
+                "datatype": 0
             }
         },
         "M1": {
@@ -486,7 +486,7 @@
                 "dummy": {
                     "shape": "hex",
                     "offset": 0,
-                    "layer": "INDDMY_dr2"
+                    "layer": "INDDMY_drw"
                 }
             },
             "dummyFills": {

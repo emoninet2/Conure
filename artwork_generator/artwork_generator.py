@@ -38,6 +38,7 @@ class InductiveComp:
         self.GuardRing = inductor_data["guardRing"]
         self.Layers = inductor_data["layer"]
 
+        self.gridSize = 0.005
         self.T = self.Parameters["width"]   # Width of the conductors
         self.S = self.Parameters["spacing"]  # Spacing between the conductors
         self.C = self.Parameters["corners"]
@@ -84,7 +85,7 @@ class InductiveComp:
         self._draw_items_to_gds(self.guard_ring_gds_items, snap_to_grid=True, grid_precision=0.005)
         self._draw_items_to_gds(
             self.dummy_fills_gds_items, snap_to_grid=True, grid_precision=0.005,
-            staircase_lines=True, staircase_precision=0.02)
+            staircase_lines=False, staircase_precision=0.02)
 
         # Set output path and name
         gds_output_path = output_path if output_path else self.Parameters["outputDir"]
@@ -315,10 +316,39 @@ class InductiveComp:
 
 
 
+    def grid_adjusted_length(self,full_length, grid=0.005):
+        """
+        Adjusts the full length of a vertical line (from (0, -L) to (0, L)) so that when rotated by 45° about the origin,
+        the endpoints snap exactly to a grid of given size (default is 0.005).
+
+        Parameters:
+            full_length (float): The original full length of the line. The half-length is full_length / 2.
+            grid (float): The grid resolution (default: 0.005).
+
+        Returns:
+            new_full_length (float): The adjusted full length such that after a 45° rotation, the endpoints are on the grid.
+            k (int): The grid multiple used in the conversion, which indicates that the half-length becomes k * (grid*sqrt(2)).
+        """
+        # Calculate the original half-length
+        half_length = full_length / 2.0
+
+        # Compute the grid step after rotation:
+        grid_step_rotated = grid * math.sqrt(2)  # Because L_new / sqrt(2) = k * grid
+
+        # Compute k (largest integer such that L_new <= original half_length)
+        k = math.floor(half_length / grid_step_rotated)
+
+        # New half-length that snaps to grid after rotation
+        new_half_length = k * grid_step_rotated
+
+        # New full length
+        new_full_length = 2 * new_half_length
+
+        return new_full_length, k
 
 
 
-    def _generate_arm_items(self):
+    def _generate_arm_items(self, maintain_shape_integrity= True):
         """
         Generate arm items based on the inductor data.
         """
@@ -352,13 +382,39 @@ class InductiveComp:
                     dx_start = self.ref_Octagon.apothem_ref + ring * (self.T + self.S) + self.T
                     dx_end = (self.ref_Octagon.apothem_ref + self.N * self.T +
                               (self.N - 1) * self.S + arm_length)
+                    
+                    
+
+                    if maintain_shape_integrity is True and angle_degree in [45, 135, 225, 315]:
+                        grid_size = self.gridSize
+                        arm_length, k_length = self.grid_adjusted_length(arm_length, grid_size)
+                        arm_width, k_width = self.grid_adjusted_length(arm_width, grid_size)
+                        dx_start_raw = dx_start
+                        dx_end_raw = dx_end
+                        dx_start,_ = self.grid_adjusted_length(dx_start, grid_size)
+                        dx_end,_ = self.grid_adjusted_length(dx_end, grid_size)
+
+                        dx_start = round(dx_start / grid_size) * grid_size
+                        dx_end = round(dx_end / grid_size) * grid_size
+
+
+
+
+
+
+
+
                     if arm_data["type"] == "SINGLE":
+         
                         arm_poly = Polygon([
                             Point(dx_start, arm_width / 2.0),
                             Point(dx_end, arm_width / 2.0),
                             Point(dx_end, -arm_width / 2.0),
                             Point(dx_start, -arm_width / 2.0)
                         ])
+
+
+
                         arm_poly.rotate_around(Point(0, 0), angle_degree)
                         arm_layer = arm_data["layer"]
                         self._set_polygon_layer(arm_poly, arm_layer)
@@ -385,6 +441,7 @@ class InductiveComp:
                             via_poly.rotate_around(Point(0, 0), angle_degree)
                             self._generate_via_stack_on_polygon(via_poly, arm_data["viaStack"], 0)
                     elif arm_data["type"] == "DOUBLE":
+
                         double_arm_spacing = self._resolve_parameter(arm_data["spacing"])
                         dy = (double_arm_spacing + arm_width) / 2.0
                         # First arm
@@ -473,10 +530,11 @@ class InductiveComp:
             elif shape == "hexRing":
                 width = segment["width"]
                 if ("partialCut" in segment and segment["partialCut"]["use"]):
-                    for i in range(self.C):
-                        if i == segment["partialCut"]["segment"]:
-                            partial_cut_spacing = self._resolve_parameter(segment["partialCut"]["spacing"])
 
+                    for i in range(self.C):
+
+                        if i == int(segment["partialCut"]["segment"]):    
+                            partial_cut_spacing = self._resolve_parameter(segment["partialCut"]["spacing"])
                             segments = self._octagon_ring_with_asymmetrical_gap_polygon(
                                 ref_apothem + offset, width, i, partial_cut_spacing / 2.0, partial_cut_spacing / 2.0)
                             self._set_polygon_layer(segments, layer)
@@ -532,6 +590,8 @@ class InductiveComp:
 
             #group_spacing = dummy_fill["groupSpacing"]
             group_items = []
+            group_items_grid_adjusted = []
+
             for item_name, item in dummy_fill["items"].items():
                 if item["shape"] == "rect":
                     # dx = item["offsetX"]
@@ -550,19 +610,45 @@ class InductiveComp:
                         Point(dx + length / 2.0, dy + height / 2.0),
                         Point(dx - length / 2.0, dy + height / 2.0),
                     ])
+
                     for layer in item["layers"]:
                         r = rect.copy()
                         self._set_polygon_layer(r, layer)
                         group_items.append(r)
 
-            guard_ring_octagon = Octagon(ref_apothem)
 
+                    length_grid_adjusted,_ = self.grid_adjusted_length(length, self.gridSize)
+                    height_grid_adjusted,_ = self.grid_adjusted_length(height, self.gridSize)
+
+                    rect_grid_adjusted = Polygon([
+                        Point(dx - length_grid_adjusted / 2.0, dy - height_grid_adjusted / 2.0),
+                        Point(dx + length_grid_adjusted / 2.0, dy - height_grid_adjusted / 2.0),
+                        Point(dx + length_grid_adjusted / 2.0, dy + height_grid_adjusted / 2.0),
+                        Point(dx - length_grid_adjusted / 2.0, dy + height_grid_adjusted / 2.0),
+                    ])
+
+                    for layer in item["layers"]:
+                        r = rect_grid_adjusted.copy()
+                        self._set_polygon_layer(r, layer)
+                        group_items_grid_adjusted.append(r)
+
+                
+
+            guard_ring_octagon = Octagon(ref_apothem)
             for i in range(8):
+                line = None
                 if i < 7:
                     line = Line(guard_ring_octagon.vertices[i], guard_ring_octagon.vertices[i + 1])
                 else:
                     line = Line(guard_ring_octagon.vertices[i], guard_ring_octagon.vertices[0])
-                self._fill_line_with_dummy_poly_group(group_items, line, group_spacing)
+
+                if i%2 == 0:
+                    self._fill_line_with_dummy_poly_group(group_items, line, group_spacing)
+                else:
+                    self._fill_line_with_dummy_poly_group(group_items_grid_adjusted, line, group_spacing)
+
+
+
 
     def _generate_port_items(self):
         """
