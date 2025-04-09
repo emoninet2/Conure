@@ -5,41 +5,58 @@ import math
 import os
 
 import gdspy
+import math 
 
 from geometry.Line import Line
 from geometry.Octagon import Octagon
 from geometry.Point import Point
 from geometry.Polygon import Polygon
 
+SAFE_EVAL_ENV = {
+    **{k: getattr(math, k) for k in ['sqrt', 'log', 'sin', 'cos', 'tan', 'floor', 'ceil']},
+    'abs': abs,
+    'max': max,
+    'min': min,
+    'round': round,
+}
 
-class InductiveComp:
+class Component:
     """
     Class representing an inductive component for GDS layout generation.
     """
 
-    def __init__(self, inductor_data, output_path=None, output_name=None, generate_svg=True):
+    def __init__(self, component_data, output_path=None, output_name=None, generate_svg=True):
         """
-        Initialize the InductiveComp object.
+        Initialize the Component object.
 
         Parameters:
-            inductor_data (dict): The inductor data loaded from JSON.
+            component_data (dict): The component data loaded from JSON.
             output_path (str): The output directory path.
             output_name (str): The output file name.
             generate_svg (bool): Flag to generate SVG output. Defaults to True.
         """
-        # Initialize parameters from the inductor data
-        self.Metadata = inductor_data["metadata"]
-        self.Parameters = inductor_data["parameters"]
-        self.Segments = inductor_data["segments"]
-        self.Bridges = inductor_data["bridges"]
-        self.Arms = inductor_data["arms"]
-        self.Ports = inductor_data["ports"]["data"]
-        self.Via = inductor_data["via"]
-        self.ViaPadStack = inductor_data["viaPadStack"]
-        self.GuardRing = inductor_data["guardRing"]
-        self.Layers = inductor_data["layer"]
+        # Initialize parameters from the component data
+        self.Metadata = component_data["metadata"]
+        self.Parameters = component_data["parameters"]
 
-        self.gridSize = 0.005
+
+
+        # Resolve all parameters
+        self.resolve_all_parameters()
+
+        print(self.Parameters)
+
+
+        self.Segments = component_data["segments"]
+        self.Bridges = component_data["bridges"]
+        self.Arms = component_data["arms"]
+        self.Ports = component_data["ports"]["data"]
+        self.Via = component_data["via"]
+        self.ViaPadStack = component_data["viaPadStack"]
+        self.GuardRing = component_data["guardRing"]
+        self.Layers = component_data["layer"]
+
+        self.gridSize = self.Parameters["precision"]
         self.T = self.Parameters["width"]   # Width of the conductors
         self.S = self.Parameters["spacing"]  # Spacing between the conductors
         self.C = self.Parameters["corners"]
@@ -52,7 +69,7 @@ class InductiveComp:
             setattr(self, key, value)
 
 
-
+        
 
 
         # Initialize GDS library and cell
@@ -70,13 +87,13 @@ class InductiveComp:
         self.port_info = []
 
         # Generate layout items
-        self._generate_segment_items()
-        self._generate_bridge_items()
-        self._generate_bridge_extensions_items()
-        self._generate_arm_items()
-        self._generate_guard_ring_items()
-        self._generate_dummy_fills()
-        self._generate_port_items()
+        self._generate_segment_items(snap_to_grid=True)
+        self._generate_bridge_items(snap_to_grid=True)
+        self._generate_bridge_extensions_items(snap_to_grid=True)
+        self._generate_arm_items(snap_to_grid=True)
+        self._generate_guard_ring_items(snap_to_grid=True)
+        self._generate_dummy_fills(snap_to_grid=True)
+        self._generate_port_items(snap_to_grid=True)
 
         # Draw items to GDS
         self._draw_items_to_gds(self.segment_gds_items, snap_to_grid=True, grid_precision=0.005)
@@ -86,7 +103,7 @@ class InductiveComp:
         self._draw_items_to_gds(self.guard_ring_gds_items, snap_to_grid=True, grid_precision=0.005)
         self._draw_items_to_gds(
             self.dummy_fills_gds_items, snap_to_grid=True, grid_precision=0.005,
-            staircase_lines=False, staircase_precision=0.02)
+            segmented_path=False, segmented_path_precision=0.02)
 
         # Set output path and name
         gds_output_path = output_path if output_path else self.Parameters["outputDir"]
@@ -110,19 +127,45 @@ class InductiveComp:
 
     #     return retVal
 
+    def resolve_all_parameters(self):
+        unresolved = dict(self.Parameters)
+        resolved = {}
+        max_attempts = len(unresolved)
 
-    def _resolve_parameter(self, value):
+        for _ in range(max_attempts):
+            for key in list(unresolved):
+                try:
+                    resolved[key] = self._resolve_parameter(unresolved[key], resolved)
+                    del unresolved[key]
+                except Exception:
+                    pass  # Retry later
+            if not unresolved:
+                break
+
+        if unresolved:
+            raise ValueError(f"Unresolved parameters after {max_attempts} attempts: {list(unresolved)}")
+
+        self.Parameters = resolved
+
+
+    def _resolve_parameter(self, value, context=None):
+        if context is None:
+            context = self.Parameters  # fallback
+
         if isinstance(value, str):
-            # Single string, fetch from Parameters
-            return self.Parameters[value]
+            try:
+                return eval(value, SAFE_EVAL_ENV, context)
+            except Exception:
+                if value in context:
+                    return self._resolve_parameter(context[value], context)
+                else:
+                    raise ValueError(f"Could not evaluate or resolve key: {value}")
         elif isinstance(value, (list, tuple)):
-            # Recursively resolve each element in the list or tuple
-            return type(value)(self._resolve_parameter(v) for v in value)
-        elif hasattr(value, '__array__'):  # catches numpy arrays
+            return type(value)(self._resolve_parameter(v, context) for v in value)
+        elif hasattr(value, '__array__'):
             import numpy as np
-            return np.array([self._resolve_parameter(v) for v in value])
+            return np.array([self._resolve_parameter(v, context) for v in value])
         else:
-            # Numeric or directly usable value
             return value
 
 
@@ -142,9 +185,9 @@ class InductiveComp:
             svg_file = os.path.join(output_path, f"{output_name}.svg")
             self.cell.write_svg(svg_file)
 
-    def _generate_segment_items(self):
+    def _generate_segment_items(self,snap_to_grid=True):
         """
-        Generate segment items based on the inductor data.
+        Generate segment items based on the component data.
         """
         config = self.Segments["config"]
         seg_data = self.Segments["data"]
@@ -206,7 +249,7 @@ class InductiveComp:
 
         Parameters:
             polygon (Polygon or list): The polygon or list of polygons.
-            layer_name (str): The name of the layer from the inductor data.
+            layer_name (str): The name of the layer from the component data.
         """
         layer = self.Layers[layer_name]
         gds_layer = layer["gds"]["layer"]
@@ -221,9 +264,9 @@ class InductiveComp:
                     p.gds_layer = gds_layer
                     p.gds_datatype = gds_datatype
 
-    def _generate_bridge_items(self):
+    def _generate_bridge_items(self,snap_to_grid=True):
         """
-        Generate bridge items based on the inductor data.
+        Generate bridge items based on the component data.
         """
         config = self.Segments["config"]
         seg_data = self.Segments["data"]
@@ -259,9 +302,9 @@ class InductiveComp:
                     self._set_polygon_layer(bridge_poly, seg_layer)
                     self._append_gds_item(self.bridge_gds_items, bridge_poly)
 
-    def _generate_bridge_extensions_items(self):
+    def _generate_bridge_extensions_items(self,snap_to_grid=True):
         """
-        Generate bridge extension items based on the inductor data.
+        Generate bridge extension items based on the component data.
         """
         config = self.Segments["config"]
         seg_data = self.Segments["data"]
@@ -365,9 +408,9 @@ class InductiveComp:
 
 
 
-    def _generate_arm_items(self, maintain_shape_integrity= True):
+    def _generate_arm_items(self, snap_to_grid=True):
         """
-        Generate arm items based on the inductor data.
+        Generate arm items based on the component data.
         """
         config = self.Segments["config"]
         seg_data = self.Segments["data"]
@@ -402,7 +445,7 @@ class InductiveComp:
                     
                     
 
-                    if maintain_shape_integrity is True and angle_degree in [45, 135, 225, 315]:
+                    if snap_to_grid is True and angle_degree in [45, 135, 225, 315]:
                         grid_size = self.gridSize
                         arm_length, k_length = self.grid_adjusted_length(arm_length, grid_size)
                         arm_width, k_width = self.grid_adjusted_length(arm_width, grid_size)
@@ -413,12 +456,6 @@ class InductiveComp:
 
                         dx_start = round(dx_start / grid_size) * grid_size
                         dx_end = round(dx_end / grid_size) * grid_size
-
-
-
-
-
-
 
 
                     if arm_data["type"] == "SINGLE":
@@ -526,9 +563,9 @@ class InductiveComp:
                                      "Port": port, "Layer": port_layer}
                         self.port_info.append(copy.deepcopy(port_info))
 
-    def _generate_guard_ring_items(self):
+    def _generate_guard_ring_items(self,snap_to_grid=True):
         """
-        Generate guard ring items based on the inductor data.
+        Generate guard ring items based on the component data.
         """
 
 
@@ -617,9 +654,9 @@ class InductiveComp:
                             self._generate_via_stack_on_polygon(
                                 segment_poly, via_stack, via_margin)
 
-    def _generate_dummy_fills(self):
+    def _generate_dummy_fills(self,snap_to_grid=True):
         """
-        Generate dummy fill items based on the inductor data.
+        Generate dummy fill items based on the component data.
         """
         guardRingDistance = self._resolve_parameter(self.GuardRing["data"]["distance"])
 
@@ -693,9 +730,9 @@ class InductiveComp:
 
 
 
-    def _generate_port_items(self):
+    def _generate_port_items(self,snap_to_grid=True):
         """
-        Generate port items based on the inductor data.
+        Generate port items based on the component data.
         """
         for p in self.port_info:
             label_text = self.Ports[p["Port"]]["label"]
@@ -927,7 +964,7 @@ class InductiveComp:
 
         Parameters:
             poly (Polygon): The polygon to place the via stack on.
-            via_stack (str): The name of the via stack from the inductor data.
+            via_stack (str): The name of the via stack from the component data.
             margin (float): Margin to keep from the polygon edges.
         """
         via_stack_data = self.ViaPadStack[via_stack]
@@ -1001,7 +1038,7 @@ class InductiveComp:
                     item_list.append(p)
 
     def _draw_items_to_gds(self, item_list, snap_to_grid=True, grid_precision=0.005,
-                           staircase_lines=False, staircase_precision=0.05):
+                           segmented_path=False, segmented_path_precision=0.05):
         """
         Draw items to the GDS cell.
 
@@ -1009,14 +1046,14 @@ class InductiveComp:
             item_list (list): The list of GDS items (polygons) to draw.
             snap_to_grid (bool): Flag to snap polygons to grid.
             grid_precision (float): The grid precision for snapping.
-            staircase_lines (bool): Flag to generate staircase lines.
-            staircase_precision (float): The precision for staircase lines.
+            segmented_path (bool): Flag to generate segmented path lines.
+            segmented_path_precision (float): The precision for segmented path lines.
         """
         for poly in item_list:
             if snap_to_grid:
                 poly.snap_to_grid(grid_precision)
-            if staircase_lines:
-                poly.generate_staircase_lines(staircase_precision)
+            if segmented_path:
+                poly.generate_segmented_path(segmented_path_precision)
             self.cell.add(poly.to_gdspy_polygon(poly.gds_layer, poly.gds_datatype))
 
 
@@ -1048,6 +1085,6 @@ if __name__ == "__main__":
         print("Error: --artwork argument is required.")
         exit(1)
 
-    # Instantiate the InductiveComp object
-    inductive_component = InductiveComp(
+    # Instantiate the Component object
+    inductive_component = Component(
         artwork_json_input, args.output, args.name, args.svg)

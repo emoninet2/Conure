@@ -14,9 +14,12 @@
         "spacing": 2,
         "precision": 0.005,
         "armLen": 200,
-        "guardRingDistance": 50,
-        "partialCutSegments": [2,4, 6],
-        "partialCutSpacing": 10
+        "g": 50,
+        "guardRingDistance": "g * 3",
+        "partialCutSegments": 2,
+        "partialCutSpacing": 10,
+        "x": 25,
+        "y": "x + 5"
     },
     "segments": {
         "config": {

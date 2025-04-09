@@ -148,7 +148,7 @@ def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
     print(artworkData["parameters"])
 
 
-    emxConfigX["gdsCellName"] = InductorData["parameters"]["name"]
+    emxConfigX["gdsCellName"] = InductorData["metadata"]["name"]
     emxConfigX["ports"] = InductorData["ports"]
 
     emxConfigX["designPorts"] = InductorData["ports"]
