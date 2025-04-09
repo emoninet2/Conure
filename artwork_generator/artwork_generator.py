@@ -28,6 +28,7 @@ class InductiveComp:
             generate_svg (bool): Flag to generate SVG output. Defaults to True.
         """
         # Initialize parameters from the inductor data
+        self.Metadata = inductor_data["metadata"]
         self.Parameters = inductor_data["parameters"]
         self.Segments = inductor_data["segments"]
         self.Bridges = inductor_data["bridges"]
@@ -56,7 +57,7 @@ class InductiveComp:
 
         # Initialize GDS library and cell
         self.lib = gdspy.GdsLibrary()
-        self.cell = self.lib.new_cell(self.Parameters["name"])
+        self.cell = self.lib.new_cell(self.Metadata["name"])
 
         # Initialize lists to store GDS items
         self.segment_gds_items = []
@@ -89,25 +90,41 @@ class InductiveComp:
 
         # Set output path and name
         gds_output_path = output_path if output_path else self.Parameters["outputDir"]
-        gds_output_name = output_name if output_name else self.Parameters["name"]
+        gds_output_name = output_name if output_name else self.Metadata["name"]
 
         # Create output directory if it doesn't exist
-        if not os.path.exists(gds_output_path):
-            os.makedirs(gds_output_path)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
         # Write GDS and optionally SVG files
-        self._write_output_files(gds_output_path, gds_output_name, generate_svg)
+        self._write_output_files(output_path, output_name, generate_svg)
+
+
+    # def _resolve_parameter(self, value):
+    #     if isinstance(value, str):
+    #         # If it's a string, use it as a key to fetch the value from self.Parameters.
+    #         retVal = self.Parameters[value]
+    #     else:
+    #         # Otherwise, assume it's a numeric value and use it directly.
+    #         retVal = value
+
+    #     return retVal
 
 
     def _resolve_parameter(self, value):
         if isinstance(value, str):
-            # If it's a string, use it as a key to fetch the value from self.Parameters.
-            retVal = self.Parameters[value]
+            # Single string, fetch from Parameters
+            return self.Parameters[value]
+        elif isinstance(value, (list, tuple)):
+            # Recursively resolve each element in the list or tuple
+            return type(value)(self._resolve_parameter(v) for v in value)
+        elif hasattr(value, '__array__'):  # catches numpy arrays
+            import numpy as np
+            return np.array([self._resolve_parameter(v) for v in value])
         else:
-            # Otherwise, assume it's a numeric value and use it directly.
-            retVal = value
+            # Numeric or directly usable value
+            return value
 
-        return retVal
 
     def _write_output_files(self, output_path, output_name, generate_svg):
         """
@@ -513,13 +530,19 @@ class InductiveComp:
         """
         Generate guard ring items based on the inductor data.
         """
+
+
+        guardRingDistance = self._resolve_parameter(self.GuardRing["data"]["distance"])
+
         ref_apothem = (self.Parameters["apothem"] + self.N * self.T +
-                       (self.N - 1) * self.S + self.GuardRing["data"]["distance"])
+                       (self.N - 1) * self.S + guardRingDistance)
 
         for guard_ring_item in self.GuardRing["data"]["segments"]:
             segment = self.GuardRing["data"]["segments"][guard_ring_item]
             shape = segment["shape"]
-            offset = segment["offset"]
+            #offset = segment["offset"]
+            offset = self._resolve_parameter(segment["offset"])
+
             layer = segment["layer"]
 
             if shape == "octagon":
@@ -533,8 +556,24 @@ class InductiveComp:
 
                     for i in range(self.C):
 
-                        if i == int(segment["partialCut"]["segment"]):    
-                            partial_cut_spacing = self._resolve_parameter(segment["partialCut"]["spacing"])
+                        partialCutSegment = self._resolve_parameter(segment["partialCut"]["segment"])
+                        partialCutSpacing = self._resolve_parameter(segment["partialCut"]["spacing"])
+
+
+                        #print(partialCutSegment)
+
+                        if isinstance(partialCutSegment, (list, tuple)) and i in partialCutSegment:
+                            usePartialCutInSegment = True
+                        elif partialCutSegment == i: 
+                            usePartialCutInSegment = True
+                        else:
+                            usePartialCutInSegment = False
+
+
+
+                        #if isinstance(partialCutSegment, (list, tuple)) and i in partialCutSegment:  
+                        if usePartialCutInSegment == True:  
+                            partial_cut_spacing = self._resolve_parameter(partialCutSpacing)
                             segments = self._octagon_ring_with_asymmetrical_gap_polygon(
                                 ref_apothem + offset, width, i, partial_cut_spacing / 2.0, partial_cut_spacing / 2.0)
                             self._set_polygon_layer(segments, layer)
@@ -582,8 +621,12 @@ class InductiveComp:
         """
         Generate dummy fill items based on the inductor data.
         """
+        guardRingDistance = self._resolve_parameter(self.GuardRing["data"]["distance"])
+
         ref_apothem = (self.Parameters["apothem"] + self.N * self.T +
-                       (self.N - 1) * self.S + self.GuardRing["data"]["distance"])
+                       (self.N - 1) * self.S + guardRingDistance)
+        
+
         dummy_fill = self.GuardRing["data"]["dummyFills"]
         if dummy_fill["type"] == "checkered":
             group_spacing = self._resolve_parameter(dummy_fill["groupSpacing"])
