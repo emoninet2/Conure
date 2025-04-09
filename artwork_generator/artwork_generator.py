@@ -522,12 +522,12 @@ class InductiveComp:
             offset = segment["offset"]
             layer = segment["layer"]
 
-            if shape == "hex":
+            if shape == "octagon":
                 octagon = Octagon(ref_apothem + offset)
                 poly = Polygon(octagon.vertices)
                 self._set_polygon_layer(poly, layer)
                 self._append_gds_item(self.guard_ring_gds_items, poly)
-            elif shape == "hexRing":
+            elif shape == "octagonRing":
                 width = segment["width"]
                 if ("partialCut" in segment and segment["partialCut"]["use"]):
 

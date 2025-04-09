@@ -447,18 +447,18 @@
             "distance": 50,
             "segments": {
                 "NP": {
-                    "shape": "hexRing",
+                    "shape": "octagonRing",
                     "offset": -0.5,
                     "width": 5,
                     "layer": "NP_drw"
                 },
                 "NT_N": {
-                    "shape": "hex",
+                    "shape": "octagon",
                     "offset": -0.5,
                     "layer": "NT_N_drw"
                 },
                 "OD": {
-                    "shape": "hexRing",
+                    "shape": "octagonRing",
                     "offset": -9,
                     "width": 4,
                     "layer": "OD_drw",
@@ -473,18 +473,18 @@
                     }
                 },
                 "PP": {
-                    "shape": "hex",
+                    "shape": "heoctagonx",
                     "offset": -1,
                     "layer": "PP_drw"
                 },
                 "RPO": {
-                    "shape": "hexRing",
+                    "shape": "octagonRing",
                     "offset": -0.5,
                     "width": 12.5,
                     "layer": "RPO_drw"
                 },
                 "dummy": {
-                    "shape": "hex",
+                    "shape": "octagon",
                     "offset": 0,
                     "layer": "INDDMY_drw"
                 }
