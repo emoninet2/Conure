@@ -1,7 +1,10 @@
 // frontend/src/services/api.js
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+
 export const createProject = async (name, location) => {
-    const res = await fetch('/api/create_project', {
+    const res = await fetch('${BASE_URL}/api/download_artwork', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,4 +61,22 @@ export const createProject = async (name, location) => {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Upload failed');
     return result;
+};
+
+
+export const downloadArtwork = async () => {
+  const response = await fetch(`${BASE_URL}/api/download_artwork`);
+
+  if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || 'Download failed');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'artwork.json';
+  a.click();
+  window.URL.revokeObjectURL(url);
 };

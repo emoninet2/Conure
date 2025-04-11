@@ -7,13 +7,13 @@
     border-collapse: collapse;
     margin-top: 1rem;
     font-size: 0.85rem;
-    color: #0d5e16c0;
+    color: #169825c0;
   }
   
   .artwork-table th,
   .artwork-table td {
     border: 1px solid #ccc;
-    padding: 0.5rem;
+    padding: 0.2rem;
     vertical-align: middle;
   }
   
@@ -22,8 +22,8 @@
     background-color: white;
     color: #000000;
     width: 100%;
-    padding: 0.3rem 0.5rem;
-    font-size: 0.85rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.7rem;
     box-sizing: border-box;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -54,7 +54,7 @@
     background-color: white;
     border: 1px solid #ccc;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.6rem;
     box-shadow: none;
     outline: none;
     color: #007bff;

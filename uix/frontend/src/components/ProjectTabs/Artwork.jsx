@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { useArtworkContext } from '../../context/ArtworkContext';
-import { saveArtwork, loadArtwork, uploadArtwork } from '../../services/api';
+import {
+  saveArtwork,
+  loadArtwork,
+  uploadArtwork,
+  downloadArtwork
+} from '../../services/api';
+
 import '../../styles/Artwork.css';
 
 import Metadata from './Artwork/Metadata.jsx';
@@ -17,7 +23,7 @@ import Preview from './Artwork/Preview.jsx';
 
 function Artwork() {
   const [activeTab, setActiveTab] = useState('Metadata');
-  const context = useArtworkContext(); // grab the entire context object
+  const context = useArtworkContext();
 
   const tabs = [
     { key: 'Metadata', label: 'Metadata', content: <Metadata /> },
@@ -30,7 +36,7 @@ function Artwork() {
     { key: 'Vias', label: 'Vias', content: <Vias /> },
     { key: 'GuardRing', label: 'Guard Ring', content: <GuardRing /> },
     { key: 'Layers', label: 'Layers', content: <Layers /> },
-    { key: 'Preview', label: 'Preview', content: <Preview /> },
+    { key: 'Preview', label: 'Preview', content: <Preview /> }
   ];
 
   const handleSave = async () => {
@@ -44,7 +50,7 @@ function Artwork() {
     }
 
     try {
-      const result = await saveArtwork(allData);
+      await saveArtwork(allData);
       alert('✅ Artwork saved!');
     } catch (error) {
       alert('❌ Save failed: ' + error.message);
@@ -70,7 +76,7 @@ function Artwork() {
         ['guardRingData', 'guardRing'],
         ['guardRingDummyData', 'guardRing'],
         ['useGuardRing', 'guardRing'],
-        ['guardRingDistance', 'guardRing'],
+        ['guardRingDistance', 'guardRing']
       ];
 
       for (const [dataKey, contextKey] of orderedKeys) {
@@ -79,18 +85,13 @@ function Artwork() {
 
         for (const stateKey in section) {
           if (typeof section[stateKey] === 'function' && stateKey.startsWith('set')) {
-            // Match based on key similarity
             const expectedKey =
               stateKey.replace(/^set/, '').charAt(0).toLowerCase() +
               stateKey.replace(/^set/, '').slice(1);
 
             if (expectedKey === dataKey && data[dataKey] !== undefined) {
               section[stateKey](data[dataKey]);
-            } else if (
-              // for things like useGuardRing or guardRingDistance
-              dataKey === expectedKey &&
-              data[dataKey] !== undefined
-            ) {
+            } else if (dataKey === expectedKey && data[dataKey] !== undefined) {
               section[stateKey](data[dataKey]);
             }
           }
@@ -108,52 +109,64 @@ function Artwork() {
     if (!file) return;
 
     try {
-      const result = await uploadArtwork(file);
+      await uploadArtwork(file);
       alert('✅ Upload successful!');
     } catch (error) {
       alert('❌ Upload failed: ' + error.message);
     }
   };
 
+  const handleDownload = async () => {
+    try {
+      await downloadArtwork();
+      alert('✅ Artwork download started!');
+    } catch (error) {
+      alert('❌ Download failed: ' + error.message);
+    }
+  };
 
   return (
-    <div>
-      <div className="button-artwork-save-load">
+    <div className="artwork-controls">
+
+      {/* Header */}
+      <h3 className="artwork-heading">🎨 Artwork Tab</h3>
+
+      
+      {/* Button Bar */}
+      <div className="button-group">
         <button onClick={handleSave} className="artwork-button">💾 Save</button>
-        <button onClick={handleLoad} className="artwork-button">📂 Load</button>
-        {/* Upload Button */}
-        <label className="artwork-button upload-button">
-            ⬆️ Upload
-            <input
-                type="file"
-                accept=".json"
-                onChange={handleUpload}
-                style={{ display: 'none' }}
-            />
+        <button onClick={handleLoad} className="artwork-button">📂 Auto Load</button>
+        <label htmlFor="upload-input" className="artwork-button upload-label">
+          ⬆️ Upload
+          <input
+            id="upload-input"
+            type="file"
+            accept=".json"
+            onChange={handleUpload}
+            style={{ display: 'none' }}
+          />
         </label>
+
+        <button onClick={handleDownload} className="artwork-button">⬇️ Download</button>
+        
       </div>
 
+      
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ textAlign: 'left' }}>🎨 Artwork Tab</h3>
-
-
+      {/* Tabs */}
+      <div className="artwork-tab-button-group">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`artwork-tab-button ${activeTab === tab.key ? 'active' : ''}`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <div style={{ textAlign: 'left' }}>
-        <div className="artwork-tab-button-group">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`artwork-tab-button ${activeTab === tab.key ? 'active' : ''}`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+      {/* Tab Content */}
       <div className="artwork-tab-content">
         {tabs.find((tab) => tab.key === activeTab)?.content}
       </div>
