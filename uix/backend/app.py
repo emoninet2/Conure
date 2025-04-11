@@ -4,6 +4,7 @@ import os
 import json
 import logging
 from datetime import datetime
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)
@@ -557,6 +558,38 @@ def load_artwork():
     except Exception as e:
         logging.exception("Failed to load artwork.")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/upload_artwork', methods=['POST'])
+def upload_artwork():
+    global PROJECT_PATH
+
+    if not PROJECT_PATH:
+        return jsonify({"success": False, "error": "No project opened"}), 400
+
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "No file part"}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No selected file"}), 400
+
+    try:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(PROJECT_PATH, ARTWORK_FILENAME)
+
+        logging.debug(f"FILE SAVE PATH: {filepath}")
+
+        file.save(filepath)
+
+        return jsonify({"success": True, "message": f"File uploaded and saved as {filename}"})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+
+
 
 
 
