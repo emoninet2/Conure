@@ -107,7 +107,7 @@ function getGuardRingJSON() {
 
 
     //var guardRingDistanceValue = document.getElementById('guardRingDistance').value;
-    var guardRingDistanceValue = parseFloat(document.getElementById('guardRingDistance').value, 10);
+    var guardRingDistanceValue = document.getElementById('guardRingDistance').value;
     
 
     
@@ -116,7 +116,7 @@ function getGuardRingJSON() {
     for (var i = 0, row; row = guardRingTable.rows[i]; i++) {
         var name = row.cells[0].getElementsByTagName('input')[0].value;
         var shape = row.cells[1].getElementsByTagName('select')[0].value;
-        var offset = parseFloat(row.cells[2].getElementsByTagName('input')[0].value);
+        var offset = row.cells[2].getElementsByTagName('input')[0].value;
         var width = parseFloat(row.cells[3].getElementsByTagName('input')[0].value);
         var layer = row.cells[4].getElementsByTagName('select')[0].value;
         var contacts = row.cells[5].getElementsByTagName('input')[0].checked;

@@ -88,6 +88,8 @@ function createProjectAndName() {
 
 function saveArtworkDescriptionData(filePath, fileName) {
     var artworkDescriptionDataJSON = {
+        metadata: getLayersJSON().metadata,
+        parameters: getLayersJSON().parameters,
         layer: getLayersJSON().layer,
         via: getViaJSON().via,
         viaPadStack: getViaPadStackJSON().viaPadStack,

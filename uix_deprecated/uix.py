@@ -122,7 +122,7 @@ def create_project_public():
     #session_path = data.get('directoryPath')
     #session_path = WORKSPACE_PATH + session['session_id']
     PROJECT_PATH = session_path
-    session["session_path"] = WORKSPACE_PATH + session['session_id']
+    session["session_path"] = PROJECT_PATH
     print("SESSION PATH IS  ", session["session_path"])
 
     if session_path:

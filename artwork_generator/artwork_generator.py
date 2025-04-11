@@ -330,7 +330,7 @@ class Component:
                         self._set_polygon_layer(extension_poly_ccw, seg_layer)
                         self._append_gds_item(self.bridge_gds_items, extension_poly_ccw)
 
-                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]]:
+                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]] and self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"] is not None:
                         via_width = self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"]
                         via_poly_ccw = Polygon([
                             Point(dx, -ccw_gap - ccw_ext),
@@ -359,7 +359,7 @@ class Component:
                         self._set_polygon_layer(extension_poly_cw, seg_layer)
                         self._append_gds_item(self.bridge_gds_items, extension_poly_cw)
 
-                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]]:
+                    if "ViaWidth" in self.Bridges[seg_data_group["data"]["bridge"]] and self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"] is not None:
                         via_width = self.Bridges[seg_data_group["data"]["bridge"]]["ViaWidth"]
                         via_poly_cw = Polygon([
                             Point(dx, cw_gap + cw_ext),

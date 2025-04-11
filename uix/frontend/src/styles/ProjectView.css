@@ -1,0 +1,79 @@
+.project-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  padding: 2rem;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.back-button-wrapper {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+}
+
+.back-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #621010;
+  transition: background-color 0.3s ease;
+}
+
+.project-title {
+  text-align: left;
+  margin-top: 6rem;
+}
+
+.project-title h2 {
+  font-size: 2rem;
+}
+
+.project-title p {
+  font-size: 1.2rem;
+  margin-top: 1rem;
+}
+
+.tab-buttons {
+  margin-top: 3rem;
+  margin-left: 1rem;
+  text-align: left;
+}
+
+.tab-button {
+  margin-right: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.75rem; /* 👈 decreased vertical and horizontal padding */
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  transition: background-color 0.3s ease;
+  font-weight: normal;
+  color: black;
+  font-size: 0.9rem; /* optional: slightly smaller text */
+}
+
+.tab-button.active {
+  background-color: #007bff;
+  color: white;
+  font-weight: bold;
+}
+
+.tab-content {
+  margin-top: 2rem;
+  margin-left: 1rem;
+}
+
+
+.tab-button:disabled {
+  background-color: #ddd;
+  color: #888;
+  cursor: not-allowed;
+  border: 1px solid #bbb;
+  opacity: 0.8;
+}

@@ -1,0 +1,193 @@
+/* ==========================
+   Table Layout & Form Fields
+   ========================== */
+
+   .artwork-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    color: #0d5e16c0;
+  }
+  
+  .artwork-table th,
+  .artwork-table td {
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    vertical-align: middle;
+  }
+  
+  .artwork-table input,
+  .artwork-table select {
+    background-color: white;
+    color: #000000;
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    height: 36px;
+    min-height: 36px;
+    outline: none;
+  }
+  
+  .artwork-table input:disabled,
+  .artwork-table select:disabled {
+    background-color: #f0f0f0 !important; /* lighter gray */
+    color: #b0b0b0 !important;            /* softer gray text */
+    border-color: #ddd !important;       /* lighter border */
+    cursor: not-allowed;                 /* shows a forbidden icon */
+    opacity: 0.8;                         /* slight transparency */
+  }
+  
+  .field-disabled:disabled {
+    background-color: #f5f5f5 !important;
+    color: #ad2121 !important;
+  }
+  
+  /* ======================
+     react-select Styling
+     ====================== */
+  
+  .select__control {
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    box-shadow: none;
+    outline: none;
+    color: #007bff;
+    min-height: 36px;
+    height: auto; /* allow it to grow for multi-select */
+  }
+  
+  .select__value-container {
+    padding: 2px 4px;
+    flex-wrap: wrap;
+  }
+  
+  .select__multi-value {
+    background-color: #e0e0e0;
+    color: #333;
+    font-size: 0.8rem;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    margin: 2px;
+  }
+  
+  .select__multi-value__label {
+    padding: 0 6px;
+  }
+  
+  .select__multi-value__remove {
+    cursor: pointer;
+    color: #888;
+    padding: 0 4px;
+  }
+  
+  .select__multi-value__remove:hover {
+    background-color: #ccc;
+    color: #000;
+  }
+  
+  .select__menu {
+    background-color: white;
+    font-size: 0.85rem;
+    z-index: 10;
+    border: 1px solid #ccc;
+    color: #000;
+  }
+  
+  .select__option {
+    padding: 0.4rem 0.6rem;
+    color: #000000;
+  }
+  
+  .select__option--is-focused {
+    background-color: #f0f0f0;
+    color: #000000;
+  }
+  
+  .select__option--is-selected {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  /* ======================
+     Buttons
+     ====================== */
+  
+  .add-row-button {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    background-color: #b19494;
+    color: rgb(96, 53, 53);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .add-row-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .delete-row-button {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .delete-row-button:hover {
+    background-color: #c82333;
+  }
+  
+  .guard-ring-settings-box {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 0.85rem;
+    color: #000;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .guard-ring-settings-box label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .guard-ring-settings-box input[type="text"] {
+    background-color: white;
+    color: #000;
+    width: 100px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    height: 36px;
+    min-height: 36px;
+    line-height: 1.2;
+    outline: none;
+  }
+  
+  
+  .guard-ring-settings-box input[type="text"]:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+  }
+  
+

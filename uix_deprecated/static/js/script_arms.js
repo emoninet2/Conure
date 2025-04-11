@@ -24,9 +24,9 @@ function addArmRow() {
         '</select>';
 
 
-    cell3.innerHTML = '<input type="number" name="armLength' + rowCount + '">';
-    cell4.innerHTML = '<input type="number" name="armWidth' + rowCount + '">';
-    cell5.innerHTML = '<input type="number" name="armSpacing' + rowCount + '">';
+    cell3.innerHTML = '<input type="text" name="armLength' + rowCount + '">';
+    cell4.innerHTML = '<input type="text" name="armWidth' + rowCount + '">';
+    cell5.innerHTML = '<input type="text" name="armSpacing' + rowCount + '">';
 
     cell6.innerHTML = '<select name="armPort1' + rowCount + '">' + getPortOptions('single') + '</select>';
     cell7.innerHTML = '<select name="armPort2' + rowCount + '">' + getPortOptions('single') + '</select>';
@@ -188,18 +188,18 @@ function populateArmTable(armsData) {
 
 
 
-        if ('length' in arm && Number.isInteger(arm.length)) {
-            cell3.innerHTML = '<input type="number" name="armLength' + index + '" value="' + arm.length + '">';
+        if ('length' in arm ) {
+            cell3.innerHTML = '<input type="text" name="armLength' + index + '" value="' + arm.length + '">';
         }   
    
-        if ('width' in arm && Number.isInteger(arm.width)) {
-            cell4.innerHTML = '<input type="number" name="armWidth' + index + '" value="' + arm.width + '">';
+        if ('width' in arm) {
+            cell4.innerHTML = '<input type="text" name="armWidth' + index + '" value="' + arm.width + '">';
         }
     
-        if ('spacing' in arm && Number.isInteger(arm.spacing)) {
-            cell5.innerHTML = '<input type="number" name="armSpacing' + index + '" value="' + arm.spacing + '">';
+        if ('spacing' in arm) {
+            cell5.innerHTML = '<input type="text" name="armSpacing' + index + '" value="' + arm.spacing + '">';
         } else {
-            cell5.innerHTML = '<input type="number" name="armSpacing' + index + '">';
+            cell5.innerHTML = '<input type="text" name="armSpacing' + index + '">';
         }
 
 

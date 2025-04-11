@@ -1,0 +1,73 @@
+/* .artwork-tab-button {
+  padding: 0.2rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 0.8rem;
+  color: black;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+} */
+
+.artwork-tab-button {
+  padding: 0.2rem 0.2rem;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 0.7rem;
+  font-weight: bold; /* ✅ Make font bold */
+  color: black;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+
+.artwork-tab-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  /* other styles */
+}
+
+
+.artwork-tab-button:hover {
+  background-color: #e0e0e0;
+}
+
+.artwork-tab-button.active {
+  background-color: #ffe6008c;
+  color: rgb(0, 0, 0);
+  font-weight: bold;
+}
+
+.artwork-tab-content {
+  margin-top: 1rem;
+}
+
+.button-artwork-save-load {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.artwork-button {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  background-color: #0077cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.artwork-button:hover {
+  background-color: #005fa3;
+}
