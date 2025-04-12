@@ -13,7 +13,8 @@ function Preview() {
     setError('');
     try {
       await generatePreview();
-      const url = getPreviewSvgUrl();
+      // Append timestamp to bust cache
+      const url = getPreviewSvgUrl() + `?t=${Date.now()}`;
       setSvgUrl(url);
     } catch (err) {
       setError(err.message || 'Failed to generate preview');
@@ -21,6 +22,7 @@ function Preview() {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="preview-container">
