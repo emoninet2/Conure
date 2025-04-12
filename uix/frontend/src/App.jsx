@@ -41,7 +41,7 @@ function App() {
     try {
       const data = await openProject(location)
       setMessage(data.data.message)
-      setProjectName("SOME OPENED PROJECT")
+      setProjectName(data.data.projectJson.name) 
       setProjectPath(location)
       setCurrentView('project')
     } catch (err) {

@@ -5,6 +5,9 @@ import json
 import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
+import subprocess
+from flask import send_file
+
 
 app = Flask(__name__)
 CORS(app)
@@ -488,19 +491,54 @@ def create_project():
 
 @app.route('/api/open_project', methods=['POST'])
 def open_project():
-    global PROJECT_PATH
+    global PROJECT_PATH, PROJECT_NAME
     data = request.get_json()
     PROJECT_PATH = data.get('location')
 
-    logging.info(f"Project opened at {PROJECT_PATH}")
+    try:
+        if not os.path.exists(PROJECT_PATH):
+            return jsonify({
+                "success": False,
+                "error": "Specified project path does not exist."
+            }), 404
 
-    response = {
-        "success": True,
-        "data": {
-            "message": f"Project opened at {PROJECT_PATH}!"
-        }
-    }
-    return jsonify(response)
+        project_file = os.path.join(PROJECT_PATH, "project.json")
+
+        if os.path.exists(project_file):
+            with open(project_file, "r") as f:
+                project_data = json.load(f)
+                PROJECT_NAME = project_data.get("name", "")
+                project_data["lastOpened"] = datetime.utcnow().isoformat() + "Z"
+        else:
+            # fallback if project.json doesn't exist
+            PROJECT_NAME = os.path.basename(PROJECT_PATH)
+            project_data = {
+                "name": PROJECT_NAME,
+                "version": "1.0",
+                "lastOpened": datetime.utcnow().isoformat() + "Z"
+            }
+
+        # Update project.json with new lastOpened timestamp
+        with open(project_file, "w") as f:
+            json.dump(project_data, f, indent=2)
+
+        logging.info(f"Project opened at {PROJECT_PATH}")
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "message": f"Project opened at {PROJECT_PATH}!",
+                "projectJson": project_data
+            }
+        })
+
+    except Exception as e:
+        logging.exception("Failed to open project.")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 
 @app.route('/api/save_artwork', methods=['POST'])
@@ -590,6 +628,68 @@ def upload_artwork():
     
 
 
+@app.route('/api/preview_artwork', methods=['POST'])
+def preview_artwork():
+    global PROJECT_PATH
+
+    if not PROJECT_PATH:
+        return jsonify({"success": False, "error": "No project opened"}), 400
+
+    filepath = os.path.join(PROJECT_PATH, ARTWORK_FILENAME)
+
+    if not os.path.exists(filepath):
+        return jsonify({"success": False, "error": "Artwork file not found"}), 404
+
+    try:
+        command = [
+            'python',
+            '../../artwork_generator/artwork_generator.py',
+            '-a', filepath,
+            '-o', PROJECT_PATH,
+            '-n', 'artwork',
+            '--svg'
+        ]
+
+        logging.info(f"Running preview generation: {' '.join(command)}")
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if result.returncode != 0:
+            logging.error("Preview generation failed:\n" + result.stderr)
+            return jsonify({"success": False, "error": "Preview generation failed", "details": result.stderr}), 500
+
+        logging.info("Preview generation successful")
+        return jsonify({"success": True, "message": "Preview generated successfully!"})
+
+    except Exception as e:
+        logging.exception("Failed to generate preview.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/preview_svg', methods=['GET'])
+def get_preview_svg():
+    global PROJECT_PATH
+    svg_path = os.path.join(PROJECT_PATH, 'artwork.svg')
+
+    if not os.path.exists(svg_path):
+        return jsonify({"success": False, "error": "Preview not found"}), 404
+
+    try:
+        return send_file(svg_path, mimetype='image/svg+xml')
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/download_gdsii', methods=['GET'])
+def download_gdsii():
+    global PROJECT_PATH
+    gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
+
+    if not os.path.exists(gds_path):
+        return jsonify({"success": False, "error": "GDSII file not found"}), 404
+
+    try:
+        return send_file(gds_path, as_attachment=True, download_name='artwork.gds', mimetype='application/octet-stream')
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 
@@ -601,6 +701,7 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
     )
-    logging.info("Starting Flask server on port 5000...")
-    app.run(debug=True, port=5000, use_reloader=True)
+    port = 5001
+    logging.info(f"Starting Flask server on port {port}...")
+    app.run(debug=True, port=port, use_reloader=True)
 
