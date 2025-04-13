@@ -1,4 +1,8 @@
 .venv
 **/__pycache__/
 .vscode
+start_uix.log
+*.log
+*.lock
 data/
+

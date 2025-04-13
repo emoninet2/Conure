@@ -712,4 +712,3 @@ if __name__ == '__main__':
     port = int(os.environ.get("VITE_BACKEND_PORT", 5001))
     logging.info(f"Starting Flask server on port {port}...")
     app.run(debug=True, port=port, use_reloader=True)
-
