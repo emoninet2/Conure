@@ -1,0 +1,45 @@
+.simulator-config {
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  
+  .simulator-heading {
+    margin-bottom: 16px;
+    font-size: 1.5rem;
+    color: #333;
+  }
+  
+  .simulator-tab-button-group {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+  }
+  
+  .simulator-tab-button {
+    padding: 8px 16px;
+    background-color: #e0e0e0;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.3s;
+  }
+  
+  .simulator-tab-button:hover {
+    background-color: #d5d5d5;
+  }
+  
+  .simulator-tab-button.active {
+    background-color: #4a90e2;
+    color: #fff;
+  }
+  
+  .simulator-tab-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+  }
+  

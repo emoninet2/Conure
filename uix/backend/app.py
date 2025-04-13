@@ -702,6 +702,188 @@ def download_gdsii():
 
 
 # ========================
+# Simulator Configurations
+# ========================
+
+from collections import OrderedDict
+
+@app.route('/api/save_emx_config', methods=['POST'])
+def save_emx_config():
+    global PROJECT_PATH
+    logging.info("Triggered /api/save_emx_config")
+
+    if not PROJECT_PATH:
+        logging.error("No project opened")
+        return jsonify({"success": False, "error": "No project opened"}), 400
+
+    try:
+        emx_config = request.get_json()
+        if not emx_config:
+            return jsonify({"success": False, "error": "No config provided"}), 400
+
+        # Save only simConfig.json with wrapped content
+        sim_config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
+        wrapped_config = {
+            "emx_config": emx_config
+        }
+
+        with open(sim_config_path, 'w') as f:
+            json.dump(wrapped_config, f, indent=2)
+        logging.info(f"✅ Saved EMX config to {sim_config_path}")
+
+        return jsonify({
+            "success": True,
+            "message": "EMX config saved to simConfig.json successfully."
+        })
+
+    except Exception as e:
+        logging.exception("Failed to save EMX config.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+
+@app.route('/api/load_emx_config', methods=['GET'])
+def load_emx_config():
+    global PROJECT_PATH
+    logging.info("Triggered /api/load_emx_config")
+
+    if not PROJECT_PATH:
+        logging.error("No project opened")
+        return jsonify({"success": False, "error": "No project opened"}), 400
+
+    filepath = os.path.join(PROJECT_PATH, "simConfig.json")
+
+    if not os.path.exists(filepath):
+        logging.warning(f"simConfig.json not found at {filepath}")
+        return jsonify({"success": True, "data": {}})
+
+    try:
+        with open(filepath, "r") as f:
+            sim_config = json.load(f, object_pairs_hook=OrderedDict)
+
+        emx_config = sim_config.get("emx_config", {})
+        logging.info(f"Loaded EMX config from simConfig.json")
+
+
+        return app.response_class(
+            response=json.dumps({
+                "success": True,
+                "data": emx_config
+            }, indent=2),
+            status=200,
+            mimetype='application/json'
+        )
+
+
+    except Exception as e:
+        logging.exception("Failed to load EMX config from simConfig.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+
+
+
+# ========================
+# Simulation
+# ========================
+
+import subprocess
+import os
+
+@app.route('/api/start_simulation', methods=['POST'])
+def start_simulation():
+    global PROJECT_PATH
+    data = request.get_json()
+    simulator = data.get('simulator')
+
+    logging.info(f"Starting simulation for: {simulator}")
+
+    try:
+        if not PROJECT_PATH:
+            return jsonify({
+                "success": False,
+                "status": "❌ No project path set. Open a project first."
+            }), 400
+
+        if simulator == "EMX":
+            logging.info("💻 EMX simulator selected.")
+
+            simulate_script = os.path.abspath(os.path.join(BASE_DIR, '../../simulator/simulate.py'))
+            gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
+            config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
+            artwork_path = os.path.join(PROJECT_PATH, 'artwork.json')
+            output_dir = os.path.join(PROJECT_PATH, 'OUTPUT')
+
+            os.makedirs(output_dir, exist_ok=True)
+
+            command = [
+                'python', simulate_script,
+                '-f', gds_path,
+                '--sim', 'emx',
+                '-c', config_path,
+                '-a', artwork_path,
+                '-o', output_dir,
+                '-n', 'artwork'
+            ]
+
+            logging.info(f"Running simulation command: {' '.join(command)}")
+
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            if result.returncode != 0:
+                logging.error(f"Simulation failed:\n{result.stderr}")
+                return jsonify({
+                    "success": False,
+                    "status": "❌ EMX simulation failed",
+                    "error": result.stderr
+                }), 500
+
+            logging.info(f"Simulation output:\n{result.stdout}")
+
+        elif simulator == "openEMS":
+            logging.info("📡 openEMS simulator selected.")
+            # TODO: Insert openEMS logic
+
+        elif simulator == "ANSYS Raptor":
+            logging.info("⚡ ANSYS Raptor simulator selected.")
+            # TODO: Insert ANSYS Raptor logic
+
+        else:
+            return jsonify({
+                "success": False,
+                "status": f"❌ Unknown simulator: {simulator}"
+            }), 400
+
+        return jsonify({
+            "success": True,
+            "status": f"✅ {simulator} simulation completed successfully."
+        })
+
+    except Exception as e:
+        logging.exception("Simulation failed to start.")
+        return jsonify({
+            "success": False,
+            "status": f"❌ Failed to start simulation: {str(e)}"
+        }), 500
+
+
+
+@app.route('/api/stop_simulation', methods=['POST'])
+def stop_simulation():
+    # TODO: Add logic to stop the running simulation process
+    logging.info("Stopping simulation.")
+    
+    return jsonify({
+        "success": True,
+        "status": "⏹ Simulation stopped."
+    })
+
+
+
+
+# ========================
 # Entry Point
 # ========================
 if __name__ == '__main__':
@@ -709,6 +891,6 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
     )
-    port = int(os.environ.get("VITE_BACKEND_PORT", 5001))
+    port = int(os.environ.get("VITE_BACKEND_PORT", 5050))
     logging.info(f"Starting Flask server on port {port}...")
     app.run(debug=True, port=port, use_reloader=True)

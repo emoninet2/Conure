@@ -84,3 +84,11 @@
   box-shadow: 0 0 20px rgba(0, 150, 255, 0.6); /* blue glow */
   filter: brightness(1.1); /* subtle lightening */
 }
+
+/* Force light mode */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: white;
+    color: black;
+  }
+}

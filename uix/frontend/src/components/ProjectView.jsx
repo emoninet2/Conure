@@ -5,6 +5,7 @@ import Artwork from '../components/ProjectTabs/Artwork.jsx'
 import Sweep from '../components/ProjectTabs/Sweep.jsx'
 import Simulate from '../components/ProjectTabs/Simulate.jsx'
 import Modeling from '../components/ProjectTabs/Modeling.jsx'
+import SimulatorConfig from './ProjectTabs/SimulatorConfig.jsx'
 import About from '../components/ProjectTabs/About.jsx'
 
 function ProjectView({ name }) {
@@ -33,6 +34,11 @@ function ProjectView({ name }) {
       content: <Modeling />,
     },
     {
+      key: 'SimulatorConfig',
+      label: 'Simulator Config',
+      content: <SimulatorConfig />,
+    },
+    {
       key: 'About',
       label: 'About',
       content: <About />,
@@ -40,11 +46,13 @@ function ProjectView({ name }) {
   ]
 
   const [enabledTabs, setEnabledTabs] = useState({
-    Simulate: false,
-    Sweep: false,
-    Modeling: false,
-    About: true,
     Artwork: true,
+    Simulate: true,
+    Sweep: true,
+    Modeling: false,
+    SimulatorConfig: true,
+    About: true,
+
   })
   
 
