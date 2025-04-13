@@ -121,7 +121,7 @@ def emx(emxArgs):
     for outFormat, useFormat in emxArgs["YParam"]["formats"].items():
         if outFormat.lower() == "touchstone" and useFormat:
             command_parts.extend([
-                "--format", "touchstone", "-s",
+                "--format", "touchstone", "-y",
                 os.path.join(emxArgs["outputPath"], f"{outputName}.y{PortCount}p")
             ])
 
@@ -131,6 +131,14 @@ def emx(emxArgs):
     # Join command parts into a full command string
     full_command = " ".join(command_parts)
     logger.debug(f"Executing command: {full_command}")
+
+    # Save the command
+    command_script_path = os.path.join(emxArgs["outputPath"], "emx_command.sh")
+    with open(command_script_path, "w") as f:
+        f.write("#!/bin/bash\n")
+        f.write(full_command + "\n")
+    os.chmod(command_script_path, 0o755)
+
 
     try:
         subprocess.run(full_command, shell=True, check=True)
