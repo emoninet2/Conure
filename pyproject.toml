@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conure"
+version = "0.1.0"
+description = "Automated layout generation tool for inductor-based circuits with GDSII export for tapeout."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+authors = [
+    { name = "Your Name", email = "you@example.com" }
+]
+
+[project.urls]
+Homepage = "https://github.com/emoninet2/conure"
+Repository = "https://github.com/emoninet2/conure"
+
+dependencies = [
+    "gdspy",
+    "numpy",
+    "flask",
+    "flask_cors",
+    "python-dotenv",
+    "scikit-rf"
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "pytest"
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+

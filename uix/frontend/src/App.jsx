@@ -1,4 +1,3 @@
-// App.jsx
 import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
@@ -11,20 +10,22 @@ function App() {
   const [message, setMessage] = useState('')
   const [currentView, setCurrentView] = useState('home')
   const [projectName, setProjectName] = useState('')
-  const [projectPath, setProjectPath] = useState('')
 
+
+  // Only ask for a name when creating a project
   const handleCreateProject = async () => {
     const name = window.prompt('Enter your name:')
-    const location = window.prompt('Enter your location:')
-    if (!name || !location) {
-      alert('Both name and location are required!')
+    if (!name) {
+      alert('Name is required!')
       return
     }
     try {
-      const data = await createProject(name, location)
+      const data = await createProject(name)
       setMessage(data.data.message)
       setProjectName(name)
-      setProjectPath(location)
+      // For createProject, you might not have a location yet,
+      // so we can leave projectPath empty or set a default value.
+ 
       setCurrentView('project')
     } catch (err) {
       console.error('Error creating project:', err)
@@ -32,17 +33,18 @@ function App() {
     }
   }
 
+  // Ask for both location and name when opening a project
   const handleOpenProject = async () => {
-    const location = window.prompt('Enter the project location to open:')
-    if (!location) {
-      alert('Location is required!')
+
+    const name = window.prompt('Enter the project name:')
+    if (!name ) {
+      alert('Name required!')
       return
     }
     try {
-      const data = await openProject(location)
+      const data = await openProject(name)
       setMessage(data.data.message)
-      setProjectName(data.data.projectJson.name) 
-      setProjectPath(location)
+      setProjectName(name)
       setCurrentView('project')
     } catch (err) {
       console.error('Error opening project:', err)
@@ -70,10 +72,7 @@ function App() {
           </button>
         </div>
       ) : (
-        <ProjectView
-          name={projectName}
-          path={projectPath}
-        />
+        <ProjectView name={projectName} />
       )}
     </>
   )

@@ -1,0 +1,5 @@
+    gdspy
+    numpy
+    flask
+    flask_cors
+    python-dotenv

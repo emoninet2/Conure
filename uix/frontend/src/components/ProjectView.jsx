@@ -7,7 +7,7 @@ import Simulate from '../components/ProjectTabs/Simulate.jsx'
 import Modeling from '../components/ProjectTabs/Modeling.jsx'
 import About from '../components/ProjectTabs/About.jsx'
 
-function ProjectView({ name, path }) {
+function ProjectView({ name }) {
   const [goHome, setGoHome] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -64,7 +64,6 @@ function ProjectView({ name, path }) {
       <div className="project-title">
         <h2>Project</h2>
         <p> <b>Project name: </b>{name}</p>
-        <p> <b>Project path: </b>{path}</p>
       </div>
 
       {/* Tabs */}

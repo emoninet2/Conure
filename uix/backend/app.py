@@ -1,20 +1,27 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import logging
 import os
 import json
-import logging
-from datetime import datetime
-from werkzeug.utils import secure_filename
+import atexit
+import signal
+import sys
 import subprocess
-from flask import send_file
-
+from datetime import datetime
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
 
+load_dotenv()
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../data"))
 PROJECT_PATH = None
 PROJECT_NAME = None
 ARTWORK_FILENAME = 'artwork.json'
+GDS_FILENAME = 'artwork.gds'
 
 def convert_frontend_to_backend_artwork(frontend_data):
     """
@@ -445,7 +452,7 @@ def create_project():
     global PROJECT_PATH, PROJECT_NAME
     data = request.get_json()
     PROJECT_NAME = data.get('name')
-    PROJECT_PATH = data.get('location')
+    PROJECT_PATH = os.path.join(DATA_DIR, PROJECT_NAME)
 
     try:
         if not os.path.exists(PROJECT_PATH):
@@ -493,7 +500,8 @@ def create_project():
 def open_project():
     global PROJECT_PATH, PROJECT_NAME
     data = request.get_json()
-    PROJECT_PATH = data.get('location')
+    PROJECT_NAME = data.get('name')
+    PROJECT_PATH = os.path.join(DATA_DIR, PROJECT_NAME)
 
     try:
         if not os.path.exists(PROJECT_PATH):
@@ -681,13 +689,13 @@ def get_preview_svg():
 @app.route('/api/download_gdsii', methods=['GET'])
 def download_gdsii():
     global PROJECT_PATH
-    gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
+    gds_path = os.path.join(PROJECT_PATH, GDS_FILENAME)
 
     if not os.path.exists(gds_path):
         return jsonify({"success": False, "error": "GDSII file not found"}), 404
 
     try:
-        return send_file(gds_path, as_attachment=True, download_name='artwork.gds', mimetype='application/octet-stream')
+        return send_file(gds_path, as_attachment=True, download_name=GDS_FILENAME, mimetype='application/octet-stream')
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -701,7 +709,7 @@ if __name__ == '__main__':
         level=logging.DEBUG,
         format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
     )
-    port = 5001
+    port = int(os.environ.get("VITE_BACKEND_PORT", 5001))
     logging.info(f"Starting Flask server on port {port}...")
     app.run(debug=True, port=port, use_reloader=True)
 
