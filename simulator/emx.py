@@ -212,7 +212,7 @@ def simulateSweep(InductorData, emxConfig, sweepParam, outputDir):
 
             if not os.path.exists(gdsPath):
                 try:
-                    Inductor(InductorDataX)
+                    pass
                 except Exception as error:
                     logger.error(f"Inductor generation failed for RunID {RunID - 1}: {error}")
                     continue

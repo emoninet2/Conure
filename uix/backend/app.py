@@ -814,17 +814,15 @@ def start_simulation():
             gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
             config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
             artwork_path = os.path.join(PROJECT_PATH, 'artwork.json')
-            output_dir = os.path.join(PROJECT_PATH, 'OUTPUT')
 
-            os.makedirs(output_dir, exist_ok=True)
-
+      
             command = [
                 'python', simulate_script,
                 '-f', gds_path,
                 '--sim', 'emx',
                 '-c', config_path,
                 '-a', artwork_path,
-                '-o', output_dir,
+                '-o', PROJECT_PATH,
                 '-n', 'artwork'
             ]
 
