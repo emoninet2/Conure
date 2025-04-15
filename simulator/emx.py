@@ -20,6 +20,14 @@ def emx(emxArgs):
     Constructs and executes the simulation command based on the provided arguments.
     Raises a ValueError if mandatory keys (e.g. sweep frequencies) are missing.
     """
+
+
+    # Optional: run any environment setup commands.
+    env_command = 'source /projects/bitstream/emon/projects/conure/simulator/TSMC65nmRF_session_IC618'
+    process = subprocess.Popen(env_command, shell=True, executable='/bin/bash')
+    process.communicate()
+
+
     # Build command parts as a list for clarity and easy joining
     command_parts = [
         emxArgs["emxPath"],
@@ -132,12 +140,12 @@ def emx(emxArgs):
     full_command = " ".join(command_parts)
     logger.debug(f"Executing command: {full_command}")
 
-    # Save the command
-    command_script_path = os.path.join(emxArgs["outputPath"], "emx_command.sh")
-    with open(command_script_path, "w") as f:
-        f.write("#!/bin/bash\n")
-        f.write(full_command + "\n")
-    os.chmod(command_script_path, 0o755)
+    # Save the command to run the simulation
+    # command_script_path = os.path.join(emxArgs["outputPath"], "emx_command.sh")
+    # with open(command_script_path, "w") as f:
+    #     f.write("#!/bin/bash\n")
+    #     f.write(full_command + "\n")
+    # os.chmod(command_script_path, 0o755)
 
     
     try:

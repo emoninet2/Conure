@@ -45,7 +45,7 @@ class Component:
     """
 
     def __init__(self, component_data: dict, output_path: Optional[str] = None,
-                 output_name: Optional[str] = None, generate_svg: bool = True) -> None:
+                 output_name: Optional[str] = None, generate_layout: bool = True, generate_svg: bool = True) -> None:
         """
         Initialize the Component object.
 
@@ -131,7 +131,7 @@ class Component:
             os.makedirs(out_path)
 
         # Write GDS and optionally SVG files.
-        self._write_output_files(out_path, out_name, generate_svg)
+        self._write_output_files(out_path, out_name, generate_layout, generate_svg)
 
     def resolve_all_parameters(self) -> None:
         """
@@ -188,7 +188,7 @@ class Component:
         else:
             return value
 
-    def _write_output_files(self, output_path: str, output_name: str, generate_svg: bool) -> None:
+    def _write_output_files(self, output_path: str, output_name: str, generate_layout: bool, generate_svg: bool) -> None:
         """
         Write the GDS and SVG files.
 
@@ -197,9 +197,11 @@ class Component:
             output_name (str): The file base name.
             generate_svg (bool): Whether to generate the SVG file.
         """
-        gds_file = os.path.join(output_path, f"{output_name}.gds")
-        self.lib.write_gds(gds_file)
-        logging.info("GDS file written to %s", gds_file)
+
+        if generate_layout:
+            gds_file = os.path.join(output_path, f"{output_name}.gds")
+            self.lib.write_gds(gds_file)
+            logging.info("GDS file written to %s", gds_file)
 
         if generate_svg:
             svg_file = os.path.join(output_path, f"{output_name}.svg")
@@ -1025,6 +1027,7 @@ if __name__ == "__main__":
                         help="JSON file path or JSON string")
     parser.add_argument("--output", "-o", help="Output path")
     parser.add_argument("--name", "-n", help="Output file name")
+    parser.add_argument("--layout", action="store_true", help="Enable generation of layout in GDS")
     parser.add_argument("--svg", action="store_true", help="Enable generation of layout in SVG")
     args = parser.parse_args()
 
@@ -1045,7 +1048,7 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        inductive_component = Component(artwork_json_input, args.output, args.name, args.svg)
+        inductive_component = Component(artwork_json_input, args.output, args.name, args.layout, args.svg)
         logging.info("Inductive component generated successfully.")
     except Exception as e:
         logging.error("An error occurred during generation: %s", e)
