@@ -3,3 +3,4 @@
     flask
     flask_cors
     python-dotenv
+    scikit-rf

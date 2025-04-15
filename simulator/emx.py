@@ -139,7 +139,7 @@ def emx(emxArgs):
         f.write(full_command + "\n")
     os.chmod(command_script_path, 0o755)
 
-
+    
     try:
         subprocess.run(full_command, shell=True, check=True)
         logger.info("Command executed successfully.")

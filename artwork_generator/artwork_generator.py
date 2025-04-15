@@ -330,8 +330,11 @@ class Component:
             layer_name (str): The target layer name.
         """
         layer = self.Layers[layer_name]
-        gds_layer = layer["gds"]["layer"]
-        gds_datatype = layer["gds"]["datatype"]
+        #gds_layer = layer["gds"]["layer"]
+        #gds_datatype = layer["gds"]["datatype"]
+
+        gds_layer = self._resolve_parameter(layer["gds"]["layer"])
+        gds_datatype = self._resolve_parameter(layer["gds"]["datatype"])
 
         if isinstance(polygon, Polygon):
             polygon.gds_layer = gds_layer
@@ -612,6 +615,7 @@ class Component:
                 self._append_gds_item(self.guard_ring_gds_items, poly)
             elif shape.lower() == "octagonring":
                 width = segment["width"]
+                width = self._resolve_parameter(segment["width"])
                 if ("partialCut" in segment and segment["partialCut"]["use"]):
                     for i in range(self.C):
                         partialCutSegment = self._resolve_parameter(segment["partialCut"]["segment"])
