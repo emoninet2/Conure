@@ -7,12 +7,54 @@ import json
 import logging
 import emxConfig  # assuming this module is available
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[94m",     # Blue
+        logging.INFO: "\033[92m",      # Green
+        logging.WARNING: "\033[93m",   # Yellow
+        logging.ERROR: "\033[91m",     # Red
+        logging.CRITICAL: "\033[95m",  # Magenta
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, self.RESET)
+        timestamp = self.formatTime(record, self.datefmt)
+        msg = super().format(record)
+        return f"{timestamp} [EMX] {color}{msg}{self.RESET}"
+
+
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
 if not logger.handlers:
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
     logger.addHandler(handler)
+
+
+def configure_logger(level: str = "info", use_color: bool = True):
+    """
+    Configure the logger level and formatting.
+    """
+    log_levels = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }
+    logger.setLevel(log_levels.get(level.lower(), logging.INFO))
+
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = ColorFormatter('%(asctime)s - %(levelname)s - %(message)s') if use_color else \
+                    logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
 
 def emx(emxArgs):
@@ -21,11 +63,29 @@ def emx(emxArgs):
     Raises a ValueError if mandatory keys (e.g. sweep frequencies) are missing.
     """
 
+    # Dynamically set log level (default: "info")
+    log_levels = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL,
+        "none": logging.CRITICAL + 10  # Effectively disables all logging
+    }   
+    log_level_str = emxArgs.get("logLevel", "info").lower()
+    log_level = log_levels.get(log_level_str, logging.INFO)
+    logger.setLevel(log_level)
+
+    # Ensure logger handler is attached
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(ColorFormatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(handler)
 
     # Optional: run any environment setup commands.
-    env_command = 'source /projects/bitstream/emon/projects/conure/simulator/TSMC65nmRF_session_IC618'
-    process = subprocess.Popen(env_command, shell=True, executable='/bin/bash')
-    process.communicate()
+    # env_command = 'source /projects/bitstream/emon/projects/conure/simulator/TSMC65nmRF_session_IC618'
+    # process = subprocess.Popen(env_command, shell=True, executable='/bin/bash')
+    # process.communicate()
 
 
     # Build command parts as a list for clarity and easy joining
@@ -149,10 +209,30 @@ def emx(emxArgs):
 
     
     try:
-        subprocess.run(full_command, shell=True, check=True)
+        # subprocess.run(full_command, shell=True, check=True)
+        # import subprocess
+
+        if log_level_str == "none":
+            subprocess.run(full_command, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            result = subprocess.run(
+                full_command,
+                shell=True,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True  # ensures output is str, not bytes
+            )
+
+            if result.stdout:
+                logger.info(result.stdout.strip())
+
+            if result.stderr:
+                logger.error(result.stderr.strip())
+
         logger.info("Command executed successfully.")
     except subprocess.CalledProcessError as error:
-        logger.error(f"Command failed with error: {error}")
+        #logger.error(f"Command failed with error: {error}")
         raise
 
 
@@ -162,7 +242,7 @@ def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
     """
     emxConfigX = copy.deepcopy(emxConfig)
     emxConfigX["gdsFile"] = gdsFilePath
-    emxConfigX["outputPath"] = outputDir
+    emxConfigX["outputPath"] = outputDir  #Maybe not necessary. 
     emxConfigX["outputName"] = outputName
 
     logger.info(f"Artwork parameters: {artworkData.get('parameters')}")
@@ -174,7 +254,7 @@ def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
     try:
         emx(emxConfigX)
     except Exception as error:
-        logger.error(f"Simulation failed: {error}")
+        logger.error(f"Simulation failed")
         raise
 
 
@@ -248,6 +328,12 @@ def simulateSweep(InductorData, emxConfig, sweepParam, outputDir):
 
     TotalRuns = RunID
     return [TotalRuns, successfulRuns]
+
+
+
+
+
+
 
 
 # import os

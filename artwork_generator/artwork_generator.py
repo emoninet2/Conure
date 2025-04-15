@@ -22,8 +22,34 @@ from geometry.Octagon import Octagon
 from geometry.Point import Point
 from geometry.Polygon import Polygon
 
+
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[94m",     # Blue
+        logging.INFO: "\033[92m",      # Green
+        logging.WARNING: "\033[93m",   # Yellow
+        logging.ERROR: "\033[91m",     # Red
+        logging.CRITICAL: "\033[95m",  # Magenta
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, self.RESET)
+        timestamp = self.formatTime(record, self.datefmt)
+        msg = super().format(record)
+        return f"{timestamp} [ARTGEN] {color}{msg}{self.RESET}"
+
+
+
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+
 
 # A safe environment for evaluating parameter expressions.
 SAFE_EVAL_ENV: Dict[str, Any] = {
@@ -190,23 +216,24 @@ class Component:
 
     def _write_output_files(self, output_path: str, output_name: str, generate_layout: bool, generate_svg: bool) -> None:
         """
-        Write the GDS and SVG files.
-
-        Parameters:
-            output_path (str): The output directory.
-            output_name (str): The file base name.
-            generate_svg (bool): Whether to generate the SVG file.
+        Write the GDS and SVG files if requested, and verify their existence before logging success.
         """
-
         if generate_layout:
             gds_file = os.path.join(output_path, f"{output_name}.gds")
             self.lib.write_gds(gds_file)
-            logging.info("GDS file written to %s", gds_file)
+            if os.path.exists(gds_file):
+                logging.info("GDS file written successfully: %s", gds_file)
+            else:
+                logging.error("Failed to write GDS file: %s", gds_file)
 
         if generate_svg:
             svg_file = os.path.join(output_path, f"{output_name}.svg")
             self.cell.write_svg(svg_file)
-            logging.info("SVG file written to %s", svg_file)
+            if os.path.exists(svg_file):
+                logging.info("SVG file written successfully: %s", svg_file)
+            else:
+                logging.error("Failed to write SVG file: %s", svg_file)
+
 
     def _append_gds_item(self, item_list: List[Polygon], poly: Union[Polygon, List[Polygon]]) -> None:
         """
@@ -1020,16 +1047,41 @@ class Component:
 # -------------------------------------------------------------------------
 # End of item generation methods.
 # -------------------------------------------------------------------------
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Inductive Component GDS Generator")
-    parser.add_argument("--artwork", "-a", required=True,
-                        help="JSON file path or JSON string")
+    parser.add_argument("--artwork", "-a", required=True, help="JSON file path or JSON string")
     parser.add_argument("--output", "-o", help="Output path")
     parser.add_argument("--name", "-n", help="Output file name")
     parser.add_argument("--layout", action="store_true", help="Enable generation of layout in GDS")
     parser.add_argument("--svg", action="store_true", help="Enable generation of layout in SVG")
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help="Set the logging level"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose (debug) output")
+
+    # ✅ Now parse all arguments
     args = parser.parse_args()
+
+    # Set log level based on --log-level
+    log_levels = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }
+    # Start with logging disabled
+    logger.setLevel(logging.CRITICAL + 1)
+
+    # If --log-level is provided
+    if args.log_level:
+        logger.setLevel(log_levels[args.log_level])
+
+    # If --verbose is used, override
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
 
     # Load artwork JSON input.
     artwork_json_input: Any = None
@@ -1049,7 +1101,7 @@ if __name__ == "__main__":
 
     try:
         inductive_component = Component(artwork_json_input, args.output, args.name, args.layout, args.svg)
-        logging.info("Inductive component generated successfully.")
+        logging.info("Successfully generated artwork.")
     except Exception as e:
         logging.error("An error occurred during generation: %s", e)
         exit(1)

@@ -5,4 +5,5 @@ start_uix.log
 *.log
 *.lock
 data/
-
+data
+**/.DS_Store

@@ -66,7 +66,7 @@ Feel free to test out the artwork generator. Example templates for artwork can b
 #### Artwork Generation
 
 ```bash
-$ python artwork_generator/artwork_generator.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json -o OUTPUT -n artwork
+$ python artwork_generator/artwork_generator.py -a artwork_library/Inductors/Coplanar/Inductor_Coplanar_5.json -o OUTPUT -n artwork --layout --svg
 ```
 
 #### EM Simulation

@@ -29,6 +29,34 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
+
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[94m",     # Blue
+        logging.INFO: "\033[92m",      # Green
+        logging.WARNING: "\033[93m",   # Yellow
+        logging.ERROR: "\033[91m",     # Red
+        logging.CRITICAL: "\033[95m",  # Magenta
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, self.RESET)
+        timestamp = self.formatTime(record, self.datefmt)
+        msg = super().format(record)
+        return f"{timestamp} [SWEEP] {color}{msg}{self.RESET}"
+
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+
+
 # ------------------------------------------------------------------------------
 # Load .env and Build Relative Paths
 # ------------------------------------------------------------------------------
@@ -59,11 +87,18 @@ if not simulator_rel:
     raise ValueError("CONURE_SIMULATOR_PATH is not set in the .env file!")
 simulator_path = (conure_path / simulator_rel).resolve()
 
+
 # ------------------------------------------------------------------------------
 # Initialize Logging
 # ------------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(ColorFormatter('%(levelname)s: %(message)s'))
+    logger.addHandler(handler)
+
 
 # ------------------------------------------------------------------------------
 # Utility Functions
@@ -89,6 +124,7 @@ def load_json_data(input_arg):
 def get_timestamp():
     """Return the current time in ISO 8601 format."""
     return datetime.now().isoformat()
+
 
 # ------------------------------------------------------------------------------
 # Checkpoint Database Functions
@@ -121,6 +157,7 @@ def update_checkpoint(run_key, checkpoint_db, checkpoint_path, updates):
     checkpoint_db.setdefault("runs", {})[run_key] = run_record
     save_checkpoint_db(checkpoint_db, checkpoint_path)
 
+
 # ------------------------------------------------------------------------------
 # Status Update Function (Enhanced)
 # ------------------------------------------------------------------------------
@@ -151,12 +188,16 @@ def update_status(status_file_path, total, completed, run_key, task_info):
 # ------------------------------------------------------------------------------
 
 def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, outputName,
-          enableLayoutGeneration, generateSVG, enableSimulation, packSimulationResults):
+          enableLayoutGeneration, generateSVG, enableSimulation, packSimulationResults,
+          force=False,
+          verbose=False, log_level=None):
     """
     Sweep over a set of parameters to generate artwork layouts and optionally run simulations.
     Each run output is placed in a unique subdirectory under base_output_dir and tracked in a 
     checkpoint JSON file, so that interrupted runs can be resumed.
     Detailed status is written to a JSON file indicating what is currently happening.
+    
+    The 'force' flag forces overwriting existing outputs, even if checkpoint indicates completion.
     """
     sweepPar = list(sweepParam["parameters"].keys())
     sweepData = [sweepParam["parameters"][param] for param in sweepPar]
@@ -182,7 +223,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
     update_status(status_file_path, total_permutations, completedRuns, "N/A", default_task_status)
     
     for permutation in permutations:
-        #run_key = "RunID_{:04d}".format(RunID)
         run_key = f"RunID_{RunID:0{width}d}"
         run_record = checkpoint_db.get("runs", {}).get(run_key, {})
         layout_done = run_record.get("layout_completed", False)
@@ -191,7 +231,7 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
         
         # For simulation, skip if already done.
         if enableSimulation and simulation_done:
-            logger.info("Simulation for %s already completed. Skipping simulation step.", run_key)
+            logger.warning("Simulation for %s already completed. Skipping simulation step.", run_key)
         
         run_artwork = copy.deepcopy(artworkData)
         run_output_dir = os.path.join(base_output_dir, run_key)
@@ -227,10 +267,34 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
         svgPath = os.path.join(run_output_dir, run_name + ".svg")
         sParamPath = os.path.join(run_output_dir, run_name + f".s{portCount}p")
         
-        # Determine if artwork needs to be generated.
-        needs_layout = (enableLayoutGeneration or enableSimulation) and not os.path.exists(gdsPath)
-        needs_svg = generateSVG and not os.path.exists(svgPath)
-        
+        # Determine if artwork needs to be generated for layout.
+        if (enableLayoutGeneration or enableSimulation):
+            if os.path.exists(gdsPath) and layout_done and not force:
+                logger.warning("GDS file for %s already exists and is confirmed in checkpoint. Skipping layout generation.", run_key)
+                needs_layout = False
+            elif os.path.exists(gdsPath) and layout_done and force:
+                logger.warning("Force overwrite of GDS file for %s ", run_key)
+                needs_layout = True
+            else:
+                needs_layout = True
+        else:
+            needs_layout = False
+
+        # Determine if SVG needs to be generated.
+        if generateSVG:
+            if os.path.exists(svgPath) and svg_done and not force:
+                logger.warning("SVG for %s already exists and is confirmed in checkpoint. Skipping SVG generation.", run_key)
+                needs_svg = False
+            elif os.path.exists(svgPath) and svg_done and force:
+                logger.warning("Force overwrite of SVG file for %s ", run_key)
+                needs_svg = True
+            else:
+                needs_svg = True
+        else:
+            needs_svg = False
+
+
+
         if needs_layout or needs_svg:
             # Set current task status accordingly.
             task_status = {
@@ -253,7 +317,12 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
             if generateSVG:
                 command.append("--svg")
             
-            logger.debug("Running artwork generation command: %s", command)
+            if verbose:
+                command.append("--verbose")
+            if log_level:
+                command.extend(["--log-level", log_level])
+
+            logger.debug("Running artwork generation command")
             process = subprocess.run(command)
             if process.returncode == 0:
                 logger.info("Artwork generation succeeded for %s", run_key)
@@ -292,8 +361,14 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
                 "-o", run_output_dir,
                 "-n", run_name
             ]
+            if verbose:
+                command.append("--verbose")
+            if log_level:
+                command.extend(["--log-level", log_level])
+            
             command = [arg for arg in command if arg]
-            logger.debug("Running simulation command: %s", command)
+            logger.debug("Running simulation command")
+            
             process = subprocess.run(command)
             if process.returncode == 0:
                 logger.info("Simulation succeeded for %s", run_key)
@@ -319,6 +394,7 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
     if packSimulationResults:
         logger.info("Packing simulation results from base output: %s", base_output_dir)
         pack_simulation_data(base_output_dir)
+
 
 # ------------------------------------------------------------------------------
 # Pack Function (for Touchstone Files Only)
@@ -374,7 +450,7 @@ def pack_simulation_data(sweep_dir):
                 logger.warning("No touchstone file found for %s", run_folder)
     
     if not targets_list:
-        logger.info("No touchstone files found. Skipping packing operation.")
+        logger.warning("No touchstone files found. Skipping packing operation.")
         return
 
     features_array = np.array(features_list)
@@ -388,40 +464,77 @@ def pack_simulation_data(sweep_dir):
              frequency_points=frequency_points)
     logger.info("Packed simulation results saved to: %s", output_npz_path)
 
+
 # ------------------------------------------------------------------------------
 # Main Entry Point
 # ------------------------------------------------------------------------------
-
 def main():
     parser = argparse.ArgumentParser(
         description="Sweep script for artwork generation and simulation using .env paths with checkpointing."
     )
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("--artwork", "-a", required=True, help="JSON data or file path for artwork")
-    parser.add_argument("--sweep", required=True, help="JSON file path for sweep parameters")
+    parser.add_argument("--artwork", "-a", required=True, help="JSON data or file path for artwork description file")
+    parser.add_argument("--sweep", required=True, help="JSON file path for sweep parameters datafile")
     parser.add_argument("--output", "-o", required=True, help="Base output directory")
     parser.add_argument("--name", "-n", help="Output file base name")
     parser.add_argument("--layout", action="store_true", help="Enable layout generation in GDSII")
     parser.add_argument("--svg", action="store_true", help="Enable SVG generation")
     parser.add_argument("--simulate", action="store_true", help="Enable simulation")
-    parser.add_argument("--pack", action="store_true", help="Package simulation results")
-    parser.add_argument("--simulator", "--sim", choices=["emx", "openems", "empro"], help="Choose a simulator")
-    parser.add_argument("--config", "-c", help="Simulator configuration file", default=None)
+    parser.add_argument("--pack_sim", action="store_true", help="Package simulation results")
+    parser.add_argument("--simulator", "--sim", choices=["emx", "openems", "empro", "raptor"], help="Choose a simulator")
+    parser.add_argument("--config", "-c", help="JSON configuration file for the Simulator configuration", default=None)
+    parser.add_argument("--force", action="store_true", help="Force overwrite of existing outputs")
+    parser.add_argument(
+        "--log-level",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help="Set the logging level",
+        default=None  # No explicit value means we'll fallback to INFO unless verbose is specified.
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose (debug) output")
+    
+
     args = parser.parse_args()
-    
-    if args.debug:
-        logger.setLevel(logging.DEBUG)
-    
+
+    # Define mapping of log-level strings to logging module levels.
+    log_levels = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }
+
+    # Determine effective log level:
+    if args.verbose:
+        effective_level = logging.DEBUG
+    elif args.log_level:
+        effective_level = log_levels[args.log_level]
+    else:
+        effective_level = logging.INFO
+
+    # Set the logger's level using the effective level.
+    logger.setLevel(effective_level)
+
+    # It's a good idea to log what effective level is being used.
+    logger.debug("Effective log level set to %s.", logging.getLevelName(effective_level))
+
+    # Load input files
     artworkData = load_json_data(args.artwork)
     sweepData = load_json_data(args.sweep)
-    config = load_json_data(args.config) if args.config else None
-    
+
+    # Pass the original --log-level string if provided (unless overridden by verbose)
+    arg_log_level = args.log_level if args.log_level and not args.verbose else "debug" if args.verbose else None
+
+    # Call the sweep function with the appropriate parameters.
     sweep(args.simulator, artworkData, sweepData, args.config,
           args.output, args.name,
           enableLayoutGeneration=args.layout,
           generateSVG=args.svg,
           enableSimulation=args.simulate,
-          packSimulationResults=args.pack)
+          packSimulationResults=args.pack_sim,
+          force=args.force,
+          verbose=args.verbose,
+          log_level=arg_log_level
+          )
 
 if __name__ == "__main__":
     main()
