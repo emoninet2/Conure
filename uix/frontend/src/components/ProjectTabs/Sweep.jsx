@@ -164,6 +164,12 @@ const Sweep = () => {
     <div className="tab-container">
       <h3 className="artwork-heading">🌀 Sweep</h3>
 
+      {sweepName && (
+        <div className="input-group">
+          <strong>Current Sweep:</strong> {sweepName}
+        </div>
+      )}
+
 
       <div className="mode-selection">
         <label className="mode-label">
@@ -195,11 +201,7 @@ const Sweep = () => {
         )}
       </div>
 
-      {sweepName && (
-        <div className="input-group">
-          <strong>Current Sweep:</strong> {sweepName}
-        </div>
-      )}
+
 
       <div className="button-group">
         <button onClick={handleSaveSweep} className="btn primary">💾 Save Sweep</button>

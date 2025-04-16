@@ -45,7 +45,7 @@ function Preview() {
       {svgUrl && (
         <div>
           <h4 className="section-heading">SVG Preview</h4>
-          <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '50%' }} />
+          <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '100%' }} />
         </div>
       )}
     </div>

@@ -53,7 +53,7 @@ function Metadata() {
                   onClick={() => handleDeleteRow(index)}
                   className="btn-table-action delete"
                 >
-                  🗑 Delete
+                  Delete
                 </button>
               </td>
             </tr>

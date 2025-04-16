@@ -159,6 +159,18 @@ body {
   height: 300px;
 }
 
+
+.input-group {
+
+  display: flex;
+  justify-content: flex-start; /* items hug the left edge */
+  align-items: center;         /* if you want them vertically centered */
+}
+.input-group label {
+  width: 100%;
+  margin-right: 1rem;          /* spacing between checkboxes */
+}
+
 /* Spacer overrides for sweep panel */
 .artwork-subtab-container .input-group {
   margin-bottom: var(--spacing-md);
