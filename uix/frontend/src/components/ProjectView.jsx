@@ -70,7 +70,7 @@ function ProjectView({ name }) {
 
       {/* Title */}
       <div className="project-title">
-        <h2>Project</h2>
+        <h2>Conure</h2>
         <p> <b>Project name: </b>{name}</p>
       </div>
 

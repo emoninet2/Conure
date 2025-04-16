@@ -10,17 +10,26 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+from pathlib import Path
 import shutil
 
 app = Flask(__name__)
 CORS(app)
 
-load_dotenv()
+
+
+
+# Adjust the path to where your .env file is located:
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../data"))
-PROJECT_PATH = None
+
 PROJECT_NAME = None
+PROJECT_PATH = None
+
 ARTWORK_FILENAME = 'artwork.json'
 GDS_FILENAME = 'artwork.gds'
 
@@ -636,6 +645,34 @@ def upload_artwork():
         return jsonify({"success": False, "error": str(e)}), 500
     
 
+@app.route('/api/download_artwork', methods=['GET'])
+def download_artwork():
+    global PROJECT_PATH
+    if not PROJECT_PATH:
+        logging.error("Attempted to download artwork without an open project.")
+        return jsonify({"success": False, "error": "No project opened"}), 400
+
+    # Build the full file path for the artwork JSON file.
+    filepath = os.path.join(PROJECT_PATH, ARTWORK_FILENAME)
+
+    if not os.path.exists(filepath):
+        logging.error(f"Artwork file not found: {filepath}")
+        return jsonify({"success": False, "error": "Artwork file not found"}), 404
+
+    try:
+        # Use Flask's send_file to send the artwork.json file as an attachment.
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=ARTWORK_FILENAME,
+            mimetype='application/json'
+        )
+    except Exception as e:
+        logging.exception("Failed to download artwork file.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
 
 @app.route('/api/preview_artwork', methods=['POST'])
 def preview_artwork():
@@ -884,93 +921,113 @@ def stop_simulation():
 # Sweep
 # ========================
 
+# ========================
+# SWEEP ENDPOINTS
+# ========================
 
-
-
-@app.route('/api/create_sweep_parameter_file', methods=['POST'])
-def create_sweep_parameter_file():
+@app.route('/api/save_sweep', methods=['POST'])
+def save_sweep():
     """
-    Create or update the sweep parameter file in a specified sweep folder.
-    Expects a JSON payload with:
-      - "sweep_name": the name of the sweep folder (located in DATA_DIR/sweep)
-      - "parameterData": the sweep parameters to be saved
+    Save sweep data to a folder named with the sweepName in PROJECT_PATH/sweep.
+    Expects JSON payload with:
+      - sweepName: string indicating the sweep folder name
+      - parameters: a JSON object containing the sweep parameters
+    The data is saved to a file named "checkpoint.json" inside that folder.
     """
+    global PROJECT_PATH
     data = request.get_json()
-    sweep_name = data.get("sweep_name")
-    parameter_data = data.get("parameterData")
+    sweep_name = data.get("sweepName")
+    # Updated to read the key "parameters"
+    sweep_params = data.get("parameters")
+    
+    if not sweep_name or sweep_params is None:
+        logging.error("Invalid sweep data provided. 'sweepName' and 'parameters' are required.")
+        return jsonify({"success": False, "error": "Invalid sweep data provided"}), 400
+
+    # Build the path: PROJECT_PATH/sweep/sweep_name
+    sweep_folder = os.path.join(PROJECT_PATH, "sweep", sweep_name)
+    
+    # Create the folder if it does not exist
+    os.makedirs(sweep_folder, exist_ok=True)
+    
+    sweep_json_path = os.path.join(sweep_folder, "sweep.json")
+    
+    # Save the sweep data into checkpoint.json
+    try:
+        with open(sweep_json_path, "w") as f:
+            json.dump({"sweepName": sweep_name, "parameters": sweep_params}, f, indent=2)
+        logging.info(f"Sweep saved successfully: {sweep_name}")
+        return jsonify({"success": True, "message": "Sweep saved successfully."})
+    except Exception as e:
+        logging.exception("Failed to save sweep data.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/load_sweep', methods=['GET'])
+def load_sweep():
+    """
+    Load sweep data by sweep name from PROJECT_PATH/sweep.
+    Expects a query parameter 'sweepName'.
+    Returns the parsed data from sweep.json.
+    """
+    global PROJECT_PATH
+    sweep_name = request.args.get('sweepName')
     
     if not sweep_name:
-        logging.error("No sweep name specified in request.")
-        return jsonify({"success": False, "error": "No sweep name specified"}), 400
+        logging.error("No sweep name provided in request.")
+        return jsonify({"success": False, "error": "No sweep name provided"}), 400
     
-    if parameter_data is None:
-        logging.error("No parameter data provided in request.")
-        return jsonify({"success": False, "error": "No parameter data provided"}), 400
-
-    # Construct the full path to the specified sweep folder
-    folder_path = os.path.join(DATA_DIR, "sweep", sweep_name)
+    sweep_folder = os.path.join(PROJECT_PATH, "sweep", sweep_name)
+    sweep_file = os.path.join(sweep_folder, "sweep.json")
     
-    if not os.path.isdir(folder_path):
-        logging.error(f"Sweep folder not found: {folder_path}")
-        return jsonify({"success": False, "error": "Sweep folder not found"}), 404
-
-    # Define the path for the sweep parameter file
-    parameter_file_path = os.path.join(folder_path, "sweep_parameter_file.json")
-
+    if not os.path.exists(sweep_file):
+        logging.error(f"sweep.json not found for sweep: {sweep_name}")
+        return jsonify({"success": False, "error": "Sweep not found"}), 404
+    
     try:
-        with open(parameter_file_path, "w") as f:
-            json.dump(parameter_data, f, indent=2)
-        logging.info(f"Sweep parameter file saved to {parameter_file_path}")
-        return jsonify({
-            "success": True,
-            "message": "Sweep parameters saved successfully.",
-            "parameterFilePath": parameter_file_path
-        })
+        with open(sweep_file, "r") as f:
+            sweep_data = json.load(f)
+        logging.info(f"Sweep loaded successfully: {sweep_name}")
+        return jsonify({"success": True, "sweep": sweep_data})
     except Exception as e:
-        logging.exception("Failed to save sweep parameter file.")
+        logging.exception("Failed to load sweep data.")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/list_sweeps', methods=['GET'])
 def list_sweeps():
     """
-    List all sweep folders in DATA_DIR/sweep that contain a checkpoint.json file.
-    Returns a JSON object with the sweep names and the parsed checkpoint data.
+    List all sweep folders in PROJECT_PATH/sweep that contain a checkpoint.json file.
+    Returns a JSON object with the sweep names.
     """
-    sweep_dir = os.path.join(DATA_DIR, "sweep")
+    global PROJECT_PATH
+    sweep_dir = os.path.join(PROJECT_PATH, "sweep")
     sweeps_info = []
 
     if not os.path.exists(sweep_dir):
         logging.error(f"Sweep directory not found: {sweep_dir}")
-        return jsonify({"success": False, "error": "Sweep directory not found"}), 404
+        return jsonify({"data_dir": DATA_DIR, "success": False, "error": "Sweep directory not found"}), 404
 
-    # Iterate through the contents of the sweep directory.
     for folder in os.listdir(sweep_dir):
         folder_path = os.path.join(sweep_dir, folder)
         if os.path.isdir(folder_path):
             checkpoint_path = os.path.join(folder_path, "checkpoint.json")
             if os.path.exists(checkpoint_path):
-                try:
-                    with open(checkpoint_path, "r") as f:
-                        checkpoint_data = json.load(f)
-                except Exception as e:
-                    logging.error(f"Failed to load checkpoint from {checkpoint_path}: {e}")
-                    checkpoint_data = {}
                 sweeps_info.append({
                     "sweep_name": folder,
-                    "checkpoint": checkpoint_data
+                    # Optionally: "checkpoint": checkpoint_data
                 })
             else:
                 logging.warning(f"No checkpoint.json found in {folder_path}. Skipping this folder.")
     return jsonify({"success": True, "sweeps": sweeps_info})
 
-
 @app.route('/api/delete_sweep', methods=['POST'])
 def delete_sweep():
     """
-    Delete a sweep folder from DATA_DIR/sweep.
+    Delete a sweep folder from PROJECT_PATH/sweep.
     Expects a JSON payload with a key "sweep_name" indicating the folder name.
     """
+    global PROJECT_PATH
     data = request.get_json()
     sweep_name = data.get("sweep_name")
     
@@ -978,7 +1035,7 @@ def delete_sweep():
         logging.error("No sweep name specified in request.")
         return jsonify({"success": False, "error": "No sweep name specified"}), 400
 
-    folder_path = os.path.join(DATA_DIR, "sweep", sweep_name)
+    folder_path = os.path.join(PROJECT_PATH, "sweep", sweep_name)
     
     if not os.path.isdir(folder_path):
         logging.error(f"Sweep folder not found: {folder_path}")
@@ -993,15 +1050,23 @@ def delete_sweep():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-
 # ========================
 # Entry Point
 # ========================
+# if __name__ == '__main__':
+#     logging.basicConfig(
+#         level=logging.DEBUG,
+#         format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+#     )
+#     port = int(os.environ.get("VITE_BACKEND_PORT", 5005))
+#     logging.info(f"Starting Flask server on port {port}...")
+#     app.run(debug=True, port=port, use_reloader=True)
+
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.DEBUG,
-        format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+        format='[%(asctime)s][BACKEND] %(levelname)s in %(module)s: %(message)s'
     )
-    port = int(os.environ.get("VITE_BACKEND_PORT", 5050))
-    logging.info(f"Starting Flask server on port {port}...")
+    # port = int(os.environ.get("VITE_BACKEND_PORT", 5008))
+    # logging.info(f"Starting Flask server on port {port}...")
     app.run(debug=True, port=port, use_reloader=True)

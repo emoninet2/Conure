@@ -1,11 +1,9 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css';
 
 function Segments() {
-  const { segments, bridges, ports, layers, arms } = useArtworkContext();
+  const { segments, bridges, arms, layers } = useArtworkContext();
   const { segmentData, setSegmentData } = segments;
   const { bridgeData } = bridges;
-  const { portData } = ports; //REMOVE THIS 
   const { armData } = arms;
   const { layerData } = layers;
 
@@ -23,16 +21,12 @@ function Segments() {
 
   const handleAddRow = (segmentIndex) => {
     const updated = [...segmentData];
-    
-    // Ensure there's a valid array at that index
     if (!Array.isArray(updated[segmentIndex])) {
       updated[segmentIndex] = [];
     }
-  
     updated[segmentIndex].push({ type: '', item: '', layer: '', jump: '' });
     setSegmentData(updated);
   };
-  
 
   const handleDeleteRow = (segmentIndex, rowIndex) => {
     const updated = [...segmentData];
@@ -42,16 +36,17 @@ function Segments() {
 
   const typeOptions = ['default', 'bridge', 'port'];
   const bridgeOptions = bridgeData.filter(b => b.name?.trim());
-  const portOptions = portData.filter(p => p.name?.trim()); // REMOVE THIS 
   const armOptions = armData.filter(a => a.name?.trim());
   const layerOptions = layerData.filter(l => l.name?.trim());
 
   return (
-    <div className="segments-container">
-      <h4>🧩 Segments (8 Groups)</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">🧩 Segments (8 Groups)</h4>
+
       {segmentData.map((segment, segmentIndex) => (
         <div key={segmentIndex} className="segment-block">
-          <h5>Segment {segmentIndex + 1}</h5>
+          <h5 className="section-heading">Segment {segmentIndex + 1}</h5>
+
           <table className="artwork-table">
             <thead>
               <tr>
@@ -65,13 +60,11 @@ function Segments() {
             <tbody>
               {segment.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  {/* Type Dropdown */}
                   <td>
                     <select
                       value={row.type}
-                      onChange={(e) =>
-                        handleChange(segmentIndex, rowIndex, 'type', e.target.value)
-                      }
+                      onChange={(e) => handleChange(segmentIndex, rowIndex, 'type', e.target.value)}
+                      className="input-field"
                     >
                       <option value="">Select Type</option>
                       {typeOptions.map((option) => (
@@ -82,14 +75,12 @@ function Segments() {
                     </select>
                   </td>
 
-                  {/* Item Dropdown (or disabled input) */}
                   <td>
                     {row.type === 'bridge' ? (
                       <select
                         value={row.item}
-                        onChange={(e) =>
-                          handleChange(segmentIndex, rowIndex, 'item', e.target.value)
-                        }
+                        onChange={(e) => handleChange(segmentIndex, rowIndex, 'item', e.target.value)}
+                        className="input-field"
                       >
                         <option value="">Select Bridge</option>
                         {bridgeOptions.map((b, i) => (
@@ -100,35 +91,32 @@ function Segments() {
                       </select>
                     ) : row.type === 'port' ? (
                       <select
-                      value={row.item}
-                      onChange={(e) =>
-                        handleChange(segmentIndex, rowIndex, 'item', e.target.value)
-                      }
-                    >
-                      <option value="">Select Arm</option>
-                      {armOptions.map((a, i) => (
-                        <option key={i} value={a.name}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </select>
+                        value={row.item}
+                        onChange={(e) => handleChange(segmentIndex, rowIndex, 'item', e.target.value)}
+                        className="input-field"
+                      >
+                        <option value="">Select Arm</option>
+                        {armOptions.map((a, i) => (
+                          <option key={i} value={a.name}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input
                         type="text"
                         disabled
                         value="Not available"
-                        className="field-disabled"
+                        className="input-field field-disabled"
                       />
                     )}
                   </td>
 
-                  {/* Layer Dropdown */}
                   <td>
                     <select
                       value={row.layer}
-                      onChange={(e) =>
-                        handleChange(segmentIndex, rowIndex, 'layer', e.target.value)
-                      }
+                      onChange={(e) => handleChange(segmentIndex, rowIndex, 'layer', e.target.value)}
+                      className="input-field"
                     >
                       <option value="">Select Layer</option>
                       {layerOptions.map((l, i) => (
@@ -139,31 +127,28 @@ function Segments() {
                     </select>
                   </td>
 
-                  {/* Jump Input (only for bridge) */}
                   <td>
                     {row.type === 'bridge' ? (
                       <input
                         type="text"
                         value={row.jump}
-                        onChange={(e) =>
-                          handleChange(segmentIndex, rowIndex, 'jump', e.target.value)
-                        }
+                        onChange={(e) => handleChange(segmentIndex, rowIndex, 'jump', e.target.value)}
+                        className="input-field"
                       />
                     ) : (
                       <input
                         type="text"
                         disabled
                         value="Not available"
-                        className="field-disabled"
+                        className="input-field field-disabled"
                       />
                     )}
                   </td>
 
-                  {/* Delete Row */}
                   <td>
                     <button
                       onClick={() => handleDeleteRow(segmentIndex, rowIndex)}
-                      className="delete-row-button"
+                      className="btn-table-action delete"
                     >
                       Delete
                     </button>
@@ -173,9 +158,12 @@ function Segments() {
             </tbody>
           </table>
 
-
-          <button onClick={() => handleAddRow(segmentIndex)} className="add-row-button" style={{ display: 'block' }}>
-            Add Row to Segment {segmentIndex + 1}
+          <button
+            onClick={() => handleAddRow(segmentIndex)}
+            className="btn-table-action add full-width"
+            style={{ display: 'block' }}
+          >
+            ➕ Add Row to Segment {segmentIndex + 1}
           </button>
 
           <hr style={{ margin: '2rem 0' }} />

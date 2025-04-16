@@ -1,6 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css'; // ✅ styling
-
 
 function Parameters() {
   const { parameter } = useArtworkContext();
@@ -21,8 +19,8 @@ function Parameters() {
   };
 
   return (
-    <div className="parameters-container">
-      <h4>⚙️ Parameters Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">⚙️ Parameters Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -36,6 +34,7 @@ function Parameters() {
             <tr key={index}>
               <td>
                 <input
+                  className="input-field"
                   type="text"
                   value={row.parameter}
                   onChange={(e) => handleChange(index, 'parameter', e.target.value)}
@@ -43,6 +42,7 @@ function Parameters() {
               </td>
               <td>
                 <input
+                  className="input-field"
                   type="text"
                   value={row.value}
                   onChange={(e) => handleChange(index, 'value', e.target.value)}
@@ -51,9 +51,9 @@ function Parameters() {
               <td>
                 <button
                   onClick={() => handleDeleteRow(index)}
-                  className="delete-row-button"
+                  className="btn-table-action delete"
                 >
-                  Delete
+                  🗑 Delete
                 </button>
               </td>
             </tr>
@@ -63,14 +63,12 @@ function Parameters() {
 
       <button
         onClick={handleAddRow}
-        className="add-row-button"
-        style={{ display: 'block' }}
+        className="btn-table-action add"
       >
-        Add Parameter
+        ➕ Add Parameter
       </button>
     </div>
   );
 }
 
 export default Parameters;
-

@@ -1,11 +1,10 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css'; // ✅ Import the CSS file
 
 function Ports() {
   const { ports } = useArtworkContext();
   const { portData, setPortData, simPortData, setSimPortData } = ports;
 
-  // --- Standard Ports Handlers ---
+  // Standard Ports Handlers
   const handlePortChange = (index, field, value) => {
     const updated = [...portData];
     updated[index][field] = value;
@@ -20,7 +19,7 @@ function Ports() {
     setPortData(portData.filter((_, i) => i !== index));
   };
 
-  // --- Simulation Ports Handlers ---
+  // Simulation Ports Handlers
   const handleSimPortChange = (index, field, value) => {
     const updated = [...simPortData];
     updated[index][field] = value;
@@ -41,9 +40,9 @@ function Ports() {
   const availablePorts = portData.filter(p => p.name?.trim() !== '');
 
   return (
-    <div className="ports-container">
+    <div className="artwork-subtab-container">
       {/* Standard Ports */}
-      <h4>🔌 Ports Table</h4>
+      <h4 className="section-heading">🔌 Ports Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -58,6 +57,7 @@ function Ports() {
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.name}
                   onChange={(e) => handlePortChange(index, 'name', e.target.value)}
                 />
@@ -65,12 +65,16 @@ function Ports() {
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.label}
                   onChange={(e) => handlePortChange(index, 'label', e.target.value)}
                 />
               </td>
               <td>
-                <button onClick={() => handleDeletePort(index)} className="delete-row-button">
+                <button
+                  onClick={() => handleDeletePort(index)}
+                  className="btn-table-action delete"
+                >
                   Delete
                 </button>
               </td>
@@ -79,15 +83,17 @@ function Ports() {
         </tbody>
       </table>
 
-      <button onClick={handleAddPort} className="add-row-button" style={{ display: 'block' }}>
-        Add Port
+      <button
+        onClick={handleAddPort}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Port
       </button>
 
-      {/* Spacer */}
       <div style={{ margin: '2rem 0' }} />
 
       {/* Simulation Ports */}
-      <h4>🧪 Simulation Ports Table</h4>
+      <h4 className="section-heading">🧪 Simulation Ports Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -103,23 +109,16 @@ function Ports() {
           {simPortData.map((row, index) => (
             <tr key={index}>
               <td>
-                {/* <input
-                  type="text"
-                  value={row.portId}
-                  onChange={(e) => handleSimPortChange(index, 'portId', e.target.value)}
-                /> */}
-
                 <input
                   type="text"
-                  value={index}
                   disabled
-                  className="field-disabled"
+                  value={index}
+                  className="input-field field-disabled"
                 />
-
-
               </td>
               <td>
                 <select
+                  className="input-field"
                   value={row.portType}
                   onChange={(e) => handleSimPortChange(index, 'portType', e.target.value)}
                 >
@@ -130,6 +129,7 @@ function Ports() {
               </td>
               <td>
                 <select
+                  className="input-field"
                   value={row.plusPort}
                   onChange={(e) => handleSimPortChange(index, 'plusPort', e.target.value)}
                 >
@@ -143,6 +143,7 @@ function Ports() {
               </td>
               <td>
                 <select
+                  className="input-field"
                   value={row.minusPort}
                   onChange={(e) => handleSimPortChange(index, 'minusPort', e.target.value)}
                   disabled={row.portType === 'single-ended'}
@@ -163,7 +164,10 @@ function Ports() {
                 />
               </td>
               <td>
-                <button onClick={() => handleDeleteSimPort(index)} className="delete-row-button">
+                <button
+                  onClick={() => handleDeleteSimPort(index)}
+                  className="btn-table-action delete"
+                >
                   Delete
                 </button>
               </td>
@@ -172,8 +176,11 @@ function Ports() {
         </tbody>
       </table>
 
-      <button onClick={handleAddSimPort} className="add-row-button" style={{ display: 'block' }}>
-        Add Simulation Port
+      <button
+        onClick={handleAddSimPort}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Simulation Port
       </button>
     </div>
   );

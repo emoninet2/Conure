@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css'; // ✅ styling
 
 function Metadata() {
   const { metadata } = useArtworkContext();
@@ -20,8 +19,8 @@ function Metadata() {
   };
 
   return (
-    <div className="metadata-container">
-      <h4>📝 Metadata Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">📝 Metadata Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -35,6 +34,7 @@ function Metadata() {
             <tr key={index}>
               <td>
                 <input
+                  className="input-field"
                   type="text"
                   value={row.parameter}
                   onChange={(e) => handleChange(index, 'parameter', e.target.value)}
@@ -42,6 +42,7 @@ function Metadata() {
               </td>
               <td>
                 <input
+                  className="input-field"
                   type="text"
                   value={row.value}
                   onChange={(e) => handleChange(index, 'value', e.target.value)}
@@ -50,9 +51,9 @@ function Metadata() {
               <td>
                 <button
                   onClick={() => handleDeleteRow(index)}
-                  className="delete-row-button"
+                  className="btn-table-action delete"
                 >
-                  Delete
+                  🗑 Delete
                 </button>
               </td>
             </tr>
@@ -62,10 +63,9 @@ function Metadata() {
 
       <button
         onClick={handleAddRow}
-        className="add-row-button"
-        style={{ display: 'block' }}
+        className="btn-table-action add"
       >
-        Add Metadata
+        ➕ Add Metadata
       </button>
     </div>
   );

@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css' // ✅ Import the CSS file
 
 function Layers() {
   const { layers } = useArtworkContext();
@@ -24,8 +23,8 @@ function Layers() {
   };
 
   return (
-    <div className="layers-container">
-      <h4>🧱 Layers Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">🧱 Layers Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -41,6 +40,7 @@ function Layers() {
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.name}
                   onChange={(e) => handleChange(index, 'name', e.target.value)}
                 />
@@ -48,6 +48,7 @@ function Layers() {
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.gdsLayer}
                   onChange={(e) => handleChange(index, 'gdsLayer', e.target.value)}
                 />
@@ -55,20 +56,29 @@ function Layers() {
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.gdsDatatype}
                   onChange={(e) => handleChange(index, 'gdsDatatype', e.target.value)}
                 />
               </td>
               <td>
-                <button onClick={() => handleDeleteRow(index)} className="delete-row-button">Delete</button>
+                <button
+                  onClick={() => handleDeleteRow(index)}
+                  className="btn-table-action delete"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button onClick={handleAddRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Row
+      <button
+        onClick={handleAddRow}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Layer
       </button>
     </div>
   );

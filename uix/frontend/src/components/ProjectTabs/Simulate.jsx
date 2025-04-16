@@ -38,7 +38,7 @@ function Simulate() {
   };
 
   return (
-    <div style={{ maxWidth: '600px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: '600px', margin: '20px 0', padding: '20px', textAlign: 'left' }}>
       <h3>🎛 Simulation Control Panel</h3>
 
       <label>
@@ -72,7 +72,7 @@ function Simulate() {
             marginTop: '10px',
             fontFamily: 'monospace',
             background: '#f4f4f4',
-            color: '#000', // 👈 force text color to black
+            color: '#000', // force text color to black
             padding: '10px',
             borderRadius: '6px',
             border: '1px solid #ccc',

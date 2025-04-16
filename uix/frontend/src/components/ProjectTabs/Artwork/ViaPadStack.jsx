@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css'; // ✅ Import common styling
 import Select from 'react-select';
 
 function ViaPadStack() {
@@ -32,8 +31,8 @@ function ViaPadStack() {
     .map(via => ({ label: via.name, value: via.name }));
 
   return (
-    <div className="via-pad-stack-container">
-      <h4>📚 Via Pad Stack Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">📚 Via Pad Stack Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -48,20 +47,20 @@ function ViaPadStack() {
         <tbody>
           {viaPadStackData.map((row, index) => (
             <tr key={index}>
-              {/* Name */}
               <td>
                 <input
                   type="text"
                   value={row.name}
                   onChange={(e) => handleChange(index, 'name', e.target.value)}
+                  className="input-field"
                 />
               </td>
 
-              {/* Top Layer */}
               <td>
                 <select
                   value={row.topLayer}
                   onChange={(e) => handleChange(index, 'topLayer', e.target.value)}
+                  className="input-field"
                 >
                   <option value="">Select Top Layer</option>
                   {layerOptions.map((layer, i) => (
@@ -72,11 +71,11 @@ function ViaPadStack() {
                 </select>
               </td>
 
-              {/* Bottom Layer */}
               <td>
                 <select
                   value={row.bottomLayer}
                   onChange={(e) => handleChange(index, 'bottomLayer', e.target.value)}
+                  className="input-field"
                 >
                   <option value="">Select Bottom Layer</option>
                   {layerOptions.map((layer, i) => (
@@ -87,16 +86,15 @@ function ViaPadStack() {
                 </select>
               </td>
 
-              {/* Margin */}
               <td>
                 <input
                   type="text"
                   value={row.margin}
                   onChange={(e) => handleChange(index, 'margin', e.target.value)}
+                  className="input-field"
                 />
               </td>
 
-              {/* Via List */}
               <td style={{ minWidth: '200px' }}>
                 <Select
                   isMulti
@@ -115,17 +113,24 @@ function ViaPadStack() {
                 />
               </td>
 
-              {/* Delete */}
               <td>
-                <button onClick={() => handleDeleteRow(index)} className="delete-row-button" >Delete</button>
+                <button
+                  onClick={() => handleDeleteRow(index)}
+                  className="btn-table-action delete"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button onClick={handleAddRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Row
+      <button
+        onClick={handleAddRow}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Via Pad-Stack
       </button>
     </div>
   );

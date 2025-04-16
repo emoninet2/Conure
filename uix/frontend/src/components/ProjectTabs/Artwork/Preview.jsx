@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { generatePreview, getPreviewSvgUrl, downloadGDSII } from '../../../services/api';
-import '../../../styles/Artwork/Preview.css'; // ✅ Import the CSS file
-
 
 function Preview() {
   const [svgUrl, setSvgUrl] = useState(null);
@@ -13,7 +11,6 @@ function Preview() {
     setError('');
     try {
       await generatePreview();
-      // Append timestamp to bust cache
       const url = getPreviewSvgUrl() + `?t=${Date.now()}`;
       setSvgUrl(url);
     } catch (err) {
@@ -22,17 +19,23 @@ function Preview() {
       setLoading(false);
     }
   };
-  
 
   return (
-    <div className="preview-container">
+    <div className="artwork-subtab-container">
       <p>This is the About of the project.</p>
 
-      <div className="button-row">
-        <button className="preview-button" onClick={handleGeneratePreview} disabled={loading}>
+      <div className="button-group">
+        <button
+          className="btn-table-action add"
+          onClick={handleGeneratePreview}
+          disabled={loading}
+        >
           {loading ? 'Generating...' : 'Generate Preview'}
         </button>
-        <button className="preview-button" onClick={downloadGDSII}>
+        <button
+          className="btn-table-action add"
+          onClick={downloadGDSII}
+        >
           Download GDSII
         </button>
       </div>
@@ -41,7 +44,7 @@ function Preview() {
 
       {svgUrl && (
         <div>
-          <h3>SVG Preview:</h3>
+          <h4 className="section-heading">SVG Preview</h4>
           <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '50%' }} />
         </div>
       )}

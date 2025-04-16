@@ -1,15 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import conureLogo from './assets/images/logo/logo_nb_large.png'
 import './App.css'
 import { createProject, openProject } from './services/api'
 import ProjectView from './components/ProjectView'
+import { useArtworkContext } from './context/ArtworkContext';
+import { saveArtworkData, loadAndApplyArtwork } from './services/artworkHelper';
+
+
 
 function App() {
   const [message, setMessage] = useState('')
   const [currentView, setCurrentView] = useState('home')
   const [projectName, setProjectName] = useState('')
+
+  const artworkContext = useArtworkContext();
 
 
   // Only ask for a name when creating a project
@@ -45,12 +51,14 @@ function App() {
       const data = await openProject(name)
       setMessage(data.data.message)
       setProjectName(name)
+      await loadAndApplyArtwork(artworkContext); //load the artwrok opening existing project
       setCurrentView('project')
     } catch (err) {
       console.error('Error opening project:', err)
       alert('Failed to open project.')
     }
   }
+
 
   return (
     <>

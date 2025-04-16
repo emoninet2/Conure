@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css'; // ✅ Import the CSS file
 import Select from 'react-select';
 
 function GuardRing() {
@@ -13,7 +12,6 @@ function GuardRing() {
   const { viaPadStackData } = viaPadStack;
   const { layerData } = layers;
 
-  // === Guard Ring ===
   const handleRingChange = (index, field, value) => {
     const updated = [...guardRingData];
     updated[index][field] = value;
@@ -35,7 +33,6 @@ function GuardRing() {
     setGuardRingData(guardRingData.filter((_, i) => i !== index));
   };
 
-  // === Dummy Filling ===
   const handleDummyChange = (index, field, value) => {
     const updated = [...guardRingDummyData];
     updated[index][field] = value;
@@ -53,42 +50,39 @@ function GuardRing() {
     setGuardRingDummyData(guardRingDummyData.filter((_, i) => i !== index));
   };
 
-  const viaPadStackOptions = viaPadStackData.filter(v => v.name?.trim() !== '');
+  const viaPadStackOptions = viaPadStackData.filter(v => v.name?.trim());
   const layerOptions = layerData
-    .filter(l => l.name?.trim() !== '')
+    .filter(l => l.name?.trim())
     .map(l => ({ label: l.name, value: l.name }));
 
   return (
-    <div className="guard-ring-container">
-      <h4>🛡️ Guard Ring Settings</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">🛡️ Guard Ring Settings</h4>
 
       <div className="guard-ring-settings-box">
-        <div style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={!!useGuardRing}
-              onChange={(e) => setUseGuardRing(e.target.checked)}
-              style={{ marginRight: '0.5rem' }}
-            />
-            Use Guard Ring
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center' }}>
-            Distance:&nbsp;
-            <input
-              type="text"
-              value={guardRingDistance}
-              onChange={(e) => setGuardRingDistance(e.target.value)}
-              style={{ width: '100px' }}
-              disabled={!useGuardRing}
-              className={!useGuardRing ? 'field-disabled-style' : ''}
-            />
-          </label>
-        </div>
+        <label className="input-toggle">
+          <input
+            type="checkbox"
+            checked={!!useGuardRing}
+            onChange={(e) => setUseGuardRing(e.target.checked)}
+          />
+          Use Guard Ring
+        </label>
+        <label>
+          Distance:
+          <input
+            type="text"
+            value={guardRingDistance}
+            onChange={(e) => setGuardRingDistance(e.target.value)}
+            disabled={!useGuardRing}
+            className={`input-field ${!useGuardRing ? 'field-disabled' : ''}`}
+            style={{ width: '100px', marginLeft: '0.5rem' }}
+          />
+        </label>
       </div>
 
       {/* Guard Ring Table */}
-      <h4>🧱 Guard Ring Table</h4>
+      <h4 className="section-heading">🧱 Guard Ring Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -107,49 +101,64 @@ function GuardRing() {
         </thead>
         <tbody>
           {guardRingData.map((row, index) => {
-            const isShapeOctagonRing = row.shape === 'octagonRing';
+            const isOctagonRing = row.shape === 'octagonRing';
             return (
               <tr key={index}>
-                <td><input type="text" value={row.name} onChange={(e) => handleRingChange(index, 'name', e.target.value)} /></td>
+                <td><input className="input-field" value={row.name} onChange={(e) => handleRingChange(index, 'name', e.target.value)} /></td>
                 <td>
-                  <select value={row.shape} onChange={(e) => handleRingChange(index, 'shape', e.target.value)}>
+                  <select className="input-field" value={row.shape} onChange={(e) => handleRingChange(index, 'shape', e.target.value)}>
                     <option value="">Select Shape</option>
                     <option value="octagon">Octagon</option>
                     <option value="octagonRing">Octagon Ring</option>
                   </select>
                 </td>
-                <td><input type="text" value={row.offset} onChange={(e) => handleRingChange(index, 'offset', e.target.value)} /></td>
-                <td><input type="text" value={row.width} onChange={(e) => handleRingChange(index, 'width', e.target.value)} /></td>
+                <td><input className="input-field" value={row.offset} onChange={(e) => handleRingChange(index, 'offset', e.target.value)} /></td>
+                <td><input className="input-field" value={row.width} onChange={(e) => handleRingChange(index, 'width', e.target.value)} /></td>
                 <td>
-                  <select value={row.layer} onChange={(e) => handleRingChange(index, 'layer', e.target.value)}>
+                  <select className="input-field" value={row.layer} onChange={(e) => handleRingChange(index, 'layer', e.target.value)}>
                     <option value="">Select Layer</option>
                     {layerOptions.map((layer, i) => (
                       <option key={i} value={layer.value}>{layer.label}</option>
                     ))}
                   </select>
                 </td>
-                <td style={{ textAlign: 'center' }}>
+                <td className="centered">
                   <input type="checkbox" checked={!!row.contacts} onChange={(e) => handleRingChange(index, 'contacts', e.target.checked)} />
                 </td>
                 <td>
-                  <select value={row.viaPadStack} onChange={(e) => handleRingChange(index, 'viaPadStack', e.target.value)} disabled={!row.contacts}>
+                  <select
+                    className="input-field"
+                    value={row.viaPadStack}
+                    onChange={(e) => handleRingChange(index, 'viaPadStack', e.target.value)}
+                    disabled={!row.contacts}
+                  >
                     <option value="">Select Stack</option>
                     {viaPadStackOptions.map((v, i) => (
                       <option key={i} value={v.name}>{v.name}</option>
                     ))}
                   </select>
                 </td>
-                <td style={{ textAlign: 'center' }}>
-                  <input type="checkbox" checked={!!row.UsePartialCut} onChange={(e) => handleRingChange(index, 'UsePartialCut', e.target.checked)} disabled={!isShapeOctagonRing} />
+                <td className="centered">
+                  <input type="checkbox" checked={!!row.UsePartialCut} onChange={(e) => handleRingChange(index, 'UsePartialCut', e.target.checked)} disabled={!isOctagonRing} />
                 </td>
                 <td>
-                  <input type="text" value={row.partialCutSegments} onChange={(e) => handleRingChange(index, 'partialCutSegments', e.target.value)} disabled={!isShapeOctagonRing || !row.UsePartialCut} />
+                  <input
+                    className="input-field"
+                    value={row.partialCutSegments}
+                    onChange={(e) => handleRingChange(index, 'partialCutSegments', e.target.value)}
+                    disabled={!isOctagonRing || !row.UsePartialCut}
+                  />
                 </td>
                 <td>
-                  <input type="text" value={row.spacing} onChange={(e) => handleRingChange(index, 'spacing', e.target.value)} disabled={!isShapeOctagonRing || !row.UsePartialCut} />
+                  <input
+                    className="input-field"
+                    value={row.spacing}
+                    onChange={(e) => handleRingChange(index, 'spacing', e.target.value)}
+                    disabled={!isOctagonRing || !row.UsePartialCut}
+                  />
                 </td>
                 <td>
-                  <button onClick={() => deleteGuardRingRow(index)} className="delete-row-button">Delete</button>
+                  <button onClick={() => deleteGuardRingRow(index)} className="btn-table-action delete">Delete</button>
                 </td>
               </tr>
             );
@@ -157,14 +166,14 @@ function GuardRing() {
         </tbody>
       </table>
 
-      <button onClick={addGuardRingRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Guard Ring
+      <button onClick={addGuardRingRow} className="btn-table-action add full-width">
+        ➕ Add Guard Ring
       </button>
 
       <hr style={{ margin: '2rem 0' }} />
 
-      {/* Dummy Fillings Table */}
-      <h4>🧱 Dummy Fillings</h4>
+      {/* Dummy Fillings */}
+      <h4 className="section-heading">🧱 Dummy Fillings</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -181,16 +190,16 @@ function GuardRing() {
         <tbody>
           {guardRingDummyData.map((row, index) => (
             <tr key={index}>
-              <td><input type="text" value={row.name} onChange={(e) => handleDummyChange(index, 'name', e.target.value)} /></td>
+              <td><input className="input-field" value={row.name} onChange={(e) => handleDummyChange(index, 'name', e.target.value)} /></td>
               <td>
-                <select value={row.shape} onChange={(e) => handleDummyChange(index, 'shape', e.target.value)} >
+                <select className="input-field" value={row.shape} onChange={(e) => handleDummyChange(index, 'shape', e.target.value)}>
                   <option value="rect">Rect</option>
                 </select>
               </td>
-              <td><input type="text" value={row.length} onChange={(e) => handleDummyChange(index, 'length', e.target.value)} /></td>
-              <td><input type="text" value={row.height} onChange={(e) => handleDummyChange(index, 'height', e.target.value)} /></td>
-              <td><input type="text" value={row.offsetX} onChange={(e) => handleDummyChange(index, 'offsetX', e.target.value)} /></td>
-              <td><input type="text" value={row.offsetY} onChange={(e) => handleDummyChange(index, 'offsetY', e.target.value)} /></td>
+              <td><input className="input-field" value={row.length} onChange={(e) => handleDummyChange(index, 'length', e.target.value)} /></td>
+              <td><input className="input-field" value={row.height} onChange={(e) => handleDummyChange(index, 'height', e.target.value)} /></td>
+              <td><input className="input-field" value={row.offsetX} onChange={(e) => handleDummyChange(index, 'offsetX', e.target.value)} /></td>
+              <td><input className="input-field" value={row.offsetY} onChange={(e) => handleDummyChange(index, 'offsetY', e.target.value)} /></td>
               <td style={{ minWidth: '200px' }}>
                 <Select
                   isMulti
@@ -203,20 +212,20 @@ function GuardRing() {
                   onChange={(selectedOptions) =>
                     handleDummyChange(index, 'layers', selectedOptions.map(opt => opt.value))
                   }
-                  placeholder="Select Layers..."
                   classNamePrefix="select"
+                  placeholder="Select Layers..."
                 />
               </td>
               <td>
-                <button onClick={() => deleteDummyRow(index)} className="delete-row-button">Delete</button>
+                <button onClick={() => deleteDummyRow(index)} className="btn-table-action delete">Delete</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button onClick={addDummyRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Dummy Filling
+      <button onClick={addDummyRow} className="btn-table-action add full-width">
+        ➕ Add Dummy Filling
       </button>
     </div>
   );

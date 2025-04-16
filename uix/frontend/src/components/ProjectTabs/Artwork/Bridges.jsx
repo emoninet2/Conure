@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css' // ✅ Import the CSS file
 
 function Bridges() {
   const { bridges, layers, vias, viaPadStack } = useArtworkContext();
@@ -33,21 +32,17 @@ function Bridges() {
     setBridgeData(updatedRows);
   };
 
-  // Filter non-empty values
   const layerOptions = layerData.filter(layer => layer.name?.trim() !== '');
-  const viaOptions = viaData.filter(via => via.name?.trim() !== '');
   const viaStackOptions = viaPadStackData.filter(stack => stack.name?.trim() !== '');
 
   return (
-    <div className="bridges-container">
-      <h4>🌉 Bridges Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">🌉 Bridges Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Layer</th>
-            {/* <th>Via</th>
-            <th>Via Width</th> */}
             <th>Via Stack CCW</th>
             <th>Via Stack CW</th>
             <th>Actions</th>
@@ -56,20 +51,19 @@ function Bridges() {
         <tbody>
           {bridgeData.map((row, index) => (
             <tr key={index}>
-              {/* Name input */}
               <td>
                 <input
                   type="text"
+                  className="input-field"
                   value={row.name}
                   onChange={(e) => handleChange(index, 'name', e.target.value)}
                 />
               </td>
-
-              {/* Layer dropdown */}
               <td>
                 <select
                   value={row.layer}
                   onChange={(e) => handleChange(index, 'layer', e.target.value)}
+                  className="input-field"
                 >
                   <option value="">Select Layer</option>
                   {layerOptions.map((layer, i) => (
@@ -79,36 +73,11 @@ function Bridges() {
                   ))}
                 </select>
               </td>
-
-              {/* Via dropdown */}
-              {/* <td>
-                <select
-                  value={row.via}
-                  onChange={(e) => handleChange(index, 'via', e.target.value)}
-                >
-                  <option value="">Select Via</option>
-                  {viaOptions.map((via, i) => (
-                    <option key={i} value={via.name}>
-                      {via.name}
-                    </option>
-                  ))}
-                </select>
-              </td> */}
-
-              {/* Via Width input */}
-              {/* <td>
-                <input
-                  type="text"
-                  value={row.viaWidth}
-                  onChange={(e) => handleChange(index, 'viaWidth', e.target.value)}
-                />
-              </td> */}
-
-              {/* Via Stack CCW dropdown */}
               <td>
                 <select
                   value={row.viaStackCCW}
                   onChange={(e) => handleChange(index, 'viaStackCCW', e.target.value)}
+                  className="input-field"
                 >
                   <option value="">Select Stack</option>
                   {viaStackOptions.map((stack, i) => (
@@ -118,12 +87,11 @@ function Bridges() {
                   ))}
                 </select>
               </td>
-
-              {/* Via Stack CW dropdown */}
               <td>
                 <select
                   value={row.viaStackCW}
                   onChange={(e) => handleChange(index, 'viaStackCW', e.target.value)}
+                  className="input-field"
                 >
                   <option value="">Select Stack</option>
                   {viaStackOptions.map((stack, i) => (
@@ -133,19 +101,24 @@ function Bridges() {
                   ))}
                 </select>
               </td>
-
-              {/* Delete button */}
               <td>
-                <button onClick={() => handleDeleteRow(index)} className="delete-row-button">Delete</button>
-                
+                <button
+                  onClick={() => handleDeleteRow(index)}
+                  className="btn-table-action delete"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button onClick={handleAddRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Row
+      <button
+        onClick={handleAddRow}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Bridge
       </button>
     </div>
   );

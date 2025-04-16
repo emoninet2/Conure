@@ -1,5 +1,4 @@
 import { useArtworkContext } from '../../../context/ArtworkContext';
-import '../../../styles/Artwork/Common.css' // ✅ Import the CSS file
 
 function Vias() {
   const { vias, layers } = useArtworkContext();
@@ -24,9 +23,11 @@ function Vias() {
     setViaData(updatedRows);
   };
 
+  const nonEmptyLayers = layerData.filter(layer => layer.name?.trim() !== '');
+
   return (
-    <div className="vias-container">
-      <h4>🔩 Vias Table</h4>
+    <div className="artwork-subtab-container">
+      <h4 className="section-heading">🔩 Vias Table</h4>
       <table className="artwork-table">
         <thead>
           <tr>
@@ -42,42 +43,48 @@ function Vias() {
         <tbody>
           {viaData.map((row, index) => (
             <tr key={index}>
-              {['name', 'length', 'width', 'spacing', 'angle', 'layer'].map((field) => (
+              {['name', 'length', 'width', 'spacing', 'angle'].map((field) => (
                 <td key={field}>
-                  {field === 'layer' ? (
-                    <select
-                      value={row[field]}
-                      onChange={(e) => handleChange(index, field, e.target.value)}
-                    >
-                      <option value="">Select Layer</option>
-                      {layerData
-                      .filter(layer => layer.name?.trim() !== '') // ✅ only non-empty names
-                      .map((layer, i) => (
-                        <option key={i} value={layer.name}>
-                          {/* {layer.name || `Layer ${i + 1}`} */}
-                          {layer.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={row[field]}
-                      onChange={(e) => handleChange(index, field, e.target.value)}
-                    />
-                  )}
+                  <input
+                    type="text"
+                    value={row[field]}
+                    onChange={(e) => handleChange(index, field, e.target.value)}
+                    className="input-field"
+                  />
                 </td>
               ))}
               <td>
-                <button onClick={() => handleDeleteRow(index)}className="delete-row-button" >Delete</button>
+                <select
+                  value={row.layer}
+                  onChange={(e) => handleChange(index, 'layer', e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Select Layer</option>
+                  {nonEmptyLayers.map((layer, i) => (
+                    <option key={i} value={layer.name}>
+                      {layer.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>
+                <button
+                  onClick={() => handleDeleteRow(index)}
+                  className="btn-table-action delete"
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button onClick={handleAddRow} className="add-row-button" style={{ display: 'block' }}>
-        Add Row
+      <button
+        onClick={handleAddRow}
+        className="btn-table-action add full-width"
+      >
+        ➕ Add Via
       </button>
     </div>
   );

@@ -1,0 +1,132 @@
+:root {
+    --color-primary: #445e499d;
+    --color-secondary: #005fa3;
+    --color-accent: #1eff00a2;
+    --color-text: #333;
+    --color-bg: #f7f7f7;
+    --color-button-text: #fff;
+  
+    --font-size-small: 0.8rem;
+    --font-size-medium: 1rem;
+    --font-size-large: 1.2rem;
+  
+    --spacing-xs: 0.3rem;
+    --spacing-sm: 0.3rem;
+    --spacing-md: 0.5rem;
+    --spacing-lg: 1rem;
+  
+    --border-radius-sm: 6px;
+    --transition-fast: background-color 0.2s ease;
+
+    --color-danger: #a9d30474;
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+
+
+  /* Container for subtabs */
+.artwork-subtab-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+/* Section heading inside tabs */
+.section-heading {
+  font-size: var(--font-size-medium);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Shared input styling */
+.input-field {
+  padding: 0.25rem 0.5rem;
+  font-size: var(--font-size-small);
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius-sm);
+  width: 100%;
+}
+
+/* Table structure (already shared maybe) */
+.artwork-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--spacing-sm);
+}
+
+.artwork-table td input,
+.artwork-table td select {
+  margin: 0.1rem 0; /* optional vertical space */
+  padding: 0.4rem 0.6rem;
+  font-size: var(--font-size-small);
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.artwork-table td select {
+  appearance: none;
+  background-color: white;
+  background-image: url('data:image/svg+xml;charset=UTF-8,<svg fill="gray" height="14" viewBox="0 0 24 24" width="14" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-right: 2rem; /* space for arrow */
+}
+
+
+
+/* Table button shared class */
+.btn-table-action {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-small);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+/* Variants */
+.btn-table-action.add {
+  background-color: var(--color-accent);
+  color: black;
+}
+
+.btn-table-action.delete {
+  background-color: #f44336cf;
+  color: white;
+}
+
+.btn-table-action.delete:hover {
+  background-color: #db2222;
+}
+
+/* react-select override */
+.select__control {
+  font-size: var(--font-size-small);
+  border-radius: var(--border-radius-sm);
+  min-height: 34px;
+  border-color: #ccc;
+  box-shadow: none;
+}
+
+.select__control--is-focused {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.status-area {
+  width: 100%;
+  height: 100px;
+  font-family: monospace;
+  background-color: #f4f4f4;
+  color: black;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid #ccc;
+  resize: none;
+}
