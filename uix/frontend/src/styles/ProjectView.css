@@ -8,20 +8,22 @@
   box-sizing: border-box;
   overflow: auto;
 }
-
 .back-button-wrapper {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
+  /* push the next element down by 1rem (16px) */
+  margin-bottom: 1rem;
+  text-align: left;     /* left‑justify its contents */
 }
 
 .back-button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  cursor: pointer;
-  background-color: #621010;
-  transition: background-color 0.3s ease;
+  /* existing rules… */
+  margin-bottom: 1rem;
+  text-align: left;     /* left‑justify its contents */
+
+    /* NEW: background and text colors */
+    background-color: #ff2a0087; /* a blue background */
+    color: #ffffff;            /* white text */
+
+
 }
 
 .project-title {

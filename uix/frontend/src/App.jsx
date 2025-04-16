@@ -71,6 +71,7 @@ function App() {
               </div>
             </a>
           </div>
+          <div className="home-button-group" >
           <h1>CONURE</h1>
           <button onClick={handleCreateProject} style={{ marginTop: '1rem' }}>
             Create Project
@@ -78,6 +79,9 @@ function App() {
           <button onClick={handleOpenProject} style={{ marginTop: '1rem' }}>
             Open Project
           </button>
+
+          </div>
+    
         </div>
       ) : (
         <ProjectView name={projectName} />

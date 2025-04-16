@@ -7,6 +7,7 @@ import Simulate from '../components/ProjectTabs/Simulate.jsx'
 import Modeling from '../components/ProjectTabs/Modeling.jsx'
 import SimulatorConfig from './ProjectTabs/SimulatorConfig.jsx'
 import About from '../components/ProjectTabs/About.jsx'
+import conureLogo from '../assets/images/logo/logo_nb_large.png'
 
 function ProjectView({ name }) {
   const [goHome, setGoHome] = useState(false)
@@ -61,18 +62,33 @@ function ProjectView({ name }) {
 
   return (
     <div className="project-container">
+      
       {/* Back Button */}
       <div className="back-button-wrapper">
+        
         <button className="back-button" onClick={() => setGoHome(true)}>
           ← Home
         </button>
+        
       </div>
 
-      {/* Title */}
+      <img
+        src={conureLogo}
+        className="logo conure-logo"
+        alt="Conure logo"
+        style={{
+          display: 'block',         // force it onto its own line
+          marginBottom: '1rem',     // add space below
+          alignSelf: 'flex-start',  // keep it flush left in the flex container
+        }}
+      />
+
+      {/* Now your title will start on a fresh line: */}
       <div className="project-title">
-        <h2>Conure</h2>
-        <p> <b>Project name: </b>{name}</p>
+        {/* <h2>Conure</h2> */}
+        <p><b>Project:</b> {name}</p>
       </div>
+
 
       {/* Tabs */}
       <div className="tab-buttons">

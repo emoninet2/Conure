@@ -92,3 +92,25 @@
     color: black;
   }
 }
+
+.home-button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.home-button-group button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  background-color: var(--primary, #3a5174);
+  color: #ffffff;
+  transition: background-color 0.2s ease;
+}
+
+.home-button-group button:hover {
+  background-color: var(--primary-dark, #0052cc);
+}

@@ -26,14 +26,14 @@ function Preview() {
 
       <div className="button-group">
         <button
-          className="btn-table-action add"
+          className="btn primary"
           onClick={handleGeneratePreview}
           disabled={loading}
         >
           {loading ? 'Generating...' : 'Generate Preview'}
         </button>
         <button
-          className="btn-table-action add"
+          className="btn primary"
           onClick={downloadGDSII}
         >
           Download GDSII
@@ -45,7 +45,7 @@ function Preview() {
       {svgUrl && (
         <div>
           <h4 className="section-heading">SVG Preview</h4>
-          <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '100%' }} />
+          <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '60%' }} />
         </div>
       )}
     </div>
