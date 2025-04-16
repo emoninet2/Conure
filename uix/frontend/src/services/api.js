@@ -112,81 +112,24 @@ export const loadSweep = async (sweepName) =>
 // List all available sweeps.
 export const listSweeps = async () => fetchJson('/api/list_sweeps');
 
-// Delete a sweep by name.
-export const deleteSweep = async (sweep_name) =>
-  postJson('/api/delete_sweep', { sweep_name });
 
-/* ---------------------------------------------------------
-   Processing functions for adapting sweep data
-   to/from the file format.
---------------------------------------------------------- */
-
-/**
- * Prepares the sweep data from your context for the API.
- * Converts an array of sweep parameters into an object keyed
- * by the parameter name.
- *
- * @param {string} sweepName - The name of the sweep.
- * @param {array} sweepParams - An array of parameter objects.
- * @returns {object} The formatted data object to send to the API.
- *
- * Expected format of sweepParams:
- * [
- *   { parameterName: 'apothem', from: 90, to: 110, type: 'npoints', value: 3 },
- *   { parameterName: 'width',   from: 6,  to: 12,  type: 'step',    value: 3 }
- * ]
- *
- * Transformed into:
- * {
- *   "parameters": {
- *     "apothem": { from: 90, to: 110, type: "npoints", value: 3 },
- *     "width":   { from: 6,  to: 12,  type: "step",    value: 3 }
- *   }
- * }
- */
 export const prepareSweepForSaving = (sweepName, sweepParams) => {
   const parameters = {};
   sweepParams.forEach((row) => {
     if (row.parameterName) {
       parameters[row.parameterName] = {
-        from: row.from,
-        to: row.to,
+        from: parseFloat(row.from),
+        to: parseFloat(row.to),
         type: row.type,
-        value: row.value,
+        value: parseFloat(row.value),
       };
     }
   });
   // Return an object with the key "parameters"
   return { sweepName, parameters };
 };
-/**
- * Processes the sweep data received from the API and returns an object
- * with keys matching your table context expectations.
- *
- * Expects the API response to have the structure:
- * {
- *   "success": true,
- *   "sweep": {
- *      "sweepName": "...",      // if present
- *      "parameters": {
- *         "apothem": { from: 90, to: 110, type: "npoints", value: 3 },
- *         "width":   { from: 6,  to: 12, type: "step",    value: 3 }
- *      }
- *   }
- * }
- *
- * Returns an object with:
- * {
- *   sweepName: "...",
- *   sweepParams: [
- *     { parameterName: 'apothem', from: 90, to: 110, type: 'npoints', value: 3 },
- *     { parameterName: 'width',   from: 6,  to: 12, type: 'step',    value: 3 }
- *   ]
- * }
- *
- * @param {object} apiResponse - The JSON object from /api/load_sweep.
- * @returns {object} Processed sweep data { sweepName, sweepParams }.
- */
+
+
 export const processLoadedSweep = (apiResponse) => {
   if (apiResponse && apiResponse.success && apiResponse.sweep) {
     const { sweepName, parameters } = apiResponse.sweep;
@@ -200,3 +143,35 @@ export const processLoadedSweep = (apiResponse) => {
   }
   throw new Error('Invalid sweep data received from API');
 };
+
+
+
+// START sweep
+export async function startSweep(options) {
+  console.log("Sending sweep options", options);  // ✅ optional debug
+  const response = await postJson('/api/start_sweep', options);  // ✅ remove "flags"
+  return response;
+}
+
+// GET sweep status
+export const getSweepStatus = async (sweepName) => {
+  if (!sweepName) throw new Error("Sweep name is required.");
+  return await fetchJson(`/api/sweep_status?sweep_name=${encodeURIComponent(sweepName)}`);
+};
+
+
+// STOP sweep
+export async function stopSweep() {
+
+  return response.data;
+}
+
+// DELETE sweep
+export async function deleteSweep(sweepName) {
+  const response = await postJson('/api/delete_sweep', {
+    sweep_name: sweepName  // ✅ Do NOT encode here — backend will handle names safely
+  });
+  return response;
+}
+
+

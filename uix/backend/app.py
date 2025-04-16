@@ -16,6 +16,25 @@ import shutil
 app = Flask(__name__)
 CORS(app)
 
+class ColorFormatter(logging.Formatter):
+    COLORS = {
+        logging.DEBUG: "\033[94m",     # Blue
+        logging.INFO: "\033[92m",      # Green
+        logging.WARNING: "\033[93m",   # Yellow
+        logging.ERROR: "\033[91m",     # Red
+        logging.CRITICAL: "\033[95m",  # Magenta
+    }
+    RESET = "\033[0m"
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelno, self.RESET)
+        timestamp = self.formatTime(record, self.datefmt)
+        msg = super().format(record)
+        return f"{timestamp} [BACKEND] {color}{msg}{self.RESET}"
+
+
+# Global process tracker
+SWEEP_PROCESSES = {}
 
 
 
@@ -1011,14 +1030,14 @@ def list_sweeps():
     for folder in os.listdir(sweep_dir):
         folder_path = os.path.join(sweep_dir, folder)
         if os.path.isdir(folder_path):
-            checkpoint_path = os.path.join(folder_path, "checkpoint.json")
-            if os.path.exists(checkpoint_path):
-                sweeps_info.append({
-                    "sweep_name": folder,
+            #checkpoint_path = os.path.join(folder_path, "checkpoint.json")
+            #if os.path.exists(checkpoint_path):
+            sweeps_info.append({
+                "sweep_name": folder,
                     # Optionally: "checkpoint": checkpoint_data
-                })
-            else:
-                logging.warning(f"No checkpoint.json found in {folder_path}. Skipping this folder.")
+               })
+            #else:
+            #    logging.warning(f"No checkpoint.json found in {folder_path}. Skipping this folder.")
     return jsonify({"success": True, "sweeps": sweeps_info})
 
 @app.route('/api/delete_sweep', methods=['POST'])
@@ -1049,6 +1068,119 @@ def delete_sweep():
         logging.exception("Failed to delete sweep folder.")
         return jsonify({"success": False, "error": str(e)}), 500
 
+from subprocess import Popen
+
+@app.route('/api/start_sweep', methods=['POST'])
+def start_sweep():
+    global PROJECT_PATH, SWEEP_PROCESSES
+    data = request.get_json()
+
+    sweep_name = data.get("sweepName")
+    enable_layout = data.get("enableLayout", False)
+    enable_svg = data.get("enableSvg", False)
+    enable_simulation = data.get("enableSimulation", False)
+    simulator = data.get("simulator", None)
+    force_overwrite = data.get("forceOverwrite", False)
+
+    if not sweep_name:
+        return jsonify({"success": False, "error": "Missing sweep name"}), 400
+
+    try:
+        sweep_script = os.path.abspath(os.path.join(BASE_DIR, '../../sweep/sweep.py'))
+        sweep_folder = os.path.join(PROJECT_PATH, "sweep", sweep_name)
+        os.makedirs(sweep_folder, exist_ok=True)
+
+        command = [
+            "python", sweep_script,
+            "-a", os.path.join(PROJECT_PATH, "artwork.json"),
+            "--sweep", os.path.join(sweep_folder, "sweep.json"),
+            "--output", sweep_folder
+        ]
+        if enable_layout:
+            command.append("--layout")
+        if enable_svg:
+            command.append("--svg")
+        if enable_simulation:
+            config_path = os.path.join(PROJECT_PATH, "simConfig.json")
+            command.extend(["--simulate", "-c", config_path])
+            if simulator:
+                command.extend(["--sim", simulator])
+        if force_overwrite:
+            command.append("--force")
+
+        command.append("--verbose")
+
+        logging.info(f"Launching sweep process: {' '.join(command)}")
+
+        process = Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        SWEEP_PROCESSES[sweep_name] = process
+
+        
+        return jsonify({"success": True, "status": f"🚀 Sweep '{sweep_name}' started.", "pid": process.pid})
+
+    except Exception as e:
+        logging.exception("Failed to start sweep.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+
+@app.route('/api/stop_sweep', methods=['POST'])
+def stop_sweep():
+    global SWEEP_PROCESSES
+
+    data = request.get_json()
+    sweep_name = data.get("sweepName")
+
+    if not sweep_name:
+        return jsonify({"success": False, "error": "Missing sweep name"}), 400
+
+    process = SWEEP_PROCESSES.get(sweep_name)
+
+    if not process:
+        return jsonify({"success": False, "status": f"No active sweep found for '{sweep_name}'."}), 404
+
+    try:
+        if process.poll() is None:  # Still running
+            process.terminate()
+            process.wait(timeout=5)
+            SWEEP_PROCESSES.pop(sweep_name, None)
+            logging.info(f"Sweep '{sweep_name}' terminated.")
+            return jsonify({"success": True, "status": f"🛑 Sweep '{sweep_name}' terminated."})
+        else:
+            SWEEP_PROCESSES.pop(sweep_name, None)
+            return jsonify({"success": False, "status": f"Sweep '{sweep_name}' had already completed."})
+    except Exception as e:
+        logging.exception("Failed to stop sweep process.")
+        return jsonify({"success": False, "error": f"Failed to stop sweep: {str(e)}"}), 500
+
+
+@app.route('/api/sweep_status', methods=['GET'])
+def sweep_status():
+    global PROJECT_PATH
+    sweep_name = request.args.get("sweep_name")
+
+    logging.warning(f"STATUS SHALL BE RETURNED FOR {sweep_name}")
+
+
+    if not sweep_name:
+        return jsonify({"success": False, "error": "Missing sweep name"}), 400
+
+    status_file = os.path.join(PROJECT_PATH, "sweep", sweep_name, "status.json")
+
+    if not os.path.exists(status_file):
+        return jsonify({"success": False, "status": "⏳ No status file found yet."}), 404
+
+    try:
+        with open(status_file, 'r') as f:
+            status_content = f.read().strip()
+        return jsonify({"success": True, "status": status_content})
+    except Exception as e:
+        logging.exception("Failed to read sweep status file.")
+        return jsonify({"success": False, "error": f"Failed to read status: {str(e)}"}), 500
+
+
+
+
 
 # ========================
 # Entry Point
@@ -1062,11 +1194,26 @@ def delete_sweep():
 #     logging.info(f"Starting Flask server on port {port}...")
 #     app.run(debug=True, port=port, use_reloader=True)
 
+# if __name__ == '__main__':
+#     logging.basicConfig(
+#         level=logging.DEBUG,
+#         format='[%(asctime)s][BACKEND] %(levelname)s in %(module)s: %(message)s'
+#     )
+#     port = int(os.environ.get("VITE_BACKEND_PORT", 5000))
+#     logging.info(f"Starting Flask server on port {port}...")
+#     app.run(debug=True, port=port, use_reloader=True)
+
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='[%(asctime)s][BACKEND] %(levelname)s in %(module)s: %(message)s'
-    )
-    # port = int(os.environ.get("VITE_BACKEND_PORT", 5008))
-    # logging.info(f"Starting Flask server on port {port}...")
+    # Clear any default handlers
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)  # Change as needed: DEBUG, INFO, etc.
+
+    # Only add handler if not already added (important for reloader)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
+        logger.addHandler(handler)
+
+    port = int(os.environ.get("VITE_BACKEND_PORT", 5000))
+    logging.info(f"Starting Flask server on port {port}...")
     app.run(debug=True, port=port, use_reloader=True)

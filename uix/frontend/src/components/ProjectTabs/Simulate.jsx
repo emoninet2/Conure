@@ -55,10 +55,10 @@ function Simulate() {
       </label>
 
       <div style={{ marginTop: '20px' }}>
-        <button onClick={handleStart} style={{ marginRight: '10px' }}>
+        <button onClick={handleStart} className="btn primary" style={{ marginRight: '10px' }}>
           ▶️ Start
         </button>
-        <button onClick={handleStop}>⏹ Stop</button>
+        <button onClick={handleStop }className="btn primary">⏹ Stop</button>
       </div>
 
       <div style={{ marginTop: '20px' }}>

@@ -56,6 +56,7 @@ export const SweepProvider = ({ children }) => {
   const handleSave = async () => {
     try {
       const data = prepareSweepForSaving(sweepName, sweepParams);
+      console.log("AHAHAH", data)
       await saveSweep(data);
       console.log("Sweep saved successfully:", data);
       alert("Sweep saved successfully (check console for details).");

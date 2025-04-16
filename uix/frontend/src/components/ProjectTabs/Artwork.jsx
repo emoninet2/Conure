@@ -68,7 +68,7 @@ function Artwork() {
   };
 
   return (
-    <div className="artwork-container">
+    <div className="tab-container">
       <h3 className="artwork-heading">🎨 Artwork Tab</h3>
 
       <div className="button-group">
