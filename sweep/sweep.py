@@ -29,7 +29,9 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
-
+# ------------------------------------------------------------------------------
+# Logging Setup
+# ------------------------------------------------------------------------------
 class ColorFormatter(logging.Formatter):
     COLORS = {
         logging.DEBUG: "\033[94m",     # Blue
@@ -39,34 +41,26 @@ class ColorFormatter(logging.Formatter):
         logging.CRITICAL: "\033[95m",  # Magenta
     }
     RESET = "\033[0m"
-
     def format(self, record):
         color = self.COLORS.get(record.levelno, self.RESET)
         timestamp = self.formatTime(record, self.datefmt)
         msg = super().format(record)
         return f"{timestamp} [SWEEP] {color}{msg}{self.RESET}"
 
-
-# Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
 if not logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
     logger.addHandler(handler)
 
-
 # ------------------------------------------------------------------------------
 # Load .env and Build Relative Paths
 # ------------------------------------------------------------------------------
-
-# Assume this file is in conure/sweep/ and the .env file is in conure/.
 project_root = Path(__file__).resolve().parents[1]
 env_path = project_root / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Get environment variable values and build full paths.
 conure_path_env = os.getenv("CONURE_PATH")
 if not conure_path_env:
     raise ValueError("CONURE_PATH is not set in the .env file!")
@@ -87,27 +81,18 @@ if not simulator_rel:
     raise ValueError("CONURE_SIMULATOR_PATH is not set in the .env file!")
 simulator_path = (conure_path / simulator_rel).resolve()
 
-
-# ------------------------------------------------------------------------------
-# Initialize Logging
-# ------------------------------------------------------------------------------
+# Reinitialize logger if needed
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
 if not logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(ColorFormatter('%(levelname)s: %(message)s'))
     logger.addHandler(handler)
 
-
 # ------------------------------------------------------------------------------
 # Utility Functions
 # ------------------------------------------------------------------------------
-
 def load_json_data(input_arg):
-    """
-    Load JSON data either from a direct JSON string or from a file.
-    """
     try:
         return json.loads(input_arg)
     except json.JSONDecodeError:
@@ -122,16 +107,42 @@ def load_json_data(input_arg):
             sys.exit(1)
 
 def get_timestamp():
-    """Return the current time in ISO 8601 format."""
     return datetime.now().isoformat()
 
+def get_sweep_values(param):
+    """
+    Convert a sweep parameter into a list of values.
+    - If 'param' is a list, return it directly.
+    - If 'param' is a dict, it must include:
+         "from", "to", "type", and "value".
+      'type' can be:
+         - "npoints": generates that number of equally spaced points.
+         - "step": generates a sequence using 'value' as the step width.
+    """
+    if isinstance(param, list):
+        return param
+    elif isinstance(param, dict):
+        if all(k in param for k in ["from", "to", "type", "value"]):
+            start = param["from"]
+            end = param["to"]
+            method = param["type"].lower()
+            val = param["value"]
+            if method == "npoints":
+                return np.linspace(start, end, val).tolist()
+            elif method == "step":
+                return np.arange(start, end + val, val).tolist()
+            else:
+                raise ValueError(f"Unknown sweep type: {param['type']}")
+        else:
+            missing = [k for k in ["from", "to", "type", "value"] if k not in param]
+            raise ValueError(f"Missing keys in sweep parameter spec: {missing}")
+    else:
+        raise TypeError("Sweep parameter must be either a list or a dict.")
 
 # ------------------------------------------------------------------------------
 # Checkpoint Database Functions
 # ------------------------------------------------------------------------------
-
 def load_checkpoint_db(checkpoint_path):
-    """Load the checkpoint JSON database if it exists; otherwise, return a new dictionary."""
     if os.path.exists(checkpoint_path):
         try:
             with open(checkpoint_path, "r") as f:
@@ -146,29 +157,19 @@ def load_checkpoint_db(checkpoint_path):
         return {"runs": {}}
 
 def save_checkpoint_db(db, checkpoint_path):
-    """Save the checkpoint database dictionary to disk."""
     with open(checkpoint_path, "w") as f:
         json.dump(db, f, indent=4)
 
 def update_checkpoint(run_key, checkpoint_db, checkpoint_path, updates):
-    """Update the record for a given run and save the checkpoint DB."""
     run_record = checkpoint_db.get("runs", {}).get(run_key, {})
     run_record.update(updates)
     checkpoint_db.setdefault("runs", {})[run_key] = run_record
     save_checkpoint_db(checkpoint_db, checkpoint_path)
 
-
 # ------------------------------------------------------------------------------
 # Status Update Function (Enhanced)
 # ------------------------------------------------------------------------------
-
 def update_status(status_file_path, total, completed, run_key, task_info):
-    """
-    Update the status file with detailed structured information.
-    task_info should be a dict with keys for "layout", "svg", and "simulation".
-    Each should be a dict containing at least a "status" key and optionally "last_updated".
-    Also computes progress_percentage as completed/total * 100.
-    """
     progress_percentage = (completed / total) * 100 if total > 0 else 0
     status = {
         "total_permutations": total,
@@ -177,44 +178,35 @@ def update_status(status_file_path, total, completed, run_key, task_info):
         "current_task": task_info,
         "progress_percentage": progress_percentage
     }
-    # Ensure the parent directory exists:
     os.makedirs(os.path.dirname(status_file_path), exist_ok=True)
     with open(status_file_path, "w") as status_file:
         json.dump(status, status_file, indent=4)
 
-
 # ------------------------------------------------------------------------------
 # Sweep Function with Checkpointing and Enhanced Status Reporting
 # ------------------------------------------------------------------------------
-
 def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, outputName,
           enableLayoutGeneration, generateSVG, enableSimulation, packSimulationResults,
-          force=False,
-          verbose=False, log_level=None):
+          force=False, verbose=False, log_level=None):
     """
-    Sweep over a set of parameters to generate artwork layouts and optionally run simulations.
-    Each run output is placed in a unique subdirectory under base_output_dir and tracked in a 
-    checkpoint JSON file, so that interrupted runs can be resumed.
-    Detailed status is written to a JSON file indicating what is currently happening.
-    
-    The 'force' flag forces overwriting existing outputs, even if checkpoint indicates completion.
+    Sweep over parameters to generate artwork layouts and optionally run simulations.
+    Each run's outputs are stored in a unique subdirectory under base_output_dir,
+    tracked using a checkpoint JSON file.
     """
+    # Convert each parameter using get_sweep_values
     sweepPar = list(sweepParam["parameters"].keys())
-    sweepData = [sweepParam["parameters"][param] for param in sweepPar]
+    sweepData = [get_sweep_values(sweepParam["parameters"][param]) for param in sweepPar]
     permutations = list(itertools.product(*sweepData))
     total_permutations = len(permutations)
-    # Compute the required width based on the total number of iterations.
     width = max(4, len(str(total_permutations)))
     logger.info("Total number of permutations: %d", total_permutations)
     
     status_file_path = os.path.join(base_output_dir, "status.json")
     checkpoint_file_path = os.path.join(base_output_dir, "checkpoint.json")
     checkpoint_db = load_checkpoint_db(checkpoint_file_path)
-    
     RunID = 0
     completedRuns = 0
     
-    # Initially, set all task statuses to "pending"
     default_task_status = {
         "layout": {"status": "pending"},
         "svg": {"status": "pending"},
@@ -229,7 +221,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
         svg_done = run_record.get("svg_completed", False)
         simulation_done = run_record.get("simulation_completed", False)
         
-        # For simulation, skip if already done.
         if enableSimulation and simulation_done:
             logger.warning("Simulation for %s already completed. Skipping simulation step.", run_key)
         
@@ -256,54 +247,46 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
                 json.dump(runData, parfile, indent=4)
             update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"parameters": runData["parameters"],
                                                                               "run_name": run_name})
-        
-        # >>> Save the complete artwork JSON to a file for this iteration <<<
         artwork_json_path = os.path.join(run_output_dir, run_name + "_artwork.json")
         with open(artwork_json_path, "w") as f:
             json.dump(run_artwork, f, indent=4)
-
+        
         portCount = len(run_artwork["ports"]["config"].get("simulatingPorts", []))
         gdsPath = os.path.join(run_output_dir, run_name + ".gds")
         svgPath = os.path.join(run_output_dir, run_name + ".svg")
         sParamPath = os.path.join(run_output_dir, run_name + f".s{portCount}p")
         
-        # Determine if artwork needs to be generated for layout.
         if (enableLayoutGeneration or enableSimulation):
             if os.path.exists(gdsPath) and layout_done and not force:
-                logger.warning("GDS file for %s already exists and is confirmed in checkpoint. Skipping layout generation.", run_key)
+                logger.warning("GDS file for %s already exists. Skipping layout generation.", run_key)
                 needs_layout = False
             elif os.path.exists(gdsPath) and layout_done and force:
-                logger.warning("Force overwrite of GDS file for %s ", run_key)
+                logger.warning("Force overwrite of GDS file for %s", run_key)
                 needs_layout = True
             else:
                 needs_layout = True
         else:
             needs_layout = False
-
-        # Determine if SVG needs to be generated.
+        
         if generateSVG:
             if os.path.exists(svgPath) and svg_done and not force:
-                logger.warning("SVG for %s already exists and is confirmed in checkpoint. Skipping SVG generation.", run_key)
+                logger.warning("SVG for %s already exists. Skipping SVG generation.", run_key)
                 needs_svg = False
             elif os.path.exists(svgPath) and svg_done and force:
-                logger.warning("Force overwrite of SVG file for %s ", run_key)
+                logger.warning("Force overwrite of SVG file for %s", run_key)
                 needs_svg = True
             else:
                 needs_svg = True
         else:
             needs_svg = False
-
-
-
+        
         if needs_layout or needs_svg:
-            # Set current task status accordingly.
             task_status = {
                 "layout": {"status": "in progress", "last_updated": get_timestamp()} if needs_layout else {"status": "completed"},
                 "svg": {"status": "in progress", "last_updated": get_timestamp()} if needs_svg else {"status": "completed"},
                 "simulation": {"status": "pending"}
             }
             update_status(status_file_path, total_permutations, completedRuns, run_key, task_status)
-            
             logger.info("Generating artwork for %s (needs_layout: %s, needs_svg: %s)", run_key, needs_layout, needs_svg)
             command = [
                 "python",
@@ -316,32 +299,26 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
                 command.append("--layout")
             if generateSVG:
                 command.append("--svg")
-            
             if verbose:
                 command.append("--verbose")
             if log_level:
                 command.extend(["--log-level", log_level])
-
+            
             logger.debug("Running artwork generation command")
             process = subprocess.run(command)
             if process.returncode == 0:
                 logger.info("Artwork generation succeeded for %s", run_key)
                 if needs_layout:
-                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path,
-                                      {"layout_completed": os.path.exists(gdsPath)})
+                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"layout_completed": os.path.exists(gdsPath)})
                 if needs_svg:
-                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path,
-                                      {"svg_completed": os.path.exists(svgPath)})
+                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"svg_completed": os.path.exists(svgPath)})
             else:
                 logger.error("Artwork generation failed for %s with code %d", run_key, process.returncode)
                 if needs_layout:
-                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path,
-                                      {"layout_completed": False})
+                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"layout_completed": False})
                 if needs_svg:
-                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path,
-                                      {"svg_completed": False})
+                    update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"svg_completed": False})
         
-        # Simulation step.
         if enableSimulation and os.path.exists(gdsPath) and not os.path.exists(sParamPath):
             task_status = {
                 "layout": {"status": "completed"},
@@ -350,7 +327,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
             }
             update_status(status_file_path, total_permutations, completedRuns, run_key, task_status)
             logger.info("Performing EM simulation for %s", run_key)
-            
             command = [
                 "python",
                 str(simulator_path),
@@ -365,10 +341,8 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
                 command.append("--verbose")
             if log_level:
                 command.extend(["--log-level", log_level])
-            
             command = [arg for arg in command if arg]
             logger.debug("Running simulation command")
-            
             process = subprocess.run(command)
             if process.returncode == 0:
                 logger.info("Simulation succeeded for %s", run_key)
@@ -381,7 +355,6 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
                 update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"simulation_completed": False})
         
         completedRuns += 1
-        # At end of run, update status to show idle.
         task_status = {
             "layout": {"status": "completed"},
             "svg": {"status": "completed" if os.path.exists(svgPath) else "pending"},
@@ -390,22 +363,14 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
         update_status(status_file_path, total_permutations, completedRuns, run_key, task_status)
         RunID += 1
 
-    # Optionally, pack simulation results.
     if packSimulationResults:
         logger.info("Packing simulation results from base output: %s", base_output_dir)
         pack_simulation_data(base_output_dir)
 
-
 # ------------------------------------------------------------------------------
 # Pack Function (for Touchstone Files Only)
 # ------------------------------------------------------------------------------
-
 def pack_simulation_data(sweep_dir):
-    """
-    Gather simulation run parameters and S-parameter data from touchstone files,
-    then pack them into a compressed NPZ file.
-    If no touchstone files are found, this function does nothing.
-    """
     logger.info("Packing simulation results from directory: %s", sweep_dir)
     features_list = []
     targets_list = []
@@ -464,7 +429,6 @@ def pack_simulation_data(sweep_dir):
              frequency_points=frequency_points)
     logger.info("Packed simulation results saved to: %s", output_npz_path)
 
-
 # ------------------------------------------------------------------------------
 # Main Entry Point
 # ------------------------------------------------------------------------------
@@ -487,14 +451,12 @@ def main():
         "--log-level",
         choices=["debug", "info", "warning", "error", "critical"],
         help="Set the logging level",
-        default=None  # No explicit value means we'll fallback to INFO unless verbose is specified.
+        default=None
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose (debug) output")
-    
 
     args = parser.parse_args()
 
-    # Define mapping of log-level strings to logging module levels.
     log_levels = {
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -502,29 +464,19 @@ def main():
         "error": logging.ERROR,
         "critical": logging.CRITICAL
     }
-
-    # Determine effective log level:
     if args.verbose:
         effective_level = logging.DEBUG
     elif args.log_level:
         effective_level = log_levels[args.log_level]
     else:
         effective_level = logging.INFO
-
-    # Set the logger's level using the effective level.
     logger.setLevel(effective_level)
-
-    # It's a good idea to log what effective level is being used.
     logger.debug("Effective log level set to %s.", logging.getLevelName(effective_level))
 
-    # Load input files
     artworkData = load_json_data(args.artwork)
     sweepData = load_json_data(args.sweep)
-
-    # Pass the original --log-level string if provided (unless overridden by verbose)
     arg_log_level = args.log_level if args.log_level and not args.verbose else "debug" if args.verbose else None
 
-    # Call the sweep function with the appropriate parameters.
     sweep(args.simulator, artworkData, sweepData, args.config,
           args.output, args.name,
           enableLayoutGeneration=args.layout,

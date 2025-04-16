@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import shutil
 
 app = Flask(__name__)
 CORS(app)
@@ -878,6 +879,118 @@ def stop_simulation():
         "status": "⏹ Simulation stopped."
     })
 
+
+# ========================
+# Sweep
+# ========================
+
+
+
+
+@app.route('/api/create_sweep_parameter_file', methods=['POST'])
+def create_sweep_parameter_file():
+    """
+    Create or update the sweep parameter file in a specified sweep folder.
+    Expects a JSON payload with:
+      - "sweep_name": the name of the sweep folder (located in DATA_DIR/sweep)
+      - "parameterData": the sweep parameters to be saved
+    """
+    data = request.get_json()
+    sweep_name = data.get("sweep_name")
+    parameter_data = data.get("parameterData")
+    
+    if not sweep_name:
+        logging.error("No sweep name specified in request.")
+        return jsonify({"success": False, "error": "No sweep name specified"}), 400
+    
+    if parameter_data is None:
+        logging.error("No parameter data provided in request.")
+        return jsonify({"success": False, "error": "No parameter data provided"}), 400
+
+    # Construct the full path to the specified sweep folder
+    folder_path = os.path.join(DATA_DIR, "sweep", sweep_name)
+    
+    if not os.path.isdir(folder_path):
+        logging.error(f"Sweep folder not found: {folder_path}")
+        return jsonify({"success": False, "error": "Sweep folder not found"}), 404
+
+    # Define the path for the sweep parameter file
+    parameter_file_path = os.path.join(folder_path, "sweep_parameter_file.json")
+
+    try:
+        with open(parameter_file_path, "w") as f:
+            json.dump(parameter_data, f, indent=2)
+        logging.info(f"Sweep parameter file saved to {parameter_file_path}")
+        return jsonify({
+            "success": True,
+            "message": "Sweep parameters saved successfully.",
+            "parameterFilePath": parameter_file_path
+        })
+    except Exception as e:
+        logging.exception("Failed to save sweep parameter file.")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/list_sweeps', methods=['GET'])
+def list_sweeps():
+    """
+    List all sweep folders in DATA_DIR/sweep that contain a checkpoint.json file.
+    Returns a JSON object with the sweep names and the parsed checkpoint data.
+    """
+    sweep_dir = os.path.join(DATA_DIR, "sweep")
+    sweeps_info = []
+
+    if not os.path.exists(sweep_dir):
+        logging.error(f"Sweep directory not found: {sweep_dir}")
+        return jsonify({"success": False, "error": "Sweep directory not found"}), 404
+
+    # Iterate through the contents of the sweep directory.
+    for folder in os.listdir(sweep_dir):
+        folder_path = os.path.join(sweep_dir, folder)
+        if os.path.isdir(folder_path):
+            checkpoint_path = os.path.join(folder_path, "checkpoint.json")
+            if os.path.exists(checkpoint_path):
+                try:
+                    with open(checkpoint_path, "r") as f:
+                        checkpoint_data = json.load(f)
+                except Exception as e:
+                    logging.error(f"Failed to load checkpoint from {checkpoint_path}: {e}")
+                    checkpoint_data = {}
+                sweeps_info.append({
+                    "sweep_name": folder,
+                    "checkpoint": checkpoint_data
+                })
+            else:
+                logging.warning(f"No checkpoint.json found in {folder_path}. Skipping this folder.")
+    return jsonify({"success": True, "sweeps": sweeps_info})
+
+
+@app.route('/api/delete_sweep', methods=['POST'])
+def delete_sweep():
+    """
+    Delete a sweep folder from DATA_DIR/sweep.
+    Expects a JSON payload with a key "sweep_name" indicating the folder name.
+    """
+    data = request.get_json()
+    sweep_name = data.get("sweep_name")
+    
+    if not sweep_name:
+        logging.error("No sweep name specified in request.")
+        return jsonify({"success": False, "error": "No sweep name specified"}), 400
+
+    folder_path = os.path.join(DATA_DIR, "sweep", sweep_name)
+    
+    if not os.path.isdir(folder_path):
+        logging.error(f"Sweep folder not found: {folder_path}")
+        return jsonify({"success": False, "error": "Sweep folder not found"}), 404
+
+    try:
+        shutil.rmtree(folder_path)
+        logging.info(f"Sweep folder deleted: {folder_path}")
+        return jsonify({"success": True, "message": f"Sweep folder '{sweep_name}' deleted successfully."})
+    except Exception as e:
+        logging.exception("Failed to delete sweep folder.")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 

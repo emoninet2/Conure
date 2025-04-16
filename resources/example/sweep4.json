@@ -1,0 +1,28 @@
+{
+    "parameters": {
+        "apothem": {
+            "from": 90,
+            "to": 110,
+            "type": "npoints",
+            "value": 3
+        },
+        "width": {
+            "from": 6,
+            "to": 12,
+            "type": "step",
+            "value": 3
+        },
+
+        "spacing": [
+            2,
+            3
+        ],
+        "armLen": [
+            50,
+            100,
+            150,
+            200
+        ]
+
+    }
+}
