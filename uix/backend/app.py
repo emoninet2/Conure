@@ -13,6 +13,10 @@ from dotenv import load_dotenv
 from pathlib import Path
 import shutil
 
+# Adjust the path to where your .env file is located:
+env_path = Path(__file__).parent / '.env'
+load_dotenv(".env")
+
 app = Flask(__name__)
 CORS(app)
 
@@ -38,9 +42,6 @@ SWEEP_PROCESSES = {}
 
 
 
-# Adjust the path to where your .env file is located:
-env_path = Path(__file__).parent / '.env'
-load_dotenv(dotenv_path=env_path)
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))

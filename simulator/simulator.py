@@ -34,8 +34,8 @@ if not logger.handlers:
     logger.addHandler(handler)
     
 def simulate(gds_file, simulator, artworkData, config, outputDir, outputName):
-    logging.debug("HAHAHAHAHAHHAHAHAHHAHAHAHHAHAHAHHAH")
-    logger.info(f"Simulating {gds_file} using {simulator} HAHAHAHHAHAHAAHAHAHAHHAHA")
+
+    logger.info(f"Simulating {gds_file} using {simulator}")
     if config is None:
         logger.error("No configuration file provided.")
     else:
