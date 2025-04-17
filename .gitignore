@@ -1,6 +1,9 @@
 .venv
-**/__pycache__/
+*.pyc
+*.pyo
+__pycache__/
 .vscode
+Conure.code-workspace
 start_uix.log
 *.log
 *.lock
