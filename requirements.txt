@@ -1,6 +1,6 @@
     gdspy
     numpy
     flask
-    flask_cors
+    flask-cors
     python-dotenv
     scikit-rf

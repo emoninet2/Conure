@@ -102,7 +102,7 @@ $ python artwork_generator.py \
 
 ### EM Simulation
 ```bash
-$ python simulate.py \
+$ python simulator.py \
     --gds OUTPUT_DIR/my_artwork.gds \
     --config simulator/config.json \
     --sim emx \

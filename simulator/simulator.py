@@ -34,13 +34,14 @@ if not logger.handlers:
     logger.addHandler(handler)
     
 def simulate(gds_file, simulator, artworkData, config, outputDir, outputName):
-    logger.info(f"Simulating {gds_file} using {simulator}")
+    logging.debug("HAHAHAHAHAHHAHAHAHHAHAHAHHAHAHAHHAH")
+    logger.info(f"Simulating {gds_file} using {simulator} HAHAHAHHAHAHAAHAHAHAHHAHA")
     if config is None:
         logger.error("No configuration file provided.")
     else:
         logger.debug(f"Simulator config: {config}")
-
-    if simulator == "emx":
+    logging.critical("YOU GOT MAIL")
+    if simulator.lower() == "emx":
         try:
             emx.simulate(gds_file, artworkData, config["emx_config"], outputDir, outputName)
         except Exception as error:

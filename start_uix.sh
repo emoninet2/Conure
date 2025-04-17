@@ -63,7 +63,8 @@ cd "$BACKEND_DIR"
 export FLASK_APP=app.py
 export FLASK_ENV=development
 export BACKEND_PORT=$VITE_BACKEND_PORT
-flask run --port=$VITE_BACKEND_PORT &
+#flask run --port=$VITE_BACKEND_PORT &
+flask run --host=0.0.0.0 --port=$VITE_BACKEND_PORT &
 BACKEND_PID=$!
 echo "backend:$BACKEND_PID" >> "$LOCK_FILE"
 cd - > /dev/null

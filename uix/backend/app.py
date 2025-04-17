@@ -867,7 +867,7 @@ def start_simulation():
         if simulator == "EMX":
             logging.info("💻 EMX simulator selected.")
 
-            simulate_script = os.path.abspath(os.path.join(BASE_DIR, '../../simulator/simulate.py'))
+            simulate_script = os.path.abspath(os.path.join(BASE_DIR, '../../simulator/simulator.py'))
             gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
             config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
             artwork_path = os.path.join(PROJECT_PATH, 'artwork.json')
@@ -1104,7 +1104,7 @@ def start_sweep():
             config_path = os.path.join(PROJECT_PATH, "simConfig.json")
             command.extend(["--simulate", "-c", config_path])
             if simulator:
-                command.extend(["--sim", simulator])
+                command.extend(["--sim", "emx"])
         if force_overwrite:
             command.append("--force")
 
