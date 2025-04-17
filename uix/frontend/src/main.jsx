@@ -9,11 +9,11 @@ import { SimulateProvider } from './context/SimulateContext.jsx'
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ArtworkProvider>
-      <SweepProvider>
-        <SimulateProvider>
+      <SimulateProvider>
+        <SweepProvider>
           <App />
-        </SimulateProvider>
-      </SweepProvider>
+        </SweepProvider >
+      </SimulateProvider >
     </ArtworkProvider>
   </StrictMode>
 );

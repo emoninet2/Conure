@@ -64,8 +64,36 @@ import uuid
 logger = logging.getLogger(__name__)
 
 
-
 def emx(emxArgs):
+    """
+    Dispatch to either the local or remote EMX implementation based on:
+      emxArgs["remote"]["use"]
+    Returns the dict of result paths from the called implementation.
+    """
+
+    logging.error("DAMN YOU")
+    # Safely pull out the remote config
+    remote_cfg = emxArgs.get("remote", {})
+    use_remote = bool(remote_cfg.get("use", False))
+
+    # If we're going remote, ensure at least the minimal SSH info is present
+    if use_remote:
+        missing = [k for k in ("sshJump", "sshHost") if k not in remote_cfg]
+        if missing:
+            raise ValueError(f"remote.use is True, but missing config keys: {missing!r}")
+        executor = emx_remote
+        logger.info("Dispatching EMX to remote execution")
+    else:
+        executor = emx_local
+        logger.info("Dispatching EMX to local execution")
+
+    # Call the selected implementation and return its results
+    result = executor(emxArgs)
+    logger.debug(f"EMX completed via {'remote' if use_remote else 'local'} path: {result}")
+    return result
+
+
+def emx_remote(emxArgs):
     """
     Uploads the GDS file to a unique remote temp dir, runs 'emx',
     fetches the S‑ and Y‑parameter files, then (optionally) cleans up.
@@ -75,8 +103,12 @@ def emx(emxArgs):
 
     # -------------------------------------------------------------------
     # Hard‑coded SSH settings
-    ssh_jump = "habiburr@login.uio.no"
-    ssh_host = "habiburr@nano.ifi.uio.no"
+
+    ssh_jump = emxArgs["remote"]["sshJump"]
+    ssh_host = emxArgs["remote"]["sshHost"]
+
+    # ssh_jump = "habiburr@login.uio.no"
+    # ssh_host = "habiburr@nano.ifi.uio.no"
     # generate a unique temp directory on the remote
     remote_temp_dir = f"/tmp/emx_{uuid.uuid4().hex[:8]}"
     # -------------------------------------------------------------------
@@ -208,7 +240,7 @@ def emx(emxArgs):
 
 
 
-def emx2(emxArgs):
+def emx_local(emxArgs):
     """
     Constructs and executes the simulation command based on the provided arguments.
     Raises a ValueError if mandatory keys (e.g. sweep frequencies) are missing.
