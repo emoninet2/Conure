@@ -2,19 +2,19 @@
 :root {
   color-scheme: light;
 
-  --color-primary: #3ab8539d;
+  --color-primary: #1b6e2cc8;
   --color-secondary: #005fa3;
   --color-accent: #00bfffa2;
   --color-text: #333;
   --color-bg: #f7f7f7;
-  --color-button-text: #fff;
+  --color-button-text: #ffffff;
 
   --font-size-small: 0.8rem;
   --font-size-medium: 1rem;
   --font-size-large: 1.2rem;
 
   --spacing-xs: 0.3rem;
-  --spacing-sm: 0.3rem;
+  --spacing-sm: 0.2rem;
   --spacing-md: 0.5rem;
   --spacing-lg: 1rem;
 
@@ -190,4 +190,34 @@ body {
 
 .artwork-subtab-container label + textarea {
   margin-top: var(--spacing-sm);
+}
+
+
+
+
+/* New container for the SVG preview */
+.preview-container {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: var(--border-radius-sm);
+}
+
+/* Wrapper to center/size the image */
+.preview-image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-md);
+  background-color: #fafafa;
+  border-radius: var(--border-radius-sm);
+}
+
+/* Image itself */
+.preview-image {
+  max-width: 100%;
+  height: auto;
+  /* or use a percentage of the container, e.g.: */
+  max-width: 60%;
 }

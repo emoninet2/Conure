@@ -22,8 +22,6 @@ function Preview() {
 
   return (
     <div className="artwork-subtab-container">
-      <p>This is the About of the project.</p>
-
       <div className="button-group">
         <button
           className="btn primary"
@@ -40,12 +38,18 @@ function Preview() {
         </button>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
       {svgUrl && (
-        <div>
+        <div className="preview-container">
           <h4 className="section-heading">SVG Preview</h4>
-          <img src={svgUrl} alt="Artwork Preview" style={{ maxWidth: '60%' }} />
+          <div className="preview-image-wrapper">
+            <img
+              src={svgUrl}
+              alt="Artwork Preview"
+              className="preview-image"
+            />
+          </div>
         </div>
       )}
     </div>

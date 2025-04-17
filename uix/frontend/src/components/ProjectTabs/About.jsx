@@ -1,68 +1,82 @@
 import React from 'react';
+import '../../styles/About.css';
+
 
 /**
  * About Tab for Conure ProjectView
  */
 function About() {
-  // Styles for container and elements
-  const containerStyle = {
-    backgroundColor: '#ffffff',
-    padding: '2rem',
-    borderRadius: '8px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    maxWidth: '800px',
-    margin: '2rem auto',
-    color: '#333333',
-    lineHeight: '1.6',
-  };
-  const titleStyle = {
-    textAlign: 'center',
-    fontSize: '2.5rem',
-    marginBottom: '1rem',
-    color: '#007bff',
-  };
-  const sectionTitleStyle = {
-    fontSize: '1.5rem',
-    marginTop: '1.5rem',
-    marginBottom: '0.5rem',
-    color: '#0056b3',
-  };
-  const linkStyle = {
-    color: '#007bff',
-    textDecoration: 'none',
-  };
-  const listStyle = {
-    listStyleType: 'none',
-    paddingLeft: 0,
-    marginLeft: 0,
-    lineHeight: '1.8',
-  };
-
   return (
-    <div style={containerStyle}>
-      <h2 style={titleStyle}>About Conure</h2>
-      <p>
-        Conure is a comprehensive toolkit for designing, simulating, modeling, and optimizing RFCMOS integrated inductors.
-      </p>
+    <div className="about-container">
+      <header className="about-header">
+        <h2>Conure</h2>
+        <p>Your RF inductor design companion</p>
+        <h5>Version: 0.2.0</h5>
+        
+      </header>
 
-      <h3 style={sectionTitleStyle}>Getting Started</h3>
-      <p>
-        Refer to the{' '}
-        <a href="../README.md" target="_blank" rel="noopener noreferrer" style={linkStyle}>
-          README
-        </a>{' '}
-        for installation instructions, quick-start examples, and detailed documentation.
-      </p>
+      <div className="about-content">
+        <section className="about-description">
+          <p>
+            <strong>Conure</strong> is a versatile toolkit that unifies design, simulation, and modeling within a single, intuitive interface.
+          </p>
+        </section>
 
-      <h3 style={sectionTitleStyle}>Contributors</h3>
-      <ul style={listStyle}>
-        <li>Habibur Rahman</li>
-        <li>Adrian Llop Recha</li>
-        <li>Stefano Fasciani</li>
-        <li>Pål Gunnar Hogganvik</li>
-        <li>Kristian Kjelgård</li>
-        <li>Dag Wisland</li>
-      </ul>
+        <section className="about-details">
+          <div className="about-section">
+            <h3>Getting Started</h3>
+            <p>
+              See the{' '}
+              <a href="../README.md" target="_blank" rel="noopener noreferrer">
+                README
+              </a>{' '}
+              for installation, quickstart commands, and full documentation.
+            </p>
+          </div>
+
+          <div className="about-section">
+            <h3>Contributors</h3>
+            <ul className="contributor-list">
+              <li>Habibur Rahman</li>
+              <li>Adrian Llop Recha</li>
+              <li>Stefano Fasciani</li>
+              <li>Pål Gunnar Hogganvik</li>
+              <li>Kristian Kjelgård</li>
+              <li>Dag Wisland</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+
+      <footer className="about-footer">
+        <div className="logo-wrapper">
+          <a href="https://github.com/emoninet2/Conure" target="_blank" rel="noopener noreferrer">
+            <img
+              src="/githubLinkQRCode.jpg"
+              alt="GitHub Repository QR Code"
+              className="footer-logo"
+            />
+          </a>
+        </div>
+        <div className="logo-wrapper">
+          <a href="https://uio.no" target="_blank" rel="noopener noreferrer">
+            <img
+              src="/03_uio_full_logo_eng_pos.png"
+              alt="University of Oslo Logo"
+              className="footer-logo"
+            />
+          </a>
+        </div>
+        <div className="logo-wrapper">
+          <a href="https://emon.no/" target="_blank" rel="noopener noreferrer">
+            <img
+              src="/emon_no_logo.webp"
+              alt="emon_no_logo"
+              className="footer-logo"
+            />
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

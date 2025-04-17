@@ -14,8 +14,26 @@ function App() {
   const [message, setMessage] = useState('')
   const [currentView, setCurrentView] = useState('home')
   const [projectName, setProjectName] = useState('')
-
   const artworkContext = useArtworkContext();
+
+
+
+
+  // Prompt before refresh/close when in the project view
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    if (currentView === 'project') {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [currentView])
 
 
   // Only ask for a name when creating a project

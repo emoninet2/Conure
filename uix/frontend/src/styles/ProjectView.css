@@ -19,20 +19,20 @@
   margin-bottom: 1rem;
   text-align: left;     /* left‑justify its contents */
 
-    /* NEW: background and text colors */
-    background-color: #ff2a0087; /* a blue background */
-    color: #ffffff;            /* white text */
+  /* NEW: background and text colors */
+  background-color: #ff2a0087; /* a blue background */
+  color: #ffffff;            /* white text */
 
 
 }
 
 .project-title {
   text-align: left;
-  margin-top: 6rem;
+  margin-top: 2rem;
 }
 
 .project-title h2 {
-  font-size: 2rem;
+  font-size: 1rem;
 }
 
 .project-title p {
@@ -47,7 +47,7 @@
 }
 
 .tab-button {
-  margin-right: 1rem;
+  margin-right: 0.2rem;
   margin-bottom: 0.5rem;
   padding: 0.25rem 0.75rem; /* 👈 decreased vertical and horizontal padding */
   border: 1px solid #ccc;
