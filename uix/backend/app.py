@@ -713,6 +713,7 @@ def preview_artwork():
             '-a', filepath,
             '-o', PROJECT_PATH,
             '-n', 'artwork',
+            '--layout',
             '--svg'
         ]
 
@@ -1159,9 +1160,6 @@ def stop_sweep():
 def sweep_status():
     global PROJECT_PATH
     sweep_name = request.args.get("sweep_name")
-
-    logging.warning(f"STATUS SHALL BE RETURNED FOR {sweep_name}")
-
 
     if not sweep_name:
         return jsonify({"success": False, "error": "Missing sweep name"}), 400
