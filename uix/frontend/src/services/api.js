@@ -22,6 +22,27 @@ const postJson = (url, data) =>
 // PROJECT
 // ===================
 
+// **NEW**: Mount the user‑chosen workspace directory under /data
+export async function open_workspace(path) {
+  const res = await fetch('/api/workspace/open', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+  if (!res.ok) throw new Error(`Mount failed: ${res.statusText}`);
+  return res.json();
+}
+
+// **NEW**: Unmount the current workspace
+export async function close_workspace() {
+  const res = await fetch('/api/workspace/close', {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error(`Unmount failed: ${res.statusText}`);
+  return res.json();
+}
+
+
 // Create project now only sends name
 export const createProject = async (name) =>
   postJson('/api/create_project', { name });

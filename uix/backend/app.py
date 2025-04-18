@@ -42,7 +42,7 @@ SWEEP_PROCESSES = {}
 
 
 
-
+MOUNTED_WORKSPACE = None
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, "../../data"))
@@ -476,6 +476,110 @@ def convert_backend_to_frontend_artwork(backend_data):
 
 
 
+
+@app.route('/api/workspace/open', methods=['POST'])
+def open_workspace():
+    """
+    Mounts an external absolute folder as our DATA_DIR.  
+    Request JSON: { "path": "/absolute/path/to/workspace" }
+    """
+    global MOUNTED_WORKSPACE
+
+    payload = request.get_json()
+    path = payload.get('path')
+
+    # Basic validation
+    if not path or not os.path.isabs(path) or not os.path.isdir(path):
+        return jsonify({
+            "success": False,
+            "error": "Invalid workspace path. Must be an existing absolute directory."
+        }), 400
+
+    try:
+        # If DATA_DIR already exists as a symlink or directory, remove it
+        if os.path.islink(DATA_DIR):
+            os.unlink(DATA_DIR)
+        elif os.path.isdir(DATA_DIR):
+            shutil.rmtree(DATA_DIR)
+        elif os.path.exists(DATA_DIR):
+            os.remove(DATA_DIR)
+
+        # Create a symlink so that DATA_DIR now points at the user folder
+        os.symlink(path, DATA_DIR)
+
+        MOUNTED_WORKSPACE = path
+        logging.info(f"Workspace mounted: {path} → {DATA_DIR}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Workspace mounted at {path}"
+        }), 200
+
+    except PermissionError as e:
+        logging.error(f"Permission denied mounting workspace: {e}")
+        return jsonify({
+            "success": False,
+            "error": "Permission denied mounting workspace."
+        }), 403
+
+    except Exception as e:
+        logging.exception("Failed to mount workspace")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/workspace/close', methods=['POST'])
+def close_workspace():
+    """
+    Unmounts whatever was mounted at DATA_DIR and recreates an empty DATA_DIR.
+    """
+    global MOUNTED_WORKSPACE, PROJECT_PATH, PROJECT_NAME
+
+    if not MOUNTED_WORKSPACE:
+        return jsonify({
+            "success": False,
+            "error": "No workspace currently mounted."
+        }), 400
+
+    try:
+        # Remove the symlink or directory at DATA_DIR
+        if os.path.islink(DATA_DIR):
+            os.unlink(DATA_DIR)
+        elif os.path.isdir(DATA_DIR):
+            shutil.rmtree(DATA_DIR)
+        elif os.path.exists(DATA_DIR):
+            os.remove(DATA_DIR)
+
+        # Recreate an empty DATA_DIR for a clean slate
+        os.makedirs(DATA_DIR, exist_ok=True)
+
+        logging.info(f"Workspace unmounted: {MOUNTED_WORKSPACE}")
+        MOUNTED_WORKSPACE = None
+        PROJECT_PATH = None
+        PROJECT_NAME = None
+
+        return jsonify({
+            "success": True,
+            "message": "Workspace closed and reset."
+        }), 200
+
+    except PermissionError as e:
+        logging.error(f"Permission denied unmounting workspace: {e}")
+        return jsonify({
+            "success": False,
+            "error": "Permission denied unmounting workspace."
+        }), 403
+
+    except Exception as e:
+        logging.exception("Failed to close workspace")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+    
+    
 
 @app.route('/api/create_project', methods=['POST'])
 def create_project():
