@@ -63,6 +63,7 @@ SAFE_EVAL_ENV: Dict[str, Any] = {
 # Constants for clarity
 ROTATION_ANGLE_UNIT = 45  # Each segment corresponds to 45° rotation
 DEFAULT_GRID_PRECISION = 0.005
+DEFAULT_GRID_PRECISION_DIAGONAL = DEFAULT_GRID_PRECISION/2.0
 
 
 class Component:
@@ -103,6 +104,7 @@ class Component:
 
         # Set key parameters.
         self.gridSize: float = self.Parameters["precision"]
+        self.gridSizeDiagonal: float = self.Parameters["precisionDiagonal"]
         self.T: float = self.Parameters["width"]     # Width of the conductors
         self.S: float = self.Parameters["spacing"]     # Spacing between the conductors
         self.C: int = self.Parameters["corners"]
@@ -270,20 +272,54 @@ class Component:
                 poly.generate_segmented_path(segmented_path_precision)
             self.cell.add(poly.to_gdspy_polygon(poly.gds_layer, poly.gds_datatype))
 
-    def grid_adjusted_length(self, full_length: float, grid: float = DEFAULT_GRID_PRECISION) -> Tuple[float, int]:
+    # def grid_adjusted_length(self, full_length: float, grid: float = DEFAULT_GRID_PRECISION) -> Tuple[float, int]:
+    #     """
+    #     Adjust the length to snap endpoints to a grid after a 45° rotation.
+
+    #     Parameters:
+    #         full_length (float): The original full length.
+    #         grid (float): The grid resolution.
+
+    #     Returns:
+    #         Tuple[float, int]: The new length and the grid multiple used.
+    #     """
+    #     half_length = full_length / 2.0
+    #     grid_step_rotated = grid * math.sqrt(2)
+    #     k = math.floor(half_length / grid_step_rotated)
+    #     new_half_length = k * grid_step_rotated
+    #     new_full_length = 2 * new_half_length
+    #     return new_full_length, k
+
+    def grid_adjusted_length(self,
+        full_length: float,
+        grid: float = DEFAULT_GRID_PRECISION_DIAGONAL,
+        mode: str = "ceil",            # "ceil" or "floor"
+    ) -> Tuple[float, int]:
         """
-        Adjust the length to snap endpoints to a grid after a 45° rotation.
+        Snap the length *up* (mode="ceil") or *down* (mode="floor") so that,
+        after a 45° rotation, both endpoints lie exactly on the grid and the
+        length is ≥ (ceil) or ≤ (floor) the requested full_length.
 
         Parameters:
-            full_length (float): The original full length.
-            grid (float): The grid resolution.
+            full_length: the target length in µm.
+            grid: the grid spacing in µm.
+            mode: "ceil" to round up, "floor" to round down.
 
         Returns:
-            Tuple[float, int]: The new length and the grid multiple used.
+            (new_full_length, k) where new_full_length is the snapped length,
+            and k is the integer count of diagonal‑grid steps per half‑length.
         """
         half_length = full_length / 2.0
-        grid_step_rotated = grid * math.sqrt(2)
-        k = math.floor(half_length / grid_step_rotated)
+        #grid_step_rotated = (grid) * math.sqrt(2)
+        grid_step_rotated = (grid) * math.sqrt(2) #DIVIDING THE GRID BY 2 ALLOW DRC CLEAN ON TSMC. NEEDS INVESTIGATION. 
+
+        if mode == "ceil":
+            k = math.ceil(half_length / grid_step_rotated)
+        elif mode == "floor":
+            k = math.floor(half_length / grid_step_rotated)
+        else:
+            raise ValueError(f"mode must be 'ceil' or 'floor', got {mode!r}")
+
         new_half_length = k * grid_step_rotated
         new_full_length = 2 * new_half_length
         return new_full_length, k
@@ -510,10 +546,11 @@ class Component:
                     # Grid snapping adjustments for diagonal arms.
                     if snap_to_grid and angle_degree in [45, 135, 225, 315]:
                         grid_size = self.gridSize
-                        arm_length, _ = self.grid_adjusted_length(arm_length, grid_size)
-                        arm_width, _ = self.grid_adjusted_length(arm_width, grid_size)
-                        dx_start, _ = self.grid_adjusted_length(dx_start, grid_size)
-                        dx_end, _ = self.grid_adjusted_length(dx_end, grid_size)
+                        grid_size_diagonal = self.gridSizeDiagonal
+                        arm_length, _ = self.grid_adjusted_length(arm_length, grid_size_diagonal)
+                        arm_width, _ = self.grid_adjusted_length(arm_width, grid_size_diagonal)
+                        dx_start, _ = self.grid_adjusted_length(dx_start, grid_size_diagonal)
+                        dx_end, _ = self.grid_adjusted_length(dx_end, grid_size_diagonal)
                         dx_start = round(dx_start / grid_size) * grid_size
                         dx_end = round(dx_end / grid_size) * grid_size
 
@@ -731,8 +768,8 @@ class Component:
                         self._set_polygon_layer(r, layer)
                         group_items.append(r)
 
-                    length_grid_adjusted, _ = self.grid_adjusted_length(length, self.gridSize)
-                    height_grid_adjusted, _ = self.grid_adjusted_length(height, self.gridSize)
+                    length_grid_adjusted, _ = self.grid_adjusted_length(length, self.gridSizeDiagonal)
+                    height_grid_adjusted, _ = self.grid_adjusted_length(height, self.gridSizeDiagonal)
 
                     rect_grid_adjusted = Polygon([
                         Point(dx - length_grid_adjusted / 2.0, dy - height_grid_adjusted / 2.0),

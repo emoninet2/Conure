@@ -73,7 +73,7 @@ cd - > /dev/null
 echo -e "${GREEN}Starting React frontend (Vite) on port $FRONTEND_PORT...${NC}"
 cd "$FRONTEND_DIR"
 npm install
-npm run dev -- --port $FRONTEND_PORT &
+npm run dev -- --host 0.0.0.0 --port $FRONTEND_PORT &
 FRONTEND_PID=$!
 echo "frontend:$FRONTEND_PID" >> "$LOCK_FILE"
 cd - > /dev/null
