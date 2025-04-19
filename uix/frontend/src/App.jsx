@@ -1,25 +1,23 @@
 import { useState, useEffect } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import conureLogo from './assets/images/logo/logo_nb_large.png'
 import './App.css'
-import { createProject, openProject } from './services/api'
+import {
+  createProject,
+  openProject,
+  open_workspace,
+  close_workspace
+} from './services/api'
 import ProjectView from './components/ProjectView'
 import { useArtworkContext } from './context/ArtworkContext';
-import { saveArtworkData, loadAndApplyArtwork } from './services/artworkHelper';
-
-
+import { loadAndApplyArtwork } from './services/artworkHelper';
 
 function App() {
   const [message, setMessage] = useState('')
   const [currentView, setCurrentView] = useState('home')
   const [projectName, setProjectName] = useState('')
+  const [workspaceMounted, setWorkspaceMounted] = useState(false)
   const artworkContext = useArtworkContext();
 
-
-
-
-  // Prompt before refresh/close when in the project view
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       e.preventDefault()
@@ -36,9 +34,35 @@ function App() {
   }, [currentView])
 
 
-  // Only ask for a name when creating a project
+  const handleMountWorkspace = async () => {
+    const path = window.prompt("Enter absolute path to your workspace folder:")
+    if (!path) return
+
+    try {
+      const res = await open_workspace(path)
+      console.log("Workspace mounted:", res)
+      setWorkspaceMounted(true)
+    } catch (err) {
+      console.error("Failed to mount workspace", err)
+      alert("Failed to mount workspace.")
+    }
+  }
+
+  const handleUnmountWorkspace = async () => {
+    try {
+      await close_workspace()
+      setWorkspaceMounted(false)
+      setCurrentView('home')
+      setProjectName('')
+    } catch (err) {
+      console.error("Failed to unmount workspace", err)
+      alert("Failed to unmount workspace.")
+    }
+  }
+
+
   const handleCreateProject = async () => {
-    const name = window.prompt('Enter your name:')
+    const name = window.prompt('Enter your project name:')
     if (!name) {
       alert('Name is required!')
       return
@@ -47,9 +71,6 @@ function App() {
       const data = await createProject(name)
       setMessage(data.data.message)
       setProjectName(name)
-      // For createProject, you might not have a location yet,
-      // so we can leave projectPath empty or set a default value.
- 
       setCurrentView('project')
     } catch (err) {
       console.error('Error creating project:', err)
@@ -57,11 +78,9 @@ function App() {
     }
   }
 
-  // Ask for both location and name when opening a project
   const handleOpenProject = async () => {
-
     const name = window.prompt('Enter the project name:')
-    if (!name ) {
+    if (!name) {
       alert('Name required!')
       return
     }
@@ -69,7 +88,7 @@ function App() {
       const data = await openProject(name)
       setMessage(data.data.message)
       setProjectName(name)
-      await loadAndApplyArtwork(artworkContext); //load the artwrok opening existing project
+      await loadAndApplyArtwork(artworkContext)
       setCurrentView('project')
     } catch (err) {
       console.error('Error opening project:', err)
@@ -77,29 +96,36 @@ function App() {
     }
   }
 
-
   return (
     <>
       {currentView === 'home' ? (
         <div className="card">
           <div>
-            <a href="https://vite.dev" target="_blank">
-              <div className="logo-circle">
-                <img src={conureLogo} className="logo conure-logo" alt="Conure logo" />
-              </div>
-            </a>
+            <div className="logo-circle">
+              <img src={conureLogo} className="logo conure-logo" alt="Conure logo" />
+            </div>
           </div>
-          <div className="home-button-group" >
-          <h1>CONURE</h1>
-          <button onClick={handleCreateProject} style={{ marginTop: '1rem' }}>
-            Create Project
-          </button>
-          <button onClick={handleOpenProject} style={{ marginTop: '1rem' }}>
-            Open Project
-          </button>
+          <div className="home-button-group">
+            <h1>CONURE</h1>
 
+            {!workspaceMounted ? (
+              <button onClick={handleMountWorkspace} style={{ marginTop: '1rem' }}>
+                Mount Workspace
+              </button>
+            ) : (
+              <>
+                <button onClick={handleCreateProject} style={{ marginTop: '1rem' }}>
+                  Create Project
+                </button>
+                <button onClick={handleOpenProject} style={{ marginTop: '1rem' }}>
+                  Open Project
+                </button>
+                <button onClick={handleUnmountWorkspace} style={{ marginTop: '1rem' }}>
+                  Close Workspace
+                </button>
+              </>
+            )}
           </div>
-    
         </div>
       ) : (
         <ProjectView name={projectName} />
