@@ -12,11 +12,26 @@ import { useArtworkContext } from './context/ArtworkContext';
 import { loadAndApplyArtwork } from './services/artworkHelper';
 
 function App() {
+
+  useEffect(() => {
+    const baseURL = `${import.meta.env.VITE_API_HOST}:${import.meta.env.VITE_BACKEND_PORT}`;
+    const url = `${baseURL}/api/health`;
+
+    console.log("Calling health check:", url);
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => console.log("Backend health:", data))
+      .catch((err) => console.error("Health check failed:", err));
+  }, []);
+  
   const [message, setMessage] = useState('')
   const [currentView, setCurrentView] = useState('home')
   const [projectName, setProjectName] = useState('')
   const [workspaceMounted, setWorkspaceMounted] = useState(false)
   const artworkContext = useArtworkContext();
+
+
 
   useEffect(() => {
     const handleBeforeUnload = (e) => {
@@ -96,6 +111,10 @@ function App() {
     }
   }
 
+
+
+
+  
   return (
     <>
       {currentView === 'home' ? (

@@ -475,7 +475,9 @@ def convert_backend_to_frontend_artwork(backend_data):
     }
 
 
-
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'ok', 'message': 'Backend is alive'}), 200
 
 @app.route('/api/workspace/open', methods=['POST'])
 def open_workspace():
