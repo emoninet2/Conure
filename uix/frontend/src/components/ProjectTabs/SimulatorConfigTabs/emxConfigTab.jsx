@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 
 const defaultEmxConfig = {
+  remote: {
+        "use": false,
+        "useProxy": false,
+        "sshJump": "habiburr@login.uio.no",
+        "sshHost": "habiburr@nano.ifi.uio.no"
+      },
   emxPath: "/projects/nanus/eda/Cadence/2021/INTEGRAND60/bin/emx",
   emxProcPath: "RC_IRCX_CRN65LP_1P9M+ALRDL_6X1Z1U_typical.proc",
   sweepFreq: {

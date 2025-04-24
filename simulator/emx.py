@@ -92,152 +92,157 @@ def emx(emxArgs):
     logger.debug(f"EMX completed via {'remote' if use_remote else 'local'} path: {result}")
     return result
 
-
 def emx_remote(emxArgs):
     """
     Uploads the GDS file to a unique remote temp dir, runs 'emx',
-    fetches the S‑ and Y‑parameter files, then (optionally) cleans up.
+    fetches the S- and Y-parameter files, then (optionally) cleans up.
     """
-
-    logging.critical("WOW")
-
     # -------------------------------------------------------------------
-    # Hard‑coded SSH settings
-
-    ssh_jump = emxArgs["remote"]["sshJump"]
-    ssh_host = emxArgs["remote"]["sshHost"]
-
-    # ssh_jump = "habiburr@login.uio.no"
-    # ssh_host = "habiburr@nano.ifi.uio.no"
-    # generate a unique temp directory on the remote
-    remote_temp_dir = f"/tmp/emx_{uuid.uuid4().hex[:8]}"
+    # 0) Prepare
     # -------------------------------------------------------------------
+    ssh_jump  = emxArgs["remote"]["sshJump"]
+    use_proxy = emxArgs["remote"]["useProxy"]
+    ssh_host  = emxArgs["remote"]["sshHost"]
+    remote_dir = f"/tmp/emx_{uuid.uuid4().hex[:8]}"
 
-    # 0) ensure local output
+    # Ensure local output directory exists
     os.makedirs(emxArgs["outputPath"], exist_ok=True)
 
-    # 1) make the remote temp dir
-    subprocess.run([
-        "ssh", "-o", f"ProxyJump={ssh_jump}", ssh_host,
-        f"mkdir -p {remote_temp_dir}"
-    ], check=True)
-
-    # 2) upload the GDS
-    local_gds   = emxArgs["gdsFile"]
-    gds_name    = os.path.basename(local_gds)
-    remote_gds  = f"{ssh_host}:{remote_temp_dir}/{gds_name}"
-    subprocess.run([
-        "scp", "-o", f"ProxyJump={ssh_jump}",
-        local_gds, remote_gds
-    ], check=True)
-    logger.info(f"Uploaded {gds_name} to {remote_temp_dir}")
-
-    # 3) build the remote 'emx' command
-    cmd = [
-        "emx",
-        os.path.join(remote_temp_dir, gds_name),
-        emxArgs["gdsCellName"],
-        emxArgs["emxProcPath"]
-    ]
-
-    # — repeat all your flag logic from before…
-    if "edgeWidth" in emxArgs:
-        cmd += ["-e", str(emxArgs["edgeWidth"])]
-    if emxArgs.get("3dCond") and emxArgs.get("edgeWidth") is True:
-        cmd.append("--3d=*")
-    if "thickness" in emxArgs:
-        cmd += ["-t", str(emxArgs["thickness"])]
-    if "viaSeparation" in emxArgs:
-        cmd += ["-v", str(emxArgs["viaSeparation"])]
-
-    port_count = 0
-    for port in emxArgs["simulatingPorts"]:
-        pid = port["id"]
-        if port["type"].lower() == "differential":
-            plus  = emxArgs["designPorts"]["data"][port["plus"]]["label"]
-            minus = emxArgs["designPorts"]["data"][port["minus"]]["label"]
-            cmd.append(f"-p P{pid:03d}={plus}:{minus}")
-        else:
-            plus = emxArgs["designPorts"]["data"][port["plus"]]["label"]
-            cmd.append(f"-p P{pid:03d}={plus}")
-    for port in emxArgs["simulatingPorts"]:
-        pid = port["id"]
-        if port["enable"]:
-            cmd.append(f"-i P{pid:03d}")
-            port_count += 1
-        else:
-            cmd.append(f"-x P{pid:03d}")
-
-    if "sweepFreq" not in emxArgs:
-        raise ValueError("Sweep frequencies not defined")
-    sf = emxArgs["sweepFreq"]
-    cmd += ["--sweep", str(sf["startFreq"]), str(sf["stopFreq"])]
-    if sf.get("useStepSize"):
-        cmd += ["--sweep-stepsize", str(sf["stepSize"])]
+    # Build base SSH/SCP commands
+    if use_proxy:
+        ssh_base = ["ssh", "-o", f"ProxyJump={ssh_jump}", ssh_host]
+        scp_base = ["scp", "-o", f"ProxyJump={ssh_jump}"]
     else:
-        cmd += ["--sweep-num-steps", str(sf["stepNum"])]
+        ssh_base = ["ssh", ssh_host]
+        scp_base = ["scp"]
 
-    for key, flag in [
-        ("referenceImpedance", "--s-impedance"),
-        ("verbose",              "--verbose"),
-        ("parallelCPU",          "--parallel"),
-        ("simultaneousFrequencies","--simultaneous-frequencies")
-    ]:
-        if key in emxArgs:
-            cmd.append(f"{flag}={emxArgs[key]}")
-    if emxArgs.get("printCommandLine"):
-        cmd.append("--print-command-line")
-    if emxArgs.get("dumpConnectivity"):
-        cmd.append("--dump-connectivity")
-    if emxArgs.get("quasistatic"):
-        cmd.append("--quasistatic")
-    if emxArgs.get("recommendedMemory"):
-        cmd.append("--recommended-memory")
-    if "labelDepth" in emxArgs:
-        cmd += ["-l", str(emxArgs["labelDepth"])]
+    try:
+        # -------------------------------------------------------------------
+        # 1) Create remote temp directory
+        # -------------------------------------------------------------------
+        subprocess.run(ssh_base + [f"mkdir -p {remote_dir}"], check=True)
 
-    # tell emx to write into our remote_temp_dir
-    output_name = emxArgs.get("outputName", emxArgs["gdsCellName"])
-    for fmt, use in emxArgs["SParam"]["formats"].items():
-        if fmt.lower() == "touchstone" and use:
-            cmd += [
-                "--format", "touchstone", "-s",
-                os.path.join(remote_temp_dir, f"{output_name}.s{port_count}p")
-            ]
-    for fmt, use in emxArgs["YParam"]["formats"].items():
-        if fmt.lower() == "touchstone" and use:
-            cmd += [
-                "--format", "touchstone", "-y",
-                os.path.join(remote_temp_dir, f"{output_name}.y{port_count}p")
-            ]
+        # -------------------------------------------------------------------
+        # 2) Upload the GDS file
+        # -------------------------------------------------------------------
+        local_gds = emxArgs["gdsFile"]
+        gds_name  = os.path.basename(local_gds)
+        remote_gds_dest = f"{ssh_host}:{remote_dir}/{gds_name}"
 
-    # 4) run remotely
-    subprocess.run([
-        "ssh", "-o", f"ProxyJump={ssh_jump}", ssh_host,
-        " ".join(cmd)
-    ], check=True)
-    logger.info("Remote emx done")
+        subprocess.run(scp_base + [local_gds, remote_gds_dest], check=True)
+        logger.info(f"Uploaded {gds_name} → {remote_dir}")
 
-    # 5) fetch results back
-    results = {}
-    for ext in ("s", "y"):
-        fname = f"{output_name}.{ext}{port_count}p"
-        subprocess.run([
-            "scp", "-o", f"ProxyJump={ssh_jump}",
-            f"{ssh_host}:{remote_temp_dir}/{fname}",
-            os.path.join(emxArgs["outputPath"], fname)
-        ], check=True)
-        results[f"{ext}Params"] = os.path.join(emxArgs["outputPath"], fname)
-        logger.info(f"Fetched {fname}")
+        # -------------------------------------------------------------------
+        # 3) Build the EMX command
+        # -------------------------------------------------------------------
+        cmd = [
+            emxArgs["emxPath"],
+            os.path.join(remote_dir, gds_name),
+            emxArgs["gdsCellName"],
+            emxArgs["emxProcPath"],
+        ]
 
-    # 6) (optional) clean up the remote temp dir
-    subprocess.run([
-        "ssh", "-o", f"ProxyJump={ssh_jump}", ssh_host,
-        f"rm -rf {remote_temp_dir}"
-    ], check=True)
+        # basic flags
+        if "edgeWidth" in emxArgs:
+            cmd += ["-e", str(emxArgs["edgeWidth"])]
+        if emxArgs.get("3dCond") and "edgeWidth" in emxArgs:
+            cmd.append("--3d=*")
+        if "thickness" in emxArgs:
+            cmd += ["-t", str(emxArgs["thickness"])]
+        if "viaSeparation" in emxArgs:
+            cmd += ["-v", str(emxArgs["viaSeparation"])]
 
-    return results
+        # ports: definitions
+        port_count = 0
+        for port in emxArgs["simulatingPorts"]:
+            pid = port["id"]
+            plus_label = emxArgs["designPorts"]["data"][port["plus"]]["label"]
+            if port["type"].lower() == "differential":
+                minus_label = emxArgs["designPorts"]["data"][port["minus"]]["label"]
+                cmd.append(f"-p P{pid:03d}={plus_label}:{minus_label}")
+            else:
+                cmd.append(f"-p P{pid:03d}={plus_label}")
 
+        # ports: enable/disable
+        for port in emxArgs["simulatingPorts"]:
+            pid = port["id"]
+            if port.get("enable", False):
+                cmd.append(f"-i P{pid:03d}")
+                port_count += 1
+            else:
+                cmd.append(f"-x P{pid:03d}")
+
+        # sweep settings
+        sf = emxArgs.get("sweepFreq")
+        if not sf:
+            raise ValueError("Sweep frequencies not defined")
+        cmd += ["--sweep", str(sf["startFreq"]), str(sf["stopFreq"])]
+        if sf.get("useStepSize"):
+            cmd += ["--sweep-stepsize", str(sf["stepSize"])]
+        else:
+            cmd += ["--sweep-num-steps", str(sf["stepNum"])]
+
+        # other optional flags
+        if "referenceImpedance" in emxArgs:
+            cmd.append(f"--s-impedance={emxArgs['referenceImpedance']}")
+        if emxArgs.get("verbose"):
+            cmd.append("--verbose")
+        if "parallelCPU" in emxArgs:
+            cmd.append(f"--parallel={emxArgs['parallelCPU']}")
+        if "simultaneousFrequencies" in emxArgs:
+            cmd.append(f"--simultaneous-frequencies={emxArgs['simultaneousFrequencies']}")
+        if emxArgs.get("printCommandLine"):
+            cmd.append("--print-command-line")
+        if emxArgs.get("dumpConnectivity"):
+            cmd.append("--dump-connectivity")
+        if emxArgs.get("quasistatic"):
+            cmd.append("--quasistatic")
+        if emxArgs.get("recommendedMemory"):
+            cmd.append("--recommended-memory")
+        if "labelDepth" in emxArgs:
+            cmd += ["-l", str(emxArgs["labelDepth"])]
+
+        # output formats
+        output_name = emxArgs.get("outputName", emxArgs["gdsCellName"])
+        for fmt, use in emxArgs.get("SParam", {}).get("formats", {}).items():
+            if fmt.lower() == "touchstone" and use:
+                cmd += [
+                    "--format", "touchstone",
+                    "-s", os.path.join(remote_dir, f"{output_name}.s{port_count}p")
+                ]
+        for fmt, use in emxArgs.get("YParam", {}).get("formats", {}).items():
+            if fmt.lower() == "touchstone" and use:
+                cmd += [
+                    "--format", "touchstone",
+                    "-y", os.path.join(remote_dir, f"{output_name}.y{port_count}p")
+                ]
+
+        # -------------------------------------------------------------------
+        # 4) Run EMX remotely
+        # -------------------------------------------------------------------
+        subprocess.run(ssh_base + [" ".join(cmd)], check=True)
+        logger.info("Remote EMX execution completed")
+
+        # -------------------------------------------------------------------
+        # 5) Fetch results
+        # -------------------------------------------------------------------
+        results = {}
+        for ext in ("s", "y"):
+            fname = f"{output_name}.{ext}{port_count}p"
+            remote_path = f"{ssh_host}:{remote_dir}/{fname}"
+            local_path  = os.path.join(emxArgs["outputPath"], fname)
+            subprocess.run(scp_base + [remote_path, local_path], check=True)
+            results[f"{ext}Params"] = local_path
+            logger.info(f"Fetched {fname}")
+
+        return results
+
+    finally:
+        # -------------------------------------------------------------------
+        # 6) Always clean up remote temp dir
+        # -------------------------------------------------------------------
+        subprocess.run(ssh_base + [f"rm -rf {remote_dir}"], check=False)
+        logger.info(f"Removed remote directory {remote_dir}")
 
 
 def emx_local(emxArgs):
