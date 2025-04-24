@@ -1,0 +1,22 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sock
+
+# Virtual env
+.venv/
+
+# Node artifacts
+node_modules/
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Logs & misc
+*.log
+.env
+uix.lock

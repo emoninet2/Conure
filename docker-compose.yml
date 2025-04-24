@@ -1,0 +1,37 @@
+version: "3.8"
+
+# Named volumes for data persistence
+volumes:
+  data_volume:
+  frontend_node_modules:
+
+services:
+  backend:
+    build:
+      context: .  
+      dockerfile: uix/backend/Dockerfile
+    ports:
+      - "6050:5000"    # host:container
+    env_file:
+      - .env
+    volumes:
+      - ./:/app        # mount your entire project (so artwork_generator/, sweep/, etc. are available)
+      - /Users/habiburrahman/Documents/conure_data:/workspace
+      - ~/.ssh:/root/.ssh:ro  # Read-only mount of your host SSH config into the container
+
+  frontend:
+    build:
+      context: uix/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "6001:5173"    # host:container
+    environment:
+      VITE_BACKEND_PORT: "5000"
+      VITE_API_HOST: http://backend
+    volumes:
+      - ./uix/frontend:/app            # mount your source
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - backend
+
+
