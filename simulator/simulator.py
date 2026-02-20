@@ -40,7 +40,7 @@ def simulate(gds_file, simulator, artworkData, config, outputDir, outputName):
         logger.error("No configuration file provided.")
     else:
         logger.debug(f"Simulator config: {config}")
-    logging.critical("YOU GOT MAIL")
+
     if simulator.lower() == "emx":
         try:
             emx.simulate(gds_file, artworkData, config["emx_config"], outputDir, outputName)

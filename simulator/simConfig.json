@@ -7,7 +7,7 @@
       },
       "logLevel": "info",
       "emxPath": "/mnt/storage/INTEGRAND60/bin/emx",
-      "emxProcPath": "RC_IRCX_CRN65LP_1P9M+ALRDL_6X1Z1U_typical.proc",
+      "emxProcPath": "/uio/hume/student-u63/habiburr/RC_IRCX_CRN65LP_1P9M+ALRDL_6X1Z1U_typical.proc",
       "sweepFreq": {
         "startFreq": 1000000,
         "stopFreq": 50000000000,
@@ -33,7 +33,7 @@
       "dumpConnectivity": true,
       "quasistatic": true,
       "fullwave": false,
-      "parallelCPU": 128,
+      "parallelCPU": 0,
       "simultaneousFrequencies": 0,
       "recommendedMemory": true,
       "verbose": 0,

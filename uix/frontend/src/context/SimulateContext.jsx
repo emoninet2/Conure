@@ -3,24 +3,18 @@ import React, { createContext, useContext, useState } from 'react';
 
 const SimulateContext = createContext();
 
-/**
- * Provider component. Wrap your app (or your Tabs) in this once.
- */
 export function SimulateProvider({ children }) {
   const [simulator, setSimulator] = useState('EMX');
-  const [status, setStatus]       = useState('Idle');
+  const [status, setStatus] = useState('Idle');
+  const [isRunning, setIsRunning] = useState(false); // <-- new
 
   return (
-    <SimulateContext.Provider value={{ simulator, setSimulator, status, setStatus }}>
+    <SimulateContext.Provider value={{ simulator, setSimulator, status, setStatus, isRunning, setIsRunning }}>
       {children}
     </SimulateContext.Provider>
   );
 }
 
-/**
- * Hook to consume simulation state.
- * Must be used inside a SimulateProvider.
- */
 export function useSimulate() {
   const ctx = useContext(SimulateContext);
   if (!ctx) {

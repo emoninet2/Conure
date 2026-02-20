@@ -6,7 +6,7 @@ import signal
 import sys
 import subprocess
 from datetime import datetime
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file , Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -957,32 +957,28 @@ def load_emx_config():
 import subprocess
 import os
 
-@app.route('/api/start_simulation', methods=['POST'])
+@app.route('/api/start_simulation')
 def start_simulation():
     global PROJECT_PATH
-    data = request.get_json()
-    simulator = data.get('simulator')
 
-    logging.info(f"Starting simulation for: {simulator}")
+    simulator = request.args.get("simulator")
 
-    try:
-        if not PROJECT_PATH:
-            return jsonify({
-                "success": False,
-                "status": "❌ No project path set. Open a project first."
-            }), 400
+    if not PROJECT_PATH:
+        return "No project opened", 400
 
-        if simulator == "EMX":
-            logging.info("💻 EMX simulator selected.")
+    def generate():
+        try:
+            simulate_script = os.path.abspath(
+                os.path.join(BASE_DIR, '../../simulator/simulator.py')
+            )
 
-            simulate_script = os.path.abspath(os.path.join(BASE_DIR, '../../simulator/simulator.py'))
             gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
             config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
             artwork_path = os.path.join(PROJECT_PATH, 'artwork.json')
 
-      
             command = [
-                'python', simulate_script,
+                'python', '-u',  # 🔥 VERY IMPORTANT (unbuffered!)
+                simulate_script,
                 '-f', gds_path,
                 '--sim', 'emx',
                 '-c', config_path,
@@ -991,45 +987,99 @@ def start_simulation():
                 '-n', 'artwork'
             ]
 
-            logging.info(f"Running simulation command: {' '.join(command)}")
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True
+            )
 
-            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for line in iter(process.stdout.readline, ''):
+                yield f"data: {line.strip()}\n\n"
 
-            if result.returncode != 0:
-                logging.error(f"Simulation failed:\n{result.stderr}")
-                return jsonify({
-                    "success": False,
-                    "status": "❌ EMX simulation failed",
-                    "error": result.stderr
-                }), 500
+            process.wait()
 
-            logging.info(f"Simulation output:\n{result.stdout}")
+            yield "data: ✅ Simulation finished.\n\n"
 
-        elif simulator == "openEMS":
-            logging.info("📡 openEMS simulator selected.")
-            # TODO: Insert openEMS logic
+        except Exception as e:
+            yield f"data: ❌ Error: {str(e)}\n\n"
 
-        elif simulator == "ANSYS Raptor":
-            logging.info("⚡ ANSYS Raptor simulator selected.")
-            # TODO: Insert ANSYS Raptor logic
+    return Response(generate(), mimetype="text/event-stream")
 
-        else:
-            return jsonify({
-                "success": False,
-                "status": f"❌ Unknown simulator: {simulator}"
-            }), 400
 
-        return jsonify({
-            "success": True,
-            "status": f"✅ {simulator} simulation completed successfully."
-        })
+# @app.route('/api/start_simulation', methods=['POST'])
+# def start_simulation():
+#     global PROJECT_PATH
+#     data = request.get_json()
+#     simulator = data.get('simulator')
 
-    except Exception as e:
-        logging.exception("Simulation failed to start.")
-        return jsonify({
-            "success": False,
-            "status": f"❌ Failed to start simulation: {str(e)}"
-        }), 500
+#     logging.info(f"Starting simulation for: {simulator}")
+
+#     try:
+#         if not PROJECT_PATH:
+#             return jsonify({
+#                 "success": False,
+#                 "status": "❌ No project path set. Open a project first."
+#             }), 400
+
+#         if simulator == "EMX":
+#             logging.info("💻 EMX simulator selected.")
+
+#             simulate_script = os.path.abspath(os.path.join(BASE_DIR, '../../simulator/simulator.py'))
+#             gds_path = os.path.join(PROJECT_PATH, 'artwork.gds')
+#             config_path = os.path.join(PROJECT_PATH, 'simConfig.json')
+#             artwork_path = os.path.join(PROJECT_PATH, 'artwork.json')
+
+      
+#             command = [
+#                 'python', simulate_script,
+#                 '-f', gds_path,
+#                 '--sim', 'emx',
+#                 '-c', config_path,
+#                 '-a', artwork_path,
+#                 '-o', PROJECT_PATH,
+#                 '-n', 'artwork'
+#             ]
+
+#             logging.info(f"Running simulation command: {' '.join(command)}")
+
+#             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+#             if result.returncode != 0:
+#                 logging.error(f"Simulation failed:\n{result.stderr}")
+#                 return jsonify({
+#                     "success": False,
+#                     "status": "❌ EMX simulation failed",
+#                     "error": result.stderr
+#                 }), 500
+
+#             logging.info(f"Simulation output:\n{result.stdout}")
+
+#         elif simulator == "openEMS":
+#             logging.info("📡 openEMS simulator selected.")
+#             # TODO: Insert openEMS logic
+
+#         elif simulator == "ANSYS Raptor":
+#             logging.info("⚡ ANSYS Raptor simulator selected.")
+#             # TODO: Insert ANSYS Raptor logic
+
+#         else:
+#             return jsonify({
+#                 "success": False,
+#                 "status": f"❌ Unknown simulator: {simulator}"
+#             }), 400
+
+#         return jsonify({
+#             "success": True,
+#             "status": f"✅ {simulator} simulation completed successfully."
+#         })
+
+#     except Exception as e:
+#         logging.exception("Simulation failed to start.")
+#         return jsonify({
+#             "success": False,
+#             "status": f"❌ Failed to start simulation: {str(e)}"
+#         }), 500
 
 
 

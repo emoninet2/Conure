@@ -70,8 +70,6 @@ def emx(emxArgs):
       emxArgs["remote"]["use"]
     Returns the dict of result paths from the called implementation.
     """
-
-    logging.error("DAMN YOU")
     # Safely pull out the remote config
     remote_cfg = emxArgs.get("remote", {})
     use_remote = bool(remote_cfg.get("use", False))
@@ -185,8 +183,7 @@ def emx_remote(emxArgs):
         # other optional flags
         if "referenceImpedance" in emxArgs:
             cmd.append(f"--s-impedance={emxArgs['referenceImpedance']}")
-        if emxArgs.get("verbose"):
-            cmd.append("--verbose")
+        
         if "parallelCPU" in emxArgs:
             cmd.append(f"--parallel={emxArgs['parallelCPU']}")
         if "simultaneousFrequencies" in emxArgs:
@@ -217,9 +214,17 @@ def emx_remote(emxArgs):
                     "-y", os.path.join(remote_dir, f"{output_name}.y{port_count}p")
                 ]
 
+        if "verbose" in emxArgs:
+            cmd.append(f"--verbose={emxArgs['verbose']}")
+
+
         # -------------------------------------------------------------------
         # 4) Run EMX remotely
         # -------------------------------------------------------------------
+
+
+
+        logger.critical(ssh_base + [" ".join(cmd)])
         subprocess.run(ssh_base + [" ".join(cmd)], check=True)
         logger.info("Remote EMX execution completed")
 
