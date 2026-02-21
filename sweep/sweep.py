@@ -242,7 +242,7 @@ def sweep(simulator, artworkData, sweepParam, simulatorConfig, base_output_dir, 
             for i, param in enumerate(sweepPar):
                 run_artwork["parameters"][param] = permutation[i]
                 runData["parameters"][param] = permutation[i]
-            runData["parameters"]["rings"] = run_artwork["parameters"].get("rings", None)
+            #runData["parameters"]["rings"] = run_artwork["parameters"].get("rings", None)
             with open(run_parameters_json_path, "w") as parfile:
                 json.dump(runData, parfile, indent=4)
             update_checkpoint(run_key, checkpoint_db, checkpoint_file_path, {"parameters": runData["parameters"],
