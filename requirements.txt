@@ -1,6 +1,12 @@
-    gdspy
-    numpy
-    flask
-    flask-cors
-    python-dotenv
-    scikit-rf
+gdspy
+numpy
+flask
+flask-cors
+python-dotenv
+scikit-rf
+joblib
+matplotlib
+scikit-learn
+keras
+tensorflow
+random
