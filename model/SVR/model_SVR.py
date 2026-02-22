@@ -10,6 +10,26 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from model import data_translator
 
 
+
+svr_params = {
+    "kernel": "rbf", # choose between "linear", "poly", "rbf" , "sigmoid"
+    "C": 100.0, #usually 
+    "epsilon": 0.001,
+    "gamma": "scale"
+}
+
+
+# svr_params = {
+#     "kernel": "poly",      # polynomial kernel
+#     "degree": 2,           # degree of the polynomial (2 or 3 are common starting points)
+#     "C": 10.0,             # regularization parameter (larger = less regularization)
+#     "epsilon": 0.01,       # epsilon-insensitive tube
+#     "gamma": "scale",      # "scale" or "auto", controls influence of each feature
+#     "coef0": 1.0           # independent term in the polynomial kernel
+# }
+
+
+
 def split_data(features, targets, primary_size=0.8, secondary_size=0.2, random_state=None):
     return train_test_split(features, targets,
                             train_size=primary_size,
@@ -30,12 +50,6 @@ def normalize_data_sets(feature_train, feature_test, target_train, target_test):
     return feature_train_norm, feature_test_norm, target_train_norm, target_test_norm, feature_scaler, target_scaler
 
 
-svr_params = {
-    "kernel": "rbf",
-    "C": 10.0,
-    "epsilon": 0.01,
-    "gamma": "scale"
-}
 
 
 def train_svr_models(feature_train, target_train, params=svr_params):
@@ -84,5 +98,8 @@ if __name__ == "__main__":
     metrics = get_model_metrics(y_test, preds)
     print(json.dumps(metrics, indent=4))
 
-    os.makedirs("SVR_MODEL", exist_ok=True)
-    joblib.dump(models, "SVR_MODEL/models.pkl")
+
+    model_path = "/mnt/storage/emon/model_library/SVR_TX11"
+
+    os.makedirs(model_path, exist_ok=True)
+    joblib.dump(models, "svr_models.pkl")

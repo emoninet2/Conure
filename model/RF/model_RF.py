@@ -9,6 +9,22 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from sklearn.ensemble import RandomForestRegressor
 from model import data_translator
 
+
+# ----------------------------
+# Random Forest Hyperparameters
+# ----------------------------
+rf_params = {
+    "n_estimators": 200,
+    "max_depth": 20,          # None = expand until pure
+    "min_samples_split": 5,
+    "min_samples_leaf": 5,
+    "max_features": "sqrt",     # common good default
+    "bootstrap": True,
+    "random_state": 42,
+    "n_jobs": 6
+}
+
+
 # ----------------------------
 # Split Data
 # ----------------------------
@@ -35,19 +51,7 @@ def normalize_data_sets(feature_train, feature_test, target_train, target_test):
 
     return feature_train_norm, feature_test_norm, target_train_norm, target_test_norm, feature_scaler, target_scaler
 
-# ----------------------------
-# Random Forest Hyperparameters
-# ----------------------------
-rf_params = {
-    "n_estimators": 500,
-    "max_depth": None,          # None = expand until pure
-    "min_samples_split": 2,
-    "min_samples_leaf": 1,
-    "max_features": "sqrt",     # common good default
-    "bootstrap": True,
-    "random_state": 42,
-    "n_jobs": -1
-}
+
 
 # ----------------------------
 # Train Multi-output Random Forest
