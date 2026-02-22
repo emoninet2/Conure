@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import random
 import joblib
@@ -7,25 +6,24 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-import xgboost as xgb
-from model import data_translator  # your data translation functions
+import lightgbm as lgb
+from model import data_translator
+
 
 
 # ----------------------------
-# XGBoost Parameters
+# LightGBM Hyperparameters
 # ----------------------------
-xgb_params = {
-    "n_estimators": 1000,        # number of trees
-    "max_depth": 6,              # max depth of each tree
-    "learning_rate": 0.05,       # step size shrinkage
-    "subsample": 0.8,            # fraction of rows used per tree
-    "colsample_bytree": 0.8,     # fraction of features used per tree
-    "gamma": 0.0,                # min loss reduction to split
-    "reg_alpha": 0.0,            # L1 regularization
-    "reg_lambda": 1.0,           # L2 regularization
+lgb_params = {
+    "n_estimators": 500,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "num_leaves": 31,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
     "random_state": 42,
-    "tree_method": "hist",
-    "n_jobs": -1
+    "n_jobs": -1,
+    "verbose": -1
 }
 
 
@@ -49,22 +47,22 @@ def normalize_data_sets(feature_train, feature_test, target_train, target_test):
     return feature_train_norm, feature_test_norm, target_train_norm, target_test_norm, feature_scaler, target_scaler
 
 # ----------------------------
-# Train Multi-output XGBoost
+# Train Multi-output LightGBM
 # ----------------------------
-def train_xgb_models(feature_train, target_train):
+def train_lgb_models(feature_train, target_train):
     n_outputs = target_train.shape[1]
     models = []
     for i in range(n_outputs):
-        model = xgb.XGBRegressor(**xgb_params)
+        model = lgb.LGBMRegressor(**lgb_params)
         model.fit(feature_train, target_train[:, i])
         models.append(model)
-        print(f"Trained XGB for output {i+1}/{n_outputs}")
+        print(f"Trained LGBM for output {i+1}/{n_outputs}")
     return models
 
 # ----------------------------
 # Predict
 # ----------------------------
-def predict_xgb(models, feature_test):
+def predict_lgb(models, feature_test):
     n_samples = feature_test.shape[0]
     n_outputs = len(models)
     predictions = np.zeros((n_samples, n_outputs))
@@ -119,17 +117,17 @@ if __name__ == "__main__":
         feature_train, feature_test, target_train, target_test
     )
 
-    xgb_models = train_xgb_models(feature_train_norm, target_train_norm)
-    predictions_norm = predict_xgb(xgb_models, feature_test_norm)
+    lgb_models = train_lgb_models(feature_train_norm, target_train_norm)
+    predictions_norm = predict_lgb(lgb_models, feature_test_norm)
     predictions = target_scaler.inverse_transform(predictions_norm)
 
     metrics_dict = get_model_metrics(target_test, predictions)
     print(json.dumps(metrics_dict, indent=4))
 
     # Save models
-    model_path = "/mnt/storage/emon/model_library/XGB_TX11"
+    model_path = "/mnt/storage/emon/model_library/LGBM_TX11"
     os.makedirs(model_path, exist_ok=True)
     joblib.dump(feature_scaler, os.path.join(model_path, 'feature_scaler.pkl'))
     joblib.dump(target_scaler, os.path.join(model_path, 'target_scaler.pkl'))
-    for i, model in enumerate(xgb_models):
-        joblib.dump(model, os.path.join(model_path, f'xgb_model_output_{i}.pkl'))
+    for i, model in enumerate(lgb_models):
+        joblib.dump(model, os.path.join(model_path, f'lgb_model_output_{i}.pkl'))

@@ -262,67 +262,6 @@ def predict_from_model(model_name, model_path, feature):
 
 
 
-# # ------------------------------------------------------------
-# # 🔹 Function to Get the Model Metrics
-# # ------------------------------------------------------------
-# def get_model_metrics(model_name, model_path, feature_test, target_test):
-#     """
-#     Loads a trained model, evaluates it on test data, and returns performance metrics.
-
-#     Args:
-#     - model_name (str): Name of the saved model.
-#     - model_path (str): Path to the model directory.
-#     - feature_test (array-like): Feature test dataset.
-#     - target_test (array-like): Target test dataset.
-
-#     Returns:
-#     - metrics_dict (dict): Dictionary containing R² score, MAE, RMSE, and MSE.
-#     """
-
-#     print(np.shape(feature_test))  # Should show something like (num_samples, 3)
-#     print(np.shape(target_test))   # Should show something like (num_samples, 3)
-
-#     # Load the trained model
-#     model = load_model(os.path.join(model_path, model_name + ".keras"))
-
-#     # Load scalers
-#     feature_scaler = joblib.load(os.path.join(model_path, 'feature_scaler.pkl'))
-#     target_scaler = joblib.load(os.path.join(model_path, 'target_scaler.pkl'))
-
-#     # Normalize the test features
-
-
-#     print("GOTCHAAAA: ", np.shape(feature_test))
-
-#     feature_test_norm = feature_scaler.transform(feature_test)
-
-#     # Make predictions on normalized test data
-#     predictions_norm = model.predict(feature_test_norm)
-
-#     # Reshape predictions for inverse transformation
-#     if predictions_norm.ndim == 1:
-#         predictions_norm = predictions_norm.reshape(-1, 1)
-
-#     # Denormalize predictions
-#     predictions = target_scaler.inverse_transform(predictions_norm)
-
-#     # Compute error metrics
-#     r2 = r2_score(target_test, predictions)
-#     mae = mean_absolute_error(target_test, predictions)
-#     mse = mean_squared_error(target_test, predictions)
-#     rmse = np.sqrt(mse)
-
-#     # Store metrics in a dictionary
-#     metrics_dict = {
-#         "R2 Score": r2,
-#         "Mean Absolute Error (MAE)": mae,
-#         "Mean Squared Error (MSE)": mse,
-#         "Root Mean Squared Error (RMSE)": rmse
-#     }
-
-#     return metrics_dict
-
-
 # ------------------------------------------------------------
 # 🔹 Function to Get Simplified Model Metrics
 # ------------------------------------------------------------

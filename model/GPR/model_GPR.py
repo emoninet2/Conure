@@ -17,6 +17,16 @@ import matplotlib.pyplot as plt
 from model import data_translator  # your data translation functions
 
 
+
+# GPR parameter dictionary
+gpr_params = {
+    "kernel": C(1.0, (1e-3, 1e4)) * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3)) 
+              + WhiteKernel(noise_level=1e-5, noise_level_bounds=(1e-6, 1e-2)),
+    "n_restarts_optimizer": 10,
+    "normalize_y": True,
+    "alpha": 0.0
+}
+
 # ------------------------------------------------------------
 # 🔹 Function to Split Data
 # ------------------------------------------------------------
@@ -93,19 +103,7 @@ def train_gpr_model(feature_train, target_train):
 
     for i in range(n_outputs):
 
-        # Kernel: Constant * RBF + WhiteKernel (noise)
-        # kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=1e-5)
-        # gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=5, alpha=0.0, normalize_y=True)
-
-        # Example kernel with larger bounds
-        kernel = C(1.0, (1e-3, 1e4)) * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3)) \
-         + WhiteKernel(noise_level=1e-5, noise_level_bounds=(1e-6, 1e-2))
-
-        gpr = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=10, normalize_y=True)
-
-
-
-
+        gpr = GaussianProcessRegressor(**gpr_params)  # use the dict to configure GPR
         gpr.fit(feature_train, target_train[:, i])
         models.append(gpr)
         print(f"Trained GPR for output {i+1}/{n_outputs}")

@@ -9,4 +9,6 @@ matplotlib
 scikit-learn
 keras
 tensorflow
-random
+xgboost
+lightgbm
+catboost
