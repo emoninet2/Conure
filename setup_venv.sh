@@ -30,6 +30,16 @@ if [ -f "requirements.txt" ]; then
 fi
 
 
+# Check if nvidia-smi exists and returns a 0 exit code
+if command -v nvidia-smi &> /dev/null; then
+    echo "GPU detected. Installing TensorFlow with CUDA support..."
+    pip install "tensorflow[and-cuda]"
+else
+    echo "No GPU detected. Installing standard TensorFlow..."
+    pip install tensorflow
+fi
+
+
 # Final instructions
 echo ""
 echo "🚀 All set!"

@@ -1,9 +1,11 @@
+psutil
 gdspy
 numpy
 flask
 flask-cors
 python-dotenv
 scikit-rf
+threadpoolctl
 joblib
 matplotlib
 scikit-learn
@@ -12,3 +14,4 @@ tensorflow
 xgboost
 lightgbm
 catboost
+
