@@ -1,16 +1,13 @@
 # LGBM.py
 
 import os
-import json
-import joblib
 import time
 import logging
 import numpy as np
 import psutil
+import joblib
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from model import data_translator, report
 
 # ---------------- LOGGER ----------------
@@ -20,23 +17,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-
-# ---------------- NORMALIZATION ----------------
-def normalize_data_sets(feature_train, feature_test, target_train, target_test,
-                        feature_method="standard", target_method="standard"):
-    scalers = {
-        "standard": StandardScaler
-    }
-    f_scaler = scalers[feature_method.lower()]()
-    t_scaler = scalers[target_method.lower()]()
-
-    f_train_norm = f_scaler.fit_transform(feature_train)
-    f_test_norm = f_scaler.transform(feature_test)
-
-    t_train_norm = t_scaler.fit_transform(target_train)
-    t_test_norm = t_scaler.transform(target_test)
-
-    return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
 
 # ---------------- TRAIN MODEL ----------------
 def train_lgb_models(feature_train, target_train, params):
@@ -58,73 +38,36 @@ def predict_lgb(models, feature_test):
         predictions[:, i] = model.predict(feature_test)
     return predictions
 
-# ---------------- METRICS ----------------
-def get_model_metrics(target_test, predictions):
-    r2  = r2_score(target_test, predictions)
-    mae = mean_absolute_error(target_test, predictions)
-    rmse = np.sqrt(mean_squared_error(target_test, predictions))
-
-    per_sample_rmse = np.sqrt(np.mean((target_test - predictions)**2, axis=1))
-    per_sample_r2   = np.array([r2_score(target_test[i], predictions[i]) for i in range(target_test.shape[0])])
-    per_sample_summary = {
-        "RMSE mean": np.mean(per_sample_rmse),
-        "RMSE max": np.max(per_sample_rmse),
-        "RMSE min": np.min(per_sample_rmse),
-        "R2 mean": np.mean(per_sample_r2),
-        "R2 min": np.min(per_sample_r2)
-    }
-
-    per_output_rmse = np.sqrt(np.mean((target_test - predictions)**2, axis=0))
-    per_output_mae  = np.mean(np.abs(target_test - predictions), axis=0)
-    per_output_summary = {
-        "RMSE mean": np.mean(per_output_rmse),
-        "RMSE max": np.max(per_output_rmse),
-        "RMSE min": np.min(per_output_rmse),
-        "MAE mean": np.mean(per_output_mae)
-    }
-
-    metrics_dict = {
-        "Aggregate": {"R2": r2, "RMSE": rmse, "MAE": mae},
-        "Per-sample summary": per_sample_summary,
-        "Per-output summary": per_output_summary
-    }
-
-    return metrics_dict
-
-
 # ---------------- PIPELINE ----------------
 def train_model_pipeline(X, y, config, model_base_dir):
-    # Split
-    f_train, f_test, t_train, t_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Normalize
-    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
-        f_train, f_test, t_train, t_test, **config["normalization"]
+    # Split dataset
+    f_train, f_test, t_train, t_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
     )
 
-    # Train
+    # Train LightGBM models
     start_time = time.time()
-    lgb_models = train_lgb_models(f_train_n, t_train_n, config["lgb_params"])
+    lgb_models = train_lgb_models(f_train, t_train, config["lgb_params"])
     train_duration = time.time() - start_time
     logger.info(f"Training completed in {train_duration:.2f} seconds.")
 
-    # Predict & Metrics
-    preds_norm = predict_lgb(lgb_models, f_test_n)
-    preds = t_scaler.inverse_transform(preds_norm)
-    perf_metrics = get_model_metrics(t_test, preds)
+    # Predict
+    preds = predict_lgb(lgb_models, f_test)
+
+    # Calculate metrics using report.py
+    perf_metrics = report.calculate_metrics(t_test, preds)
 
     # Save models
     save_path = os.path.join(model_base_dir, config["model_name"])
     os.makedirs(save_path, exist_ok=True)
-    joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
-    joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
     joblib.dump(lgb_models, os.path.join(save_path, "lgb_models_list.pkl"))
 
-    # ---------------- FULL REPORT ----------------
+    # System info and memory usage
     process = psutil.Process(os.getpid())
     peak_ram_gb = round(process.memory_info().rss / (1024**3), 2)
     system_info = report.get_system_info()
 
+    # Full report
     full_report = {
         "model_info": {
             "model_name": config["model_name"],
@@ -147,8 +90,7 @@ def train_model_pipeline(X, y, config, model_base_dir):
             "metrics": perf_metrics,
             "evaluation_protocol": {
                 "dataset": "held-out test set",
-                "predictions_inverse_transformed": True,
-                "normalization_used": True
+                "normalization_used": False
             }
         },
         "system_info": system_info,
@@ -159,10 +101,11 @@ def train_model_pipeline(X, y, config, model_base_dir):
         "configuration": config
     }
 
-    # Save report.json instead of metrics.json
+    # Save report
     report.save_report(full_report, save_path)
     report.log_metric(perf_metrics, config["model_type"], logger)
     logger.info("LightGBM training pipeline completed.")
+
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
@@ -172,7 +115,6 @@ if __name__ == "__main__":
     train_config = {
         "model_name": "TX11_LGBM",
         "model_type": "LGBM",
-        "normalization": {"feature_method": "standard", "target_method": "standard"},
         "lgb_params": {
             "n_estimators": 500,
             "learning_rate": 0.05,
@@ -188,9 +130,6 @@ if __name__ == "__main__":
 
     # Load data
     X, y, _, _, _ = data_translator.prepare_ffi_data(FILE_PATH)
-
-    # Run pipeline
-    #train_model_pipeline(X, y, train_config, MODEL_BASE_DIR)
 
     # Reduce dataset size for ultra-fast test
     num_samples = 50

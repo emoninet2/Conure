@@ -6,8 +6,10 @@ import joblib
 import time
 import logging
 import numpy as np
+import math
+import psutil
+
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
@@ -22,42 +24,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------- NORMALIZATION ----------------
-def normalize_data_sets(feature_train, feature_test, target_train, target_test,
-                        feature_method="standard", target_method="standard"):
-    scalers = {
-        "standard": StandardScaler
-    }
-    f_scaler = scalers[feature_method.lower()]()
-    t_scaler = scalers[target_method.lower()]()
-
-    f_train_norm = f_scaler.fit_transform(feature_train)
-    f_test_norm = f_scaler.transform(feature_test)
-
-    t_train_norm = t_scaler.fit_transform(target_train)
-    t_test_norm = t_scaler.transform(target_test)
-
-    return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
-
 # ---------------- TRAIN MODEL ----------------
 def train_rf_models(feature_train, target_train, params):
     n_outputs = target_train.shape[1]
     models = []
+
     for i in range(n_outputs):
         model = RandomForestRegressor(**params)
         model.fit(feature_train, target_train[:, i])
         models.append(model)
         logger.info(f"Trained RF for output {i+1}/{n_outputs}")
+
     return models
+
 
 # ---------------- PREDICT ----------------
 def predict_rf(models, feature_test):
     n_samples = feature_test.shape[0]
     n_outputs = len(models)
     predictions = np.zeros((n_samples, n_outputs))
+
     for i, model in enumerate(models):
         predictions[:, i] = model.predict(feature_test)
+
     return predictions
+
 
 # ---------------- METRICS ----------------
 def get_model_metrics(target_test, predictions):
@@ -65,43 +56,49 @@ def get_model_metrics(target_test, predictions):
     mae = mean_absolute_error(target_test, predictions)
     rmse = np.sqrt(mean_squared_error(target_test, predictions))
 
+    # Per-sample metrics
     per_sample_rmse = np.sqrt(np.mean((target_test - predictions)**2, axis=1))
-    per_sample_r2   = np.array([r2_score(target_test[i], predictions[i])
-                                for i in range(target_test.shape[0])])
+    per_sample_r2   = np.array([
+        r2_score(target_test[i], predictions[i])
+        for i in range(target_test.shape[0])
+    ])
 
     per_sample_summary = {
-        "RMSE mean": np.mean(per_sample_rmse),
-        "RMSE max": np.max(per_sample_rmse),
-        "RMSE min": np.min(per_sample_rmse),
-        "R2 mean": np.mean(per_sample_r2),
-        "R2 min": np.min(per_sample_r2)
+        "RMSE mean": float(np.mean(per_sample_rmse)),
+        "RMSE max": float(np.max(per_sample_rmse)),
+        "RMSE min": float(np.min(per_sample_rmse)),
+        "R2 mean": float(np.nanmean(per_sample_r2)),
+        "R2 min": float(np.nanmin(per_sample_r2))
     }
 
+    # Per-output metrics
     per_output_rmse = np.sqrt(np.mean((target_test - predictions)**2, axis=0))
     per_output_mae  = np.mean(np.abs(target_test - predictions), axis=0)
 
     per_output_summary = {
-        "RMSE mean": np.mean(per_output_rmse),
-        "RMSE max": np.max(per_output_rmse),
-        "RMSE min": np.min(per_output_rmse),
-        "MAE mean": np.mean(per_output_mae)
+        "RMSE mean": float(np.mean(per_output_rmse)),
+        "RMSE max": float(np.max(per_output_rmse)),
+        "RMSE min": float(np.min(per_output_rmse)),
+        "MAE mean": float(np.mean(per_output_mae))
     }
 
     metrics_dict = {
-        "Aggregate": {"R2": r2, "RMSE": rmse, "MAE": mae},
+        "Aggregate": {
+            "R2": None if r2 is None else float(r2),
+            "RMSE": float(rmse),
+            "MAE": float(mae)
+        },
         "Per-sample summary": per_sample_summary,
         "Per-output summary": per_output_summary
     }
 
     return metrics_dict
 
-# ---------------- PIPELINE ----------------
+
 # ---------------- PIPELINE ----------------
 def train_model_pipeline(X, y, config, model_base_dir):
-    import psutil
-    import math
 
-    # Helper to sanitize NaN/Inf
+    # Helper to sanitize NaN/Inf for JSON
     def sanitize_json(obj):
         if isinstance(obj, dict):
             return {k: sanitize_json(v) for k, v in obj.items()}
@@ -114,46 +111,42 @@ def train_model_pipeline(X, y, config, model_base_dir):
         else:
             return obj
 
-    # Split
+    # ---------------- SPLIT ----------------
     f_train, f_test, t_train, t_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
 
-    # Normalize
-    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
-        f_train, f_test, t_train, t_test, **config["normalization"]
-    )
-
-    # Train
+    # ---------------- TRAIN ----------------
     start_time = time.time()
-    rf_models = train_rf_models(f_train_n, t_train_n, config["rf_params"])
+    rf_models = train_rf_models(f_train, t_train, config["rf_params"])
     train_duration = time.time() - start_time
     logger.info(f"Training completed in {train_duration:.2f} seconds.")
 
-    # Predict & Metrics
-    preds_norm = predict_rf(rf_models, f_test_n)
-    preds = t_scaler.inverse_transform(preds_norm)
+    # ---------------- PREDICT ----------------
+    preds = predict_rf(rf_models, f_test)
+
+    # ---------------- METRICS ----------------
     perf_metrics = get_model_metrics(t_test, preds)
 
-    # Save models
+    # ---------------- SAVE MODELS ----------------
     save_path = os.path.join(model_base_dir, config["model_name"])
     os.makedirs(save_path, exist_ok=True)
-    joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
-    joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
+
     joblib.dump(rf_models, os.path.join(save_path, "rf_models_list.pkl"))
 
-
-
-    # ---------------- FULL REPORT ----------------
+    # ---------------- SYSTEM INFO ----------------
     process = psutil.Process(os.getpid())
     peak_ram_gb = round(process.memory_info().rss / (1024**3), 2)
     system_info = report.get_system_info()
 
-    # Compute total size of all model files in MB
     model_files = [f for f in os.listdir(save_path) if f.endswith(".pkl")]
-    model_size_mb = round(sum(os.path.getsize(os.path.join(save_path, f)) for f in model_files) / (1024**2), 2)
+    model_size_mb = round(
+        sum(os.path.getsize(os.path.join(save_path, f)) for f in model_files)
+        / (1024**2),
+        2
+    )
 
-
+    # ---------------- FULL REPORT ----------------
     full_report = {
         "model_info": {
             "model_name": config["model_name"],
@@ -177,8 +170,8 @@ def train_model_pipeline(X, y, config, model_base_dir):
             "metrics": perf_metrics,
             "evaluation_protocol": {
                 "dataset": "held-out test set",
-                "predictions_inverse_transformed": True,
-                "normalization_used": True
+                "predictions_inverse_transformed": False,
+                "normalization_used": False
             }
         },
         "system_info": system_info,
@@ -195,17 +188,19 @@ def train_model_pipeline(X, y, config, model_base_dir):
     # Save report
     report.save_report(full_report, save_path)
     report.log_metric(perf_metrics, config["model_type"], logger)
+
     logger.info("Random Forest training pipeline completed.")
+
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
+
     FILE_PATH = "/home/emon/projects/Conure/data/raw/simulation_data_fixed.npz"
     MODEL_BASE_DIR = "/home/emon/projects/Conure/data/model_library/"
 
     train_config = {
         "model_name": "TX11_RF_SIMPLE",
         "model_type": "RandomForest",
-        "normalization": {"feature_method": "standard", "target_method": "standard"},
         "rf_params": {
             "n_estimators": 200,
             "max_depth": 20,
@@ -221,14 +216,13 @@ if __name__ == "__main__":
     # Load data
     X, y, _, _, _ = data_translator.prepare_ffi_data(FILE_PATH)
 
-    # Run pipeline
-    #train_model_pipeline(X, y, train_config, MODEL_BASE_DIR)
-
-
-    # Reduce dataset size for ultra-fast test
-    num_samples = 5
+    # Ultra-fast test
+    num_samples = 100
     num_outputs = 10
 
-    # Run training pipeline
-    train_model_pipeline(X[:num_samples], y[:num_samples, :num_outputs], train_config, MODEL_BASE_DIR)
-
+    train_model_pipeline(
+        X[:num_samples],
+        y[:num_samples, :num_outputs],
+        train_config,
+        MODEL_BASE_DIR
+    )
