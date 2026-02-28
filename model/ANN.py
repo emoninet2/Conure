@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, Ma
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.optimizers import Adam
-
+from keras import regularizers
 # Custom modules
 from model import data_translator, report
 
@@ -46,31 +46,81 @@ def normalize_data_sets(feature_train, feature_test, target_train, target_test,
 
     return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
 
+
+
 # ---------------- MODEL GENERATION ----------------
 def generate_model(train_features, train_targets, config):
+    from keras import regularizers
+    from keras import optimizers
+
+    # 1. Split for validation
     val_size = config["training"].get("validation_split", 0.2)
     train_f, val_f, train_t, val_t = train_test_split(
         train_features, train_targets, test_size=val_size, random_state=42
     )
 
+    # 2. Build model
     model = Sequential()
     for i, layer in enumerate(config["architecture"]):
         if layer["type"] == "Dense":
+            reg = None
+            if "regularizer" in layer:
+                r = layer["regularizer"]
+                r_type = r.get("type", "").lower()
+                if r_type == "l1":
+                    reg = regularizers.l1(r["value"])
+                elif r_type == "l2":
+                    reg = regularizers.l2(r["value"])
+                elif r_type == "l1_l2":
+                    reg = regularizers.l1_l2(l1=r.get("l1", 0.0), l2=r.get("l2", 0.0))
+
             if i == 0:
-                model.add(Dense(layer["units"], activation=layer["activation"],
-                                input_shape=(train_features.shape[1],)))
+                model.add(Dense(
+                    units=layer["units"],
+                    activation=layer["activation"],
+                    input_shape=(train_features.shape[1],),
+                    kernel_regularizer=reg
+                ))
             else:
-                model.add(Dense(layer["units"], activation=layer["activation"]))
+                model.add(Dense(
+                    units=layer["units"],
+                    activation=layer["activation"],
+                    kernel_regularizer=reg
+                ))
+
         elif layer["type"] == "Dropout":
             model.add(Dropout(layer["rate"]))
 
-    optimizer = Adam(learning_rate=config["training"]["learning_rate"])
-    model.compile(optimizer=optimizer, loss=config["training"]["loss"], metrics=config["training"]["metrics"])
+    # 3. Instantiate optimizer from config
+    opt_conf = config["training"].get("optimizer", {"type": "Adam", "learning_rate": 0.001})
+    opt_type = opt_conf.get("type", "Adam").lower()
+    lr = opt_conf.get("learning_rate", 0.001)
 
+    if opt_type == "adam":
+        optimizer = optimizers.Adam(learning_rate=lr)
+    elif opt_type == "sgd":
+        momentum = opt_conf.get("momentum", 0.0)
+        optimizer = optimizers.SGD(learning_rate=lr, momentum=momentum)
+    elif opt_type == "rmsprop":
+        optimizer = optimizers.RMSprop(learning_rate=lr)
+    elif opt_type == "adagrad":
+        optimizer = optimizers.Adagrad(learning_rate=lr)
+    else:
+        raise ValueError(f"Unsupported optimizer type: {opt_type}")
+
+    # 4. Compile model
+    model.compile(
+        optimizer=optimizer,
+        loss=config["training"]["loss"],
+        metrics=config["training"]["metrics"]
+    )
+
+    # 5. Setup callbacks
     callbacks = []
     if config.get("early_stopping"):
         callbacks.append(tf.keras.callbacks.EarlyStopping(**config["early_stopping"]))
 
+    # 6. Train model
     history = model.fit(
         train_f, train_t,
         validation_data=(val_f, val_t),
@@ -229,10 +279,14 @@ if __name__ == "__main__":
         "training": {
             "epochs": 100,
             "batch_size": 32,
-            "learning_rate": 0.001,
             "loss": "mse",
             "metrics": ["mae"],
-            "validation_split": 0.2
+            "validation_split": 0.2,
+            "optimizer": {
+                "type": "Adam",       # "adam" , "SGD", "RMSprop", "Adagrad" also supported
+                "learning_rate": 0.001,
+                "momentum": 0.9       # only for SGD
+            }
         },
         "early_stopping": {
             "monitor": "val_loss",
@@ -240,11 +294,12 @@ if __name__ == "__main__":
             "restore_best_weights": True
         },
         "architecture": [
-            {"type": "Dense", "units": 128, "activation": "relu"},
+            {"type": "Dense", "units": 128, "activation": "relu", "regularizer": {"type": "l2", "value": 0.01}},
             {"type": "Dropout", "rate": 0.1},
-            {"type": "Dense", "units": 512, "activation": "relu"},
+            {"type": "Dense", "units": 512, "activation": "relu", "regularizer": {"type": "l1_l2", "l1": 0.001, "l2": 0.01}},
             {"type": "Dense", "units": "AUTO", "activation": "linear"}
-        ]
+        ],
+
     }
 
     # Load data (specific to your data format)
