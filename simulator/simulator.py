@@ -3,35 +3,21 @@ import os
 import json
 import sys
 import logging
-import emx
 
 
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        logging.DEBUG: "\033[94m",     # Blue
-        logging.INFO: "\033[92m",      # Green
-        logging.WARNING: "\033[93m",   # Yellow
-        logging.ERROR: "\033[91m",     # Red
-        logging.CRITICAL: "\033[95m",  # Magenta
-    }
-    RESET = "\033[0m"
+from common.logger import get_logger
+from . import emx
 
-    def format(self, record):
-        color = self.COLORS.get(record.levelno, self.RESET)
-        timestamp = self.formatTime(record, self.datefmt)
-        msg = super().format(record)
-        return f"{timestamp} [SIM] {color}{msg}{self.RESET}"
+logger = get_logger(__name__, '[SIM]')
+
+def simulate_task(x):
+    logger.info(f"Starting SIM simulation with value: {x}")
+    result = emx.emx_task(x)  # calling emx.py function
+    logger.info(f"Simulation result: {result}")
+    return result
 
 
 
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
-    logger.addHandler(handler)
     
 def simulate(gds_file, simulator, artworkData, config, outputDir, outputName):
 
@@ -42,6 +28,7 @@ def simulate(gds_file, simulator, artworkData, config, outputDir, outputName):
         logger.debug(f"Simulator config: {config}")
 
     if simulator.lower() == "emx":
+        logger.info(f"Attempting to simulate using emx")
         try:
             emx.simulate(gds_file, artworkData, config["emx_config"], outputDir, outputName)
         except Exception as error:
@@ -138,3 +125,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+

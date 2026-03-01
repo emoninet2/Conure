@@ -5,56 +5,12 @@ import itertools
 import shutil
 import json
 import logging
-import emxConfig  # assuming this module is available
+#import emxConfig  # assuming this module is available
 
 
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        logging.DEBUG: "\033[94m",     # Blue
-        logging.INFO: "\033[92m",      # Green
-        logging.WARNING: "\033[93m",   # Yellow
-        logging.ERROR: "\033[91m",     # Red
-        logging.CRITICAL: "\033[95m",  # Magenta
-    }
-    RESET = "\033[0m"
+from common.logger import get_logger
+logger = get_logger(__name__, '[EMX]')
 
-    def format(self, record):
-        color = self.COLORS.get(record.levelno, self.RESET)
-        timestamp = self.formatTime(record, self.datefmt)
-        msg = super().format(record)
-        return f"{timestamp} [EMX] {color}{msg}{self.RESET}"
-
-
-
-# Configure logging
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(ColorFormatter('%(levelname)s - %(message)s'))
-    logger.addHandler(handler)
-
-
-def configure_logger(level: str = "info", use_color: bool = True):
-    """
-    Configure the logger level and formatting.
-    """
-    log_levels = {
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-        "critical": logging.CRITICAL
-    }
-    logger.setLevel(log_levels.get(level.lower(), logging.INFO))
-
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        formatter = ColorFormatter('%(asctime)s - %(levelname)s - %(message)s') if use_color else \
-                    logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
 
 import os
 import subprocess
@@ -71,14 +27,15 @@ def emx(emxArgs):
     Returns the dict of result paths from the called implementation.
     """
     # Safely pull out the remote config
+
     remote_cfg = emxArgs.get("remote", {})
     use_remote = bool(remote_cfg.get("use", False))
 
     # If we're going remote, ensure at least the minimal SSH info is present
     if use_remote:
-        missing = [k for k in ("sshJump", "sshHost") if k not in remote_cfg]
-        if missing:
-            raise ValueError(f"remote.use is True, but missing config keys: {missing!r}")
+        # missing = [k for k in ("sshJump", "sshHost") if k not in remote_cfg]
+        # if missing:
+        #     raise ValueError(f"remote.use is True, but missing config keys: {missing!r}")
         executor = emx_remote
         logger.info("Dispatching EMX to remote execution")
     else:
@@ -98,27 +55,39 @@ def emx_remote(emxArgs):
     # -------------------------------------------------------------------
     # 0) Prepare
     # -------------------------------------------------------------------
-    ssh_jump  = emxArgs["remote"]["sshJump"]
-    use_proxy = emxArgs["remote"]["useProxy"]
+    logger.debug("Initializing Remote EMX over SSH")
     ssh_host  = emxArgs["remote"]["sshHost"]
+
     remote_dir = f"/tmp/emx_{uuid.uuid4().hex[:8]}"
+
 
     # Ensure local output directory exists
     os.makedirs(emxArgs["outputPath"], exist_ok=True)
 
-    # Build base SSH/SCP commands
-    if use_proxy:
-        ssh_base = ["ssh", "-o", f"ProxyJump={ssh_jump}", ssh_host]
-        scp_base = ["scp", "-o", f"ProxyJump={ssh_jump}"]
-    else:
-        ssh_base = ["ssh", ssh_host]
-        scp_base = ["scp"]
+    # Build base SSH/SCP commands dynamically
+    ssh_base = ["ssh"]
+    scp_base = ["scp"]
+
+    # Add ProxyJump if needed
+    # if use_proxy and ssh_jump:
+    #     ssh_base += ["-o", f"ProxyJump={ssh_jump}"]
+    #     scp_base += ["-o", f"ProxyJump={ssh_jump}"]
+
+    # Add identity file if provided
+    # if identity_file:
+    #     ssh_base += ["-i", identity_file]
+    #     scp_base += ["-i", identity_file]
+
+    # Append the target host to SSH command
+    ssh_base.append(ssh_host)
+    # For SCP, destination/remote path will be appended by the caller
 
     try:
         # -------------------------------------------------------------------
         # 1) Create remote temp directory
         # -------------------------------------------------------------------
         subprocess.run(ssh_base + [f"mkdir -p {remote_dir}"], check=True)
+
 
         # -------------------------------------------------------------------
         # 2) Upload the GDS file
@@ -256,24 +225,24 @@ def emx_local(emxArgs):
     Raises a ValueError if mandatory keys (e.g. sweep frequencies) are missing.
     """
 
-    # Dynamically set log level (default: "info")
-    log_levels = {
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-        "critical": logging.CRITICAL,
-        "none": logging.CRITICAL + 10  # Effectively disables all logging
-    }   
-    log_level_str = emxArgs.get("logLevel", "info").lower()
-    log_level = log_levels.get(log_level_str, logging.INFO)
-    logger.setLevel(log_level)
+    # # Dynamically set log level (default: "info")
+    # log_levels = {
+    #     "debug": logging.DEBUG,
+    #     "info": logging.INFO,
+    #     "warning": logging.WARNING,
+    #     "error": logging.ERROR,
+    #     "critical": logging.CRITICAL,
+    #     "none": logging.CRITICAL + 10  # Effectively disables all logging
+    # }   
+    # log_level_str = emxArgs.get("logLevel", "info").lower()
+    # log_level = log_levels.get(log_level_str, logging.INFO)
+    # logger.setLevel(log_level)
 
-    # Ensure logger handler is attached
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(ColorFormatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logger.addHandler(handler)
+    # # Ensure logger handler is attached
+    # if not logger.handlers:
+    #     handler = logging.StreamHandler()
+    #     handler.setFormatter(ColorFormatter('%(asctime)s - %(levelname)s - %(message)s'))
+    #     logger.addHandler(handler)
 
     # Optional: run any environment setup commands.
     # env_command = 'source /projects/bitstream/emon/projects/conure/simulator/TSMC65nmRF_session_IC618'
@@ -429,16 +398,24 @@ def emx_local(emxArgs):
         raise
 
 
+
+
+
+
 def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
+
+
     """
     Updates the configuration with artwork and output info, then runs the simulation.
     """
+
+
     emxConfigX = copy.deepcopy(emxConfig)
     emxConfigX["gdsFile"] = gdsFilePath
     emxConfigX["outputPath"] = outputDir  #Maybe not necessary. 
     emxConfigX["outputName"] = outputName
 
-    logger.info(f"Artwork parameters: {artworkData.get('parameters')}")
+    logger.debug(f"Artwork parameters: {artworkData.get('parameters')}")
     emxConfigX["gdsCellName"] = artworkData["metadata"]["name"]
     emxConfigX["ports"] = artworkData["ports"]
     emxConfigX["designPorts"] = artworkData["ports"]
@@ -451,317 +428,4 @@ def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
         raise
 
 
-def simulateSweep(InductorData, emxConfig, sweepParam, outputDir):
-    """
-    Iterates over parameter sweeps, updates the design for each permutation, writes the parameter file, and runs simulation.
-    Returns a two-element list: [TotalRuns, successfulRuns].
-    """
-    sweepPar = []
-    sweepData = []
-    for param, paramSweepData in sweepParam["parameters"].items():
-        sweepPar.append(param)
-        sweepData.append(paramSweepData)
 
-    permutations = itertools.product(*sweepData)
-
-    RunID = 0
-    successfulRuns = 0
-    for permutation in permutations:
-        InductorDataX = copy.deepcopy(InductorData)
-        run_output_dir = os.path.join(outputDir, f"RunID_{RunID:04d}")
-        InductorDataX["parameters"]["outputDir"] = run_output_dir
-        InductorDataX["parameters"]["name"] += f"_RunID_{RunID:04d}"
-
-        logger.info(f"{InductorData['parameters']['name']} | RUN ID: {RunID} | Permutation: {permutation}")
-
-        param_file_path = os.path.join(run_output_dir, "parameters.json")
-        if os.path.exists(param_file_path):
-            RunID += 1
-            continue
-        else:
-            runData = {"runID": None, "parameters": {}}
-            TotalRuns = len(permutation)
-            for i in range(TotalRuns):
-                InductorDataX["parameters"][sweepPar[i]] = permutation[i]
-                runData["parameters"][sweepPar[i]] = permutation[i]
-
-            runData["parameters"]["rings"] = InductorDataX["parameters"]["rings"]
-            runDataJSON = json.dumps(runData)
-            os.makedirs(run_output_dir, exist_ok=True)
-
-            with open(param_file_path, "w") as parfile:
-                parfile.write(runDataJSON)
-
-            RunID += 1
-
-            # The following functions (Inductor and simulate) are assumed to be defined elsewhere.
-            portCount = len(InductorDataX["ports"]["config"]["simulatingPorts"])
-            gdsPath = os.path.join(run_output_dir, f"{InductorDataX['parameters']['name']}.gds")
-            sParamPath = os.path.join(run_output_dir, f"{InductorDataX['parameters']['name']}.s{portCount}p")
-
-            if not os.path.exists(gdsPath):
-                try:
-                    pass
-                except Exception as error:
-                    logger.error(f"Inductor generation failed for RunID {RunID - 1}: {error}")
-                    continue
-
-            if os.path.exists(sParamPath):
-                successfulRuns += 1
-            else:
-                try:
-                    simulate(
-                        os.path.join(run_output_dir, f"{InductorDataX['parameters']['name']}.gds"),
-                        InductorDataX,
-                        emxConfig
-                    )
-                    successfulRuns += 1
-                except Exception as error:
-                    logger.error(f"Simulation failed for RunID {RunID - 1}: {error}")
-
-    TotalRuns = RunID
-    return [TotalRuns, successfulRuns]
-
-
-
-
-
-
-
-
-# import os
-# import subprocess
-# import copy
-# import emxConfig
-# import itertools
-# import copy
-# import shutil
-# import json
-
-# def emx(emxArgs):
-
-#     command = emxArgs["emxPath"] + " "
-#     command += emxArgs["gdsFile"] + " "
-#     command += emxArgs["gdsCellName"] + " "
-#     command += emxArgs["emxProcPath"] + " "
-
-#     if "edgeWidth" in emxArgs:
-#         command += "-e " + str(emxArgs["edgeWidth"]) + " "
-
-#     if "3dCond" in emxArgs and emxArgs["edgeWidth"] == True:
-#         command += "--3d=* "
-
-#     if "thickness" in emxArgs:
-#         command += "-t " + str(emxArgs["thickness"]) + " "
-
-#     if "viaSeparation" in emxArgs:
-#         command += "-v " + str(emxArgs["viaSeparation"]) + " "
-
-
-
-#     # creating the ports
-#     for simulatingPorts in emxArgs["simulatingPorts"]:
-#         if simulatingPorts["type"].lower() == "differential":
-#             plusPort = simulatingPorts["plus"]
-#             minusPort = simulatingPorts["minus"]
-#             plusPortLabel = emxArgs["designPorts"]["data"][plusPort]["label"]
-#             minusPortLabel = emxArgs["designPorts"]["data"][minusPort]["label"]
-#             emxPortId = simulatingPorts["id"]
-#             command += "-p P" + "{:03d}".format(emxPortId) + "=" + plusPortLabel + ":" + minusPortLabel+ " "
-#             pass
-#         elif simulatingPorts["type"].lower() == "single":
-#             plusPort = simulatingPorts["plus"]
-#             plusPortLabel = emxArgs["designPorts"]["data"][plusPort]["label"]
-#             emxPortId = simulatingPorts["id"]
-#             command += "-p P" + "{:03d}".format(emxPortId) + "=" + plusPortLabel + " "
-#             pass
-
-
-#     #enabling Ports
-#     PortCount = 0
-#     for simulatingPorts in emxArgs["simulatingPorts"]:
-#        emxPortId = simulatingPorts["id"]
-#        if simulatingPorts["enable"]:
-#            command += "-i P" + "{:03d}".format(emxPortId) + " "
-#            PortCount+= 1
-#        else:
-#            command += "-x P" + "{:03d}".format(emxPortId) + " "
-
-
-#     # modes of the ports (--mode=)
-
-
-
-#     # configuring the sweep
-#     if "sweepFreq" in emxArgs:
-#         startFreq = emxArgs["sweepFreq"]["startFreq"]
-#         stopFreq = emxArgs["sweepFreq"]["stopFreq"]
-#         command += "--sweep " + str(startFreq) + " " + str(stopFreq) + " "
-#         if emxArgs["sweepFreq"]["useStepSize"] == True:
-#             stepSize = emxArgs["sweepFreq"]["stepSize"]
-#             command += "--sweep-stepsize " + str(stepSize) + " "
-#         else:
-#             stepNum = emxArgs["sweepFreq"]["stepNum"]
-#             command += "--sweep-num-steps  " + str(stepNum) + " "
-#     else:
-#         exit("sweep frequencies not defined")
-
-#     if "referenceImpedance" in emxArgs:
-#         command += "--s-impedance=" + str(emxArgs["referenceImpedance"]) + " "
-
-#     if "verbose" in emxArgs:
-#         command += "--verbose=" + str(emxArgs["verbose"]) + " "
-
-#     if "printCommandLine" in emxArgs and emxArgs["printCommandLine"] == True:
-#         command += "--print-command-line "
-
-#     if "labelDepth" in emxArgs:
-#         command += "-l " + str(emxArgs["labelDepth"]) + " "
-
-#     if "dumpConnectivity" in emxArgs and emxArgs["dumpConnectivity"] == True:
-#         command += "--dump-connectivity "
-
-#     if "quasistatic" in emxArgs and emxArgs["quasistatic"] == True:
-#         command += "--quasistatic "
-
-#     if "parallelCPU" in emxArgs:
-#         command += "--parallel=" + str(emxArgs["parallelCPU"]) + " "
-
-#     if "simultaneousFrequencies" in emxArgs:
-#         command += "--simultaneous-frequencies=" + str(emxArgs["simultaneousFrequencies"]) + " "
-
-#     if "recommendedMemory" in emxArgs and emxArgs["recommendedMemory"] == True:
-#         command += "--recommended-memory "
-
-
-#     outputName = emxArgs["outputName"]
-#     if outputName == None:
-#         outputName = emxArgs["gdsCellName"] 
-
-#     # writing S-Parameters
-#     for outFormat, useFormat in emxArgs["SParam"]["formats"].items():
-#         if outFormat == "touchstone" and useFormat == True:
-#             command += "--format touchstone -s " + emxArgs["outputPath"] + "/" + outputName + ".s" + str(
-#                 PortCount) + "p "
-
-#     # writing Y-Parameters
-#     for outFormat, useFormat in emxArgs["YParam"]["formats"].items():
-#         if outFormat == "touchstone" and useFormat == True:
-#             command += "--format touchstone -s " + emxArgs["outputPath"] + "/" +outputName + ".y" + str(
-#                 PortCount) + "p "
-
-
-#     if not os.path.exists(emxArgs["outputPath"]):
-#         os.makedirs(emxArgs["outputPath"] )
-
-#     #print(command)
-    
-#     os.system(command)
-
-
-
-# def simulate(gdsFilePath, artworkData, emxConfig, outputDir, outputName):
-
-
-#     #emxConfigX = copy.deepcopy(emxConfig.emxConfig)
-
-    
-#     InductorData = artworkData
-#     #InductorData["parameters"]["name"] = outputName
-#     emxConfigX = emxConfig
-
-#     emxConfigX["gdsFile"] = gdsFilePath
-#     #emxConfigX["gdsFile"] = InductorDataJSON["parameters"]["outputDir"] + "/" + InductorDataJSON["parameters"]["name"] + ".gds"
-#     emxConfigX["outputPath"] = outputDir
-#     emxConfigX["outputName"] = outputName
-
-    
-#     print(artworkData["parameters"])
-
-
-#     emxConfigX["gdsCellName"] = InductorData["metadata"]["name"]
-#     emxConfigX["ports"] = InductorData["ports"]
-
-#     emxConfigX["designPorts"] = InductorData["ports"]
-#     emxConfigX["simulatingPorts"] = InductorData["ports"]["config"]["simulatingPorts"]
-
-#     emx(emxConfigX)
-    
-    
-
-
-# def simulateSweep(InductorData, emxConfig, sweepParam, outputDir):
-    
-
-#     sweepPar = []
-#     sweepData = []
-#     for param, paramSweepData in sweepParam["parameters"].items():
-#         sweepPar.append(param)
-#         sweepData.append(paramSweepData)
-
-#     permutations = itertools.product(*sweepData)
-
-#     RunID = 0
-#     successfulRuns = 0
-#     for permutation in permutations:
-        
-
-#         InductorDataX = copy.deepcopy(InductorData)
-#         InductorDataX["parameters"]["outputDir"] = outputDir+  "/RunID_" + "{:04d}".format(RunID)
-#         #InductorDataX["parameters"]["outputDir"] +=  "/RunID_" + "{:04d}".format(RunID)
-#         InductorDataX["parameters"]["name"] +=  "_RunID_" + "{:04d}".format(RunID)
-
-
-#         print(InductorData["parameters"]["name"] + "\r\nRUN ID: " + str(RunID) + "\r\n" + str(permutation))
-
-#         if os.path.exists(InductorDataX["parameters"]["outputDir"] + "/parameters.json"):
-#             RunID += 1
-#         else:
-
-#             runData = {
-#                 "runID" : None,
-#                 "parameters" : {},
-#             }
-
-#             TotalRuns = len(permutation)
-
-#             for i in range(TotalRuns):
-#                 InductorDataX["parameters"][sweepPar[i]] = permutation[i]
-#                 runData["parameters"][sweepPar[i]] = permutation[i] #used to just write as a text file of the parameter value
-
-#             runData["parameters"]["rings"] = InductorDataX["parameters"]["rings"]
-#             runDataJSON = json.dumps(runData)
-
-
-#             if not os.path.exists(InductorDataX["parameters"]["outputDir"]):
-#                 os.makedirs(InductorDataX["parameters"]["outputDir"])
-
-#             with open(InductorDataX["parameters"]["outputDir"] + "/parameters.json", "w") as parfile:
-#                 parfile.write(runDataJSON)
-
-
-#             RunID += 1
-
-#             #Inductor(InductorDataX)
-#             #simulate(InductorDataX, emxConfig)
-
-#             #checking if SParam files are generated for the current run
-#         portCount = len(InductorDataX["ports"]["config"]["simulatingPorts"])
-#         gdsPath = InductorDataX["parameters"]["outputDir"] + "/" + InductorDataX["parameters"]["name"] + ".gds"
-#         sParamPath = InductorDataX["parameters"]["outputDir"] + "/" + InductorDataX["parameters"]["name"] + ".s" + str(portCount) +"p"
-
-
-#         if os.path.exists( gdsPath):
-#             pass
-#             #successfulRuns += 1
-#         else:
-#             Inductor(InductorDataX)
-
-#         if os.path.exists( sParamPath):
-#             successfulRuns += 1
-#         else:
-#             simulate(InductorDataX, emxConfig)
-
-        
-#     TotalRuns = RunID
-#     return [TotalRuns , successfulRuns]
