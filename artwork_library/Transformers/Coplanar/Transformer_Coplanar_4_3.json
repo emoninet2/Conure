@@ -594,7 +594,7 @@
     "guardRing": {
         "config": {},
         "data": {
-            "distance": 50,
+            "distance": "guardRingDistance",
             "segments": {
                 "dummy": {
                     "shape": "hex",

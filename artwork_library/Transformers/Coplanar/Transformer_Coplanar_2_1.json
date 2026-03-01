@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "name": "Transformer_Coplanar_1_1",
-    "description": "Coplanar Transformer with 1 rings and 8 corners",
+    "name": "Transformer_Coplanar_2_1",
+    "description": "Coplanar Transformer 2:1",
     "author": "Habibur Rahman",
-    "date": "2026-02-23",
+    "date": "2026-02-28",
     "version": "1.0",
     "technology": "TSMC65"
   },
@@ -201,8 +201,18 @@
         "id": 0,
         "group": [
           {
-            "type": "DEFAULT",
+            "type": "BRIDGE",
             "data": {
+              "bridge": "B1",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": -1,
               "layer": "M9"
             }
           },
@@ -229,6 +239,12 @@
             "data": {
               "layer": "M9"
             }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
           }
         ]
       },
@@ -236,10 +252,8 @@
         "id": 2,
         "group": [
           {
-            "type": "BRIDGE",
+            "type": "DEFAULT",
             "data": {
-              "bridge": "B0",
-              "jump": 1,
               "layer": "M9"
             }
           },
@@ -247,6 +261,14 @@
             "type": "BRIDGE",
             "data": {
               "bridge": "B1",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
               "jump": -1,
               "layer": "M9"
             }
@@ -267,12 +289,24 @@
             "data": {
               "layer": "M9"
             }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
           }
         ]
       },
       "S4": {
         "id": 4,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {
@@ -302,6 +336,12 @@
             "data": {
               "layer": "M9"
             }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
           }
         ]
       },
@@ -309,10 +349,8 @@
         "id": 6,
         "group": [
           {
-            "type": "BRIDGE",
+            "type": "DEFAULT",
             "data": {
-              "bridge": "B0",
-              "jump": 1,
               "layer": "M9"
             }
           },
@@ -320,6 +358,14 @@
             "type": "BRIDGE",
             "data": {
               "bridge": "B1",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
               "jump": -1,
               "layer": "M9"
             }
@@ -329,6 +375,12 @@
       "S7": {
         "id": 7,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {

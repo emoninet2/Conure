@@ -1,15 +1,15 @@
 {
   "metadata": {
-    "name": "Transformer_Coplanar_1_1",
-    "description": "Coplanar Transformer with 1 rings and 8 corners",
+    "name": "Transformer_Coplanar_3_3",
+    "description": "Coplanar Transformer 3:3",
     "author": "Habibur Rahman",
-    "date": "2026-02-23",
+    "date": "2026-02-28",
     "version": "1.0",
     "technology": "TSMC65"
   },
   "parameters": {
     "corners": 8,
-    "rings": 2,
+    "rings": 6,
     "apothem": 80,
     "width": 20,
     "spacing": 2,
@@ -207,6 +207,38 @@
             }
           },
           {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
             "type": "PORT",
             "data": {
               "arm": "A0",
@@ -218,6 +250,30 @@
       "S1": {
         "id": 1,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {
@@ -250,12 +306,68 @@
               "jump": -1,
               "layer": "M9"
             }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
           }
         ]
       },
       "S3": {
         "id": 3,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {
@@ -280,6 +392,38 @@
             }
           },
           {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
             "type": "PORT",
             "data": {
               "arm": "A1",
@@ -291,6 +435,30 @@
       "S5": {
         "id": 5,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {
@@ -323,12 +491,68 @@
               "jump": -1,
               "layer": "M9"
             }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B0",
+              "jump": 1,
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "bridge": "B1",
+              "jump": -1,
+              "layer": "M9"
+            }
           }
         ]
       },
       "S7": {
         "id": 7,
         "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
           {
             "type": "DEFAULT",
             "data": {
