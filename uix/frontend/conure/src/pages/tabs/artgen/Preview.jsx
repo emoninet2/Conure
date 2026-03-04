@@ -1,11 +1,9 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE;
-
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 export default function Preview({ draftArtwork }) {
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState(null);
   const [svgText, setSvgText] = useState("");
   const [svgName, setSvgName] = useState(null);
   const [gdsName, setGdsName] = useState(null);
@@ -15,7 +13,6 @@ export default function Preview({ draftArtwork }) {
     setLoading(true);
     setError("");
     setSvgText("");
-    setToken(null);
     setSvgName(null);
     setGdsName(null);
 
@@ -40,10 +37,14 @@ export default function Preview({ draftArtwork }) {
       }
 
       const data = await res.json();
-      setToken(data.token);
+
       setSvgText(data.svgText || "");
       setSvgName(data.svgName || "artwork.svg");
       setGdsName(data.gdsName || null);
+
+      if (!data.svgText) {
+        setError("Generated files exist, but backend returned empty svgText. Check /api/preview/generate response.");
+      }
     } catch (e) {
       setError(e?.message || String(e));
     } finally {
@@ -55,13 +56,9 @@ export default function Preview({ draftArtwork }) {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  const svgUrl = token ? `${API_BASE}/api/preview/${token}/svg` : null;
-  const gdsUrl = token ? `${API_BASE}/api/preview/${token}/gds` : null;
-
-  const svgDataUrl = useMemo(() => {
-    if (!svgText) return "";
-    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
-  }, [svgText]);
+  // ✅ no token, fixed endpoints
+  const svgUrl = `${API_BASE}/api/preview/svg`;
+  const gdsUrl = `${API_BASE}/api/preview/gds`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -72,13 +69,13 @@ export default function Preview({ draftArtwork }) {
           {loading ? "Generating..." : "Generate Preview"}
         </button>
 
-        <button onClick={() => download(svgUrl)} disabled={!token || !svgUrl}>
+        <button onClick={() => download(svgUrl)} disabled={!svgText || loading}>
           Download SVG
         </button>
 
         <button
           onClick={() => download(gdsUrl)}
-          disabled={!token || !gdsUrl || !gdsName}
+          disabled={!gdsName || loading}
           title={!gdsName ? "GDS not generated/found" : ""}
         >
           Download GDS
@@ -99,7 +96,7 @@ export default function Preview({ draftArtwork }) {
         </pre>
       )}
 
-      {!svgText && !loading && (
+      {!svgText && !loading && !error && (
         <div style={{ opacity: 0.75 }}>
           Click “Generate Preview” to render the current artwork into an SVG.
         </div>
@@ -116,20 +113,20 @@ export default function Preview({ draftArtwork }) {
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
+            overflow: "hidden",
           }}
         >
-          <img
-            src={svgDataUrl}
-            alt="preview"
+          <div
             style={{
               maxWidth: "100%",
               maxHeight: "100%",
-              width: "auto",
-              height: "auto",
-              objectFit: "contain",
-              display: "block",
             }}
-            draggable={false}
+            dangerouslySetInnerHTML={{
+              __html: svgText.replace(
+                "<svg",
+                '<svg style="width:100%;height:100%;max-width:40%;max-height:100%;object-fit:contain;" preserveAspectRatio="xMidYMid meet"'
+              ),
+            }}
           />
         </div>
       )}

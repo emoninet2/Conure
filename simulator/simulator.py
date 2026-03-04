@@ -4,9 +4,14 @@ import json
 import sys
 import logging
 
+import sys
+from pathlib import Path
+
+# add project root to python path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from common.logger import get_logger
-from . import emx
+import emx
 
 logger = get_logger(__name__, '[SIM]')
 

@@ -289,11 +289,22 @@ def patch_state(partial: Dict[str, Any]):
 GENERATOR_PY = (BACKEND_DIR / "../artwork_generator/artwork_generator.py").resolve()
 
 
+# def _preview_root_for_active_project() -> Path:
+#     pid = _get_active_project_id()
+#     if not pid:
+#         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
+#     root = (_project_dir(pid) / "previews").resolve()
+#     root.mkdir(parents=True, exist_ok=True)
+#     return root
+
+
 def _preview_root_for_active_project() -> Path:
     pid = _get_active_project_id()
     if not pid:
         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
-    root = (_project_dir(pid) / "previews").resolve()
+
+    # generate directly inside project folder
+    root = (_project_dir(pid)).resolve()
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -343,10 +354,12 @@ def generate_preview(payload: Dict[str, Any]):
     if not GENERATOR_PY.exists():
         raise HTTPException(status_code=500, detail=f"Generator script not found at: {str(GENERATOR_PY)}")
 
-    token = uuid.uuid4().hex
-    out_dir = (preview_root / token).resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / ".created").write_text(str(time.time()), encoding="utf-8")
+    # token = uuid.uuid4().hex
+    # out_dir = (preview_root / token).resolve()
+    # out_dir.mkdir(parents=True, exist_ok=True)
+    # (out_dir / ".created").write_text(str(time.time()), encoding="utf-8")
+
+    out_dir = preview_root
 
     in_json = out_dir / "artwork.json"
     in_json.write_text(json.dumps(artwork, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -400,17 +413,18 @@ def generate_preview(payload: Dict[str, Any]):
     svg_text = svg_path.read_text(encoding="utf-8", errors="replace")
 
     return {
-        "token": token,
+        #"token": token,
         "svgName": svg_path.name,
         "gdsName": gds_path.name if (gds_path and gds_path.exists()) else None,
         "svgText": svg_text,
     }
 
 
-@app.get("/api/preview/{token}/svg")
-def download_preview_svg(token: str):
+#@app.get("/api/preview/{token}/svg")
+@app.get("/api/preview/svg")
+def download_preview_svg():
     preview_root = _preview_root_for_active_project()
-    folder = (preview_root / token).resolve()
+    folder = (preview_root).resolve()
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Preview not found")
 
@@ -421,10 +435,11 @@ def download_preview_svg(token: str):
     return FileResponse(path=str(svg_path), media_type="image/svg+xml", filename=svg_path.name)
 
 
-@app.get("/api/preview/{token}/gds")
-def download_preview_gds(token: str):
+#@app.get("/api/preview/{token}/gds")
+@app.get("/api/preview/gds")
+def download_preview_gds():
     preview_root = _preview_root_for_active_project()
-    folder = (preview_root / token).resolve()
+    folder = (preview_root).resolve()
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Preview not found")
 
@@ -433,3 +448,167 @@ def download_preview_gds(token: str):
         raise HTTPException(status_code=404, detail="GDS not found")
 
     return FileResponse(path=str(gds_path), media_type="application/octet-stream", filename=gds_path.name)
+
+
+    # -------------------------
+# Simulation (EMX) API
+# -------------------------
+from fastapi import Body
+
+ACTIVE_RUN_KEY = "active"
+
+SIM_RUNS: Dict[str, subprocess.Popen] = {}
+SIM_RUN_META: Dict[str, Dict[str, Any]] = {}
+def _tail_file(path: str, max_chars: int = 8000) -> str:
+    try:
+        if not os.path.exists(path):
+            return ""
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            data = f.read()
+        return data[-max_chars:]
+    except Exception:
+        return ""
+
+
+@app.post("/api/sim/start")
+def sim_start(payload: Dict[str, Any] = Body(default={})):
+    simulator = (payload.get("simulator") or "emx").lower()
+    if simulator != "emx":
+        raise HTTPException(status_code=400, detail=f"Unsupported simulator: {simulator}")
+
+    # Only one at a time
+    proc_existing = SIM_RUNS.get(ACTIVE_RUN_KEY)
+    if proc_existing and proc_existing.poll() is None:
+        raise HTTPException(status_code=400, detail="A simulation is already running.")
+
+    pid = _get_active_project_id()
+    if not pid:
+        raise HTTPException(status_code=400, detail="No project open. Open a project first.")
+    root = (_project_dir(pid)).resolve()
+
+
+
+
+    with open(str(root) + '/project.json', 'r') as file:
+        # Use json.load() to parse the file content into a Python object
+        project_data = json.load(file)
+
+
+   
+
+    # write simConfig.json into project root
+    sim_config = project_data["sim_config"]
+
+
+    config_file_path = os.path.join(str(root), "simConfig.json")
+    with open(config_file_path, "w", encoding="utf-8") as json_file:
+        json.dump(sim_config, json_file, indent=4)
+
+    simulate_script = os.path.abspath(
+        os.path.join(str(root), "../../../simulator/simulator.py")
+    )
+
+    gds_path = os.path.join(str(root), "artwork.gds")
+    artwork_path = os.path.join(str(root), "artwork.json")
+
+    # Logs in project root
+    stdout_log = os.path.join(str(root), "sim_stdout.log")
+    stderr_log = os.path.join(str(root), "sim_stderr.log")
+
+    # Clear logs on new run (so you see fresh output)
+    try:
+        open(stdout_log, "w").close()
+        open(stderr_log, "w").close()
+    except Exception:
+        pass
+
+    command = [
+        "python",
+        simulate_script,
+        "-f", gds_path,
+        "--sim", "emx",
+        "-c", config_file_path,
+        "-a", artwork_path,
+        "-o", str(root),
+        "-n", "artwork",
+    ]
+
+    print("[sim_start] cwd:", str(root))
+    print("[sim_start] cmd:", command)
+
+    try:
+        out_f = open(stdout_log, "a", encoding="utf-8", buffering=1)
+        err_f = open(stderr_log, "a", encoding="utf-8", buffering=1)
+
+        proc = subprocess.Popen(
+            command,
+            cwd=str(root),
+            stdout=out_f,
+            stderr=err_f,
+            text=True,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start simulation: {e}")
+
+    SIM_RUNS[ACTIVE_RUN_KEY] = proc
+    SIM_RUN_META[ACTIVE_RUN_KEY] = {
+        "simulator": simulator,
+        "cmd": command,
+        "started": time.time(),
+        "projectId": pid,
+        "stdout_log": stdout_log,
+        "stderr_log": stderr_log,
+    }
+
+    return {"ok": True}
+
+
+@app.post("/api/sim/stop")
+def sim_stop(payload: Dict[str, Any] = Body(default={})):
+    proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+    if not proc:
+        return {"ok": True, "stopped": False, "message": "No active simulation."}
+
+    if proc.poll() is not None:
+        SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+        return {"ok": True, "stopped": False, "message": "Simulation already finished."}
+
+    try:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+    finally:
+        SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+
+    return {"ok": True, "stopped": True}
+
+
+@app.get("/api/sim/status")
+def sim_status():
+    proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+    meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
+
+    if not proc:
+        return {"running": False, "returncode": None}
+
+    rc = proc.poll()
+    if rc is None:
+        return {"running": True, "returncode": None}
+
+    # finished
+    SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+    return {"running": False, "returncode": rc}
+
+
+# Optional but very useful for debugging UI
+@app.get("/api/sim/logs")
+def sim_logs():
+    meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
+    stdout_log = meta.get("stdout_log", "")
+    stderr_log = meta.get("stderr_log", "")
+    return {
+        "stdout": _tail_file(stdout_log),
+        "stderr": _tail_file(stderr_log),
+    }
