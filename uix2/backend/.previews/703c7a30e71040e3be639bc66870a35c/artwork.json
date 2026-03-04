@@ -1,15 +1,7 @@
 {
-  "metadata": {
-    "name": "Transformer_Coplanar_3_3",
-    "description": "Coplanar Transformer 3:3",
-    "author": "Habibur Rahman",
-    "date": "2026-02-28",
-    "version": "1.0",
-    "technology": "TSMC65"
-  },
   "parameters": {
     "corners": 8,
-    "rings": 6,
+    "rings": 4,
     "apothem": 80,
     "width": 20,
     "spacing": 2,
@@ -20,6 +12,14 @@
     "partialCutSpacing": 10,
     "PO_drw_layerNumber": 17,
     "precision": 0.005
+  },
+  "metadata": {
+    "name": "Transformer_Coplanar_2_2",
+    "description": "Coplanar Transformer 2:2",
+    "author": "Habibur Rahman",
+    "date": "2026-02-28",
+    "version": "1.0",
+    "technology": "TSMC65"
   },
   "layers": {
     "DEFAULT": {
@@ -156,6 +156,41 @@
     }
   },
   "via": {
+    "abc": {
+      "length": 33,
+      "width": 3,
+      "spacing": 4,
+      "angle": 55,
+      "layer": "ere"
+    },
+    "bgafga": {
+      "length": 34,
+      "width": 54,
+      "spacing": 54,
+      "angle": 4,
+      "layer": "abc"
+    },
+    "abcdef": {
+      "length": 3,
+      "width": 45,
+      "spacing": 6,
+      "angle": 0,
+      "layer": "abc"
+    },
+    "kutta": {
+      "length": 6,
+      "width": 7,
+      "spacing": 8,
+      "angle": 5,
+      "layer": "abc"
+    },
+    "harami": {
+      "length": 0,
+      "width": 0,
+      "spacing": 0,
+      "angle": 0,
+      "layer": "abc"
+    },
     "Via8": {
       "length": 1,
       "width": 1,
@@ -192,407 +227,44 @@
       "layer": "CO_drw"
     }
   },
-  "segments": {
-    "config": {
-      "bridge_extension_aligned": true
+  "viaPadStack": {
+    "VS_9_8": {
+      "topLayer": "M9",
+      "bottomLayer": "M8",
+      "margin": 0,
+      "vias": [
+        "Via8",
+        "Via6",
+        "Via5"
+      ]
     },
-    "data": {
-      "S0": {
-        "id": 0,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "PORT",
-            "data": {
-              "arm": "A0",
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S1": {
-        "id": 1,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S2": {
-        "id": 2,
-        "group": [
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S3": {
-        "id": 3,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S4": {
-        "id": 4,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "PORT",
-            "data": {
-              "arm": "A1",
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S5": {
-        "id": 5,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S6": {
-        "id": 6,
-        "group": [
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B0",
-              "jump": 1,
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "BRIDGE",
-            "data": {
-              "bridge": "B1",
-              "jump": -1,
-              "layer": "M9"
-            }
-          }
-        ]
-      },
-      "S7": {
-        "id": 7,
-        "group": [
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          },
-          {
-            "type": "DEFAULT",
-            "data": {
-              "layer": "M9"
-            }
-          }
-        ]
-      }
+    "VS_M1_OD": {
+      "topLayer": "M1",
+      "bottomLayer": "OD_drw",
+      "margin": 0,
+      "vias": [
+        "ViaCO"
+      ]
     }
   },
-  "arms": {
-    "A0": {
-      "type": "double",
-      "length": "guardRingDistance + 20",
-      "width": "width",
-      "spacing": "spacing",
+  "bridges": {
+    "DEFAULT": {
       "layer": "M9",
-      "viaStack": "VS_9_8",
-      "port": [
-        "PORT0",
-        "PORT1"
-      ]
+      "Via": "V0"
     },
-    "A1": {
-      "type": "double",
-      "length": "guardRingDistance + 20",
-      "width": "width",
-      "spacing": "spacing",
+    "B0": {
       "layer": "M9",
-      "viaStack": "VS_9_8",
-      "port": [
-        "PORT2",
-        "PORT3"
-      ]
+      "via": null,
+      "ViaWidth": null,
+      "ViaStackCCW": null,
+      "ViaStackCW": null
+    },
+    "B1": {
+      "layer": "M8",
+      "via": null,
+      "ViaWidth": 10,
+      "ViaStackCCW": "VS_9_8",
+      "ViaStackCW": "VS_9_8"
     }
   },
   "ports": {
@@ -635,44 +307,295 @@
       }
     }
   },
-  "bridges": {
-    "DEFAULT": {
+  "arms": {
+    "A0": {
+      "type": "double",
+      "length": "guardRingDistance + 20",
+      "width": "width",
+      "spacing": "spacing",
       "layer": "M9",
-      "Via": "V0"
+      "viaStack": "VS_9_8",
+      "port": [
+        "PORT0",
+        "PORT1"
+      ]
     },
-    "B0": {
+    "A1": {
+      "type": "double",
+      "length": "guardRingDistance + 20",
+      "width": "width",
+      "spacing": "spacing",
       "layer": "M9",
-      "via": null,
-      "ViaWidth": null,
-      "ViaStackCCW": null,
-      "ViaStackCW": null
-    },
-    "B1": {
-      "layer": "M8",
-      "via": null,
-      "ViaWidth": 10,
-      "ViaStackCCW": "VS_9_8",
-      "ViaStackCW": "VS_9_8"
+      "viaStack": "VS_9_8",
+      "port": [
+        "PORT2",
+        "PORT3"
+      ]
     }
   },
-  "viaPadStack": {
-    "VS_9_8": {
-      "topLayer": "M9",
-      "bottomLayer": "M8",
-      "margin": 0,
-      "vias": [
-        "Via8",
-        "Via6",
-        "Via5"
-      ]
+  "segments": {
+    "config": {
+      "bridge_extension_aligned": true
     },
-    "VS_M1_OD": {
-      "topLayer": "M1",
-      "bottomLayer": "OD_drw",
-      "margin": 0,
-      "vias": [
-        "ViaCO"
-      ]
+    "data": {
+      "S0": {
+        "id": 0,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          },
+          {
+            "type": "PORT",
+            "data": {
+              "layer": "M9",
+              "arm": "A0"
+            }
+          }
+        ]
+      },
+      "S1": {
+        "id": 1,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          }
+        ]
+      },
+      "S2": {
+        "id": 2,
+        "group": [
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          }
+        ]
+      },
+      "S3": {
+        "id": 3,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          }
+        ]
+      },
+      "S4": {
+        "id": 4,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          },
+          {
+            "type": "PORT",
+            "data": {
+              "layer": "M9",
+              "arm": "A1"
+            }
+          }
+        ]
+      },
+      "S5": {
+        "id": 5,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          }
+        ]
+      },
+      "S6": {
+        "id": 6,
+        "group": [
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B0",
+              "jump": 1
+            }
+          },
+          {
+            "type": "BRIDGE",
+            "data": {
+              "layer": "M9",
+              "bridge": "B1",
+              "jump": -1
+            }
+          }
+        ]
+      },
+      "S7": {
+        "id": 7,
+        "group": [
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          },
+          {
+            "type": "DEFAULT",
+            "data": {
+              "layer": "M9"
+            }
+          }
+        ]
+      }
     }
   },
   "guardRing": {
@@ -825,6 +748,140 @@
             ]
           }
         }
+      }
+    }
+  },
+  "layer": {
+    "DEFAULT": {
+      "gds": {
+        "layer": 39,
+        "datatype": 60
+      }
+    },
+    "M9": {
+      "gds": {
+        "layer": 39,
+        "datatype": 60
+      }
+    },
+    "M8": {
+      "gds": {
+        "layer": 38,
+        "datatype": 40
+      }
+    },
+    "M7": {
+      "gds": {
+        "layer": 37,
+        "datatype": 0
+      }
+    },
+    "M6": {
+      "gds": {
+        "layer": 36,
+        "datatype": 0
+      }
+    },
+    "M5": {
+      "gds": {
+        "layer": 35,
+        "datatype": 0
+      }
+    },
+    "M4": {
+      "gds": {
+        "layer": 34,
+        "datatype": 0
+      }
+    },
+    "M3": {
+      "gds": {
+        "layer": 33,
+        "datatype": 0
+      }
+    },
+    "M2": {
+      "gds": {
+        "layer": 32,
+        "datatype": 0
+      }
+    },
+    "M1": {
+      "gds": {
+        "layer": 31,
+        "datatype": 0
+      }
+    },
+    "V8": {
+      "gds": {
+        "layer": 58,
+        "datatype": 40
+      }
+    },
+    "V7": {
+      "gds": {
+        "layer": 57,
+        "datatype": 40
+      }
+    },
+    "V6": {
+      "gds": {
+        "layer": 56,
+        "datatype": 0
+      }
+    },
+    "V5": {
+      "gds": {
+        "layer": 55,
+        "datatype": 0
+      }
+    },
+    "OD_drw": {
+      "gds": {
+        "layer": 6,
+        "datatype": 0
+      }
+    },
+    "NT_N_drw": {
+      "gds": {
+        "layer": 11,
+        "datatype": 0
+      }
+    },
+    "PP_drw": {
+      "gds": {
+        "layer": 25,
+        "datatype": 0
+      }
+    },
+    "NP_drw": {
+      "gds": {
+        "layer": 26,
+        "datatype": 0
+      }
+    },
+    "RPO_drw": {
+      "gds": {
+        "layer": 29,
+        "datatype": 0
+      }
+    },
+    "INDDMY_dr2": {
+      "gds": {
+        "layer": 144,
+        "datatype": 2
+      }
+    },
+    "CO_drw": {
+      "gds": {
+        "layer": 30,
+        "datatype": 0
+      }
+    },
+    "PO_drw": {
+      "gds": {
+        "layer": 17,
+        "datatype": 0
       }
     }
   }

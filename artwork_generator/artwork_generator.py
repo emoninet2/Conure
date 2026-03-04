@@ -100,7 +100,7 @@ class Component:
         self.Via: dict = component_data["via"]
         self.ViaPadStack: dict = component_data["viaPadStack"]
         self.GuardRing: dict = component_data["guardRing"]
-        self.Layers: dict = component_data["layer"]
+        self.Layers: dict = component_data["layers"]
 
         # Set key parameters.
         self.gridSize: float = self.Parameters["precision"]

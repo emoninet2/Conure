@@ -637,7 +637,7 @@
             }
         }
     },
-    "layer": {
+    "layers": {
         "DEFAULT": {
             "gds": {
                 "layer": 39,
