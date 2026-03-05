@@ -12,6 +12,11 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
+import threading
+import queue
+import signal 
+
 
 app = FastAPI()
 
@@ -460,24 +465,50 @@ def download_preview_gds():
     return FileResponse(path=str(gds_path), media_type="application/octet-stream", filename=gds_path.name)
 
 
-    # -------------------------
-# Simulation (EMX) API
 # -------------------------
-from fastapi import Body
+# Simulation (EMX) API (REAL-TIME STREAMING via SSE, NO LOG FILES)
+# -------------------------
+from fastapi import Body, Request
+from fastapi.responses import StreamingResponse
+import threading
 
 ACTIVE_RUN_KEY = "active"
 
 SIM_RUNS: Dict[str, subprocess.Popen] = {}
 SIM_RUN_META: Dict[str, Dict[str, Any]] = {}
-def _tail_file(path: str, max_chars: int = 8000) -> str:
+
+# Ring buffer of recent output lines (shared across clients)
+SIM_RING: list[dict] = []  # items: {t, stream, line}
+SIM_RING_MAX = 5000
+SIM_RING_LOCK = threading.Lock()
+
+
+def _push_sim_line(stream: str, line: str) -> None:
+    item = {"t": time.time(), "stream": stream, "line": line}
+    with SIM_RING_LOCK:
+        SIM_RING.append(item)
+        if len(SIM_RING) > SIM_RING_MAX:
+            # keep last SIM_RING_MAX
+            del SIM_RING[: len(SIM_RING) - SIM_RING_MAX]
+
+
+def _reader_thread(pipe, stream_name: str):
+    """
+    Reads lines from a subprocess pipe and pushes them into SIM_RING.
+    """
     try:
-        if not os.path.exists(path):
-            return ""
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            data = f.read()
-        return data[-max_chars:]
-    except Exception:
-        return ""
+        # iter(readline, "") works for text mode pipes
+        for line in iter(pipe.readline, ""):
+            if not line:
+                break
+            _push_sim_line(stream_name, line.rstrip("\n"))
+    except Exception as e:
+        _push_sim_line("system", f"[reader:{stream_name}] exception: {e}")
+    finally:
+        try:
+            pipe.close()
+        except Exception:
+            pass
 
 
 @app.post("/api/sim/start")
@@ -496,69 +527,76 @@ def sim_start(payload: Dict[str, Any] = Body(default={})):
         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
     root = (_project_dir(pid)).resolve()
 
+    # Load project.json
+    try:
+        with open(str(root) + "/project.json", "r", encoding="utf-8") as file:
+            project_data = json.load(file)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read project.json: {e}")
 
-
-
-    with open(str(root) + '/project.json', 'r') as file:
-        # Use json.load() to parse the file content into a Python object
-        project_data = json.load(file)
-
-
-   
-
-    # write simConfig.json into project root
-    sim_config = project_data["sim_config"]
-
+    # Write simConfig.json into project root
+    sim_config = project_data.get("sim_config")
+    if sim_config is None:
+        raise HTTPException(status_code=400, detail="project.json is missing 'sim_config'.")
 
     config_file_path = os.path.join(str(root), "simConfig.json")
-    with open(config_file_path, "w", encoding="utf-8") as json_file:
-        json.dump(sim_config, json_file, indent=4)
+    try:
+        with open(config_file_path, "w", encoding="utf-8") as json_file:
+            json.dump(sim_config, json_file, indent=4)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write simConfig.json: {e}")
 
-    simulate_script = os.path.abspath(
-        os.path.join(str(root), "../../../simulator/simulator.py")
-    )
+    simulate_script = os.path.abspath(os.path.join(str(root), "../../../simulator/simulator.py"))
 
     gds_path = os.path.join(str(root), "artwork.gds")
     artwork_path = os.path.join(str(root), "artwork.json")
 
-    # Logs in project root
-    stdout_log = os.path.join(str(root), "sim_stdout.log")
-    stderr_log = os.path.join(str(root), "sim_stderr.log")
-
-    # Clear logs on new run (so you see fresh output)
-    try:
-        open(stdout_log, "w").close()
-        open(stderr_log, "w").close()
-    except Exception:
-        pass
-
+    # IMPORTANT: Use python -u for unbuffered output so you get real-time lines
     command = [
         "python",
+        "-u",
         simulate_script,
-        "-f", gds_path,
-        "--sim", "emx",
-        "-c", config_file_path,
-        "-a", artwork_path,
-        "-o", str(root),
-        "-n", "artwork",
+        "-f",
+        gds_path,
+        "--sim",
+        "emx",
+        "-c",
+        config_file_path,
+        "-a",
+        artwork_path,
+        "-o",
+        str(root),
+        "-n",
+        "artwork",
     ]
 
     print("[sim_start] cwd:", str(root))
     print("[sim_start] cmd:", command)
 
-    try:
-        out_f = open(stdout_log, "a", encoding="utf-8", buffering=1)
-        err_f = open(stderr_log, "a", encoding="utf-8", buffering=1)
+    # Clear ring buffer for fresh run (optional; remove if you want history)
+    with SIM_RING_LOCK:
+        SIM_RING.clear()
+    _push_sim_line("system", f"Starting simulation for project '{pid}' …")
+    _push_sim_line("system", f"Command: {' '.join(command)}")
 
+    try:
         proc = subprocess.Popen(
             command,
             cwd=str(root),
-            stdout=out_f,
-            stderr=err_f,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
+            bufsize=1,  # line buffered (best-effort)
+            start_new_session=True,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start simulation: {e}")
+
+    # Start reader threads
+    if proc.stdout:
+        threading.Thread(target=_reader_thread, args=(proc.stdout, "stdout"), daemon=True).start()
+    if proc.stderr:
+        threading.Thread(target=_reader_thread, args=(proc.stderr, "stderr"), daemon=True).start()
 
     SIM_RUNS[ACTIVE_RUN_KEY] = proc
     SIM_RUN_META[ACTIVE_RUN_KEY] = {
@@ -566,13 +604,12 @@ def sim_start(payload: Dict[str, Any] = Body(default={})):
         "cmd": command,
         "started": time.time(),
         "projectId": pid,
-        "stdout_log": stdout_log,
-        "stderr_log": stderr_log,
     }
 
     return {"ok": True}
 
 
+@app.post("/api/sim/stop")
 @app.post("/api/sim/stop")
 def sim_stop(payload: Dict[str, Any] = Body(default={})):
     proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
@@ -581,24 +618,28 @@ def sim_stop(payload: Dict[str, Any] = Body(default={})):
 
     if proc.poll() is not None:
         SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+        _push_sim_line("system", "Simulation already finished.")
         return {"ok": True, "stopped": False, "message": "Simulation already finished."}
 
+    _push_sim_line("system", "Stopping simulation…")
+
     try:
-        proc.terminate()
+        # Kill entire process group (kills simulator + ssh + scp, etc.)
+        os.killpg(proc.pid, signal.SIGTERM)
         try:
             proc.wait(timeout=5)
         except Exception:
-            proc.kill()
+            os.killpg(proc.pid, signal.SIGKILL)
     finally:
         SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
 
+    _push_sim_line("system", "Simulation stopped by user.")
     return {"ok": True, "stopped": True}
 
 
 @app.get("/api/sim/status")
 def sim_status():
     proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
-    meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
 
     if not proc:
         return {"running": False, "returncode": None}
@@ -609,16 +650,233 @@ def sim_status():
 
     # finished
     SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+    _push_sim_line("system", f"Simulation finished. returncode={rc}")
     return {"running": False, "returncode": rc}
 
 
-# Optional but very useful for debugging UI
-@app.get("/api/sim/logs")
-def sim_logs():
-    meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
-    stdout_log = meta.get("stdout_log", "")
-    stderr_log = meta.get("stderr_log", "")
-    return {
-        "stdout": _tail_file(stdout_log),
-        "stderr": _tail_file(stderr_log),
-    }
+@app.get("/api/sim/stream")
+def sim_stream(request: Request):
+    """
+    Server-Sent Events stream of simulation output.
+    Frontend uses EventSource() to show real-time stdout/stderr/system lines.
+    """
+
+    def event_gen():
+        # Send a backlog immediately
+        with SIM_RING_LOCK:
+            start_idx = max(0, len(SIM_RING) - 300)
+            backlog = SIM_RING[start_idx:]
+        for item in backlog:
+            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+
+        last_idx = start_idx + len(backlog)
+
+        while True:
+            # Client disconnected?
+            if request.client is None:
+                break
+
+            # If the client closes the connection, FastAPI raises on send; we just exit.
+            try:
+                # Send any new items
+                with SIM_RING_LOCK:
+                    if last_idx < len(SIM_RING):
+                        new_items = SIM_RING[last_idx:]
+                        last_idx = len(SIM_RING)
+                    else:
+                        new_items = []
+
+                for item in new_items:
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+
+                # If process ended, emit a "done" event and end stream
+                proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+                if proc:
+                    rc = proc.poll()
+                    if rc is not None:
+                        done_msg = {"t": time.time(), "stream": "system", "line": f"[done] returncode={rc}"}
+                        yield f"data: {json.dumps(done_msg, ensure_ascii=False)}\n\n"
+                        break
+
+                # Keep-alive heartbeat (prevents some proxies from buffering/closing)
+                yield ": ping\n\n"
+                time.sleep(0.35)
+
+            except GeneratorExit:
+                break
+            except Exception:
+                break
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # If you're behind nginx, you often also want:
+            # "X-Accel-Buffering": "no",
+        },
+    )
+
+# -------------------------
+# # Simulation (EMX) API
+# # -------------------------
+# from fastapi import Body
+
+# ACTIVE_RUN_KEY = "active"
+
+# SIM_RUNS: Dict[str, subprocess.Popen] = {}
+# SIM_RUN_META: Dict[str, Dict[str, Any]] = {}
+# def _tail_file(path: str, max_chars: int = 8000) -> str:
+#     try:
+#         if not os.path.exists(path):
+#             return ""
+#         with open(path, "r", encoding="utf-8", errors="replace") as f:
+#             data = f.read()
+#         return data[-max_chars:]
+#     except Exception:
+#         return ""
+
+
+# @app.post("/api/sim/start")
+# def sim_start(payload: Dict[str, Any] = Body(default={})):
+#     simulator = (payload.get("simulator") or "emx").lower()
+#     if simulator != "emx":
+#         raise HTTPException(status_code=400, detail=f"Unsupported simulator: {simulator}")
+
+#     # Only one at a time
+#     proc_existing = SIM_RUNS.get(ACTIVE_RUN_KEY)
+#     if proc_existing and proc_existing.poll() is None:
+#         raise HTTPException(status_code=400, detail="A simulation is already running.")
+
+#     pid = _get_active_project_id()
+#     if not pid:
+#         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
+#     root = (_project_dir(pid)).resolve()
+
+
+
+
+#     with open(str(root) + '/project.json', 'r') as file:
+#         # Use json.load() to parse the file content into a Python object
+#         project_data = json.load(file)
+
+
+   
+
+#     # write simConfig.json into project root
+#     sim_config = project_data["sim_config"]
+
+
+#     config_file_path = os.path.join(str(root), "simConfig.json")
+#     with open(config_file_path, "w", encoding="utf-8") as json_file:
+#         json.dump(sim_config, json_file, indent=4)
+
+#     simulate_script = os.path.abspath(
+#         os.path.join(str(root), "../../../simulator/simulator.py")
+#     )
+
+#     gds_path = os.path.join(str(root), "artwork.gds")
+#     artwork_path = os.path.join(str(root), "artwork.json")
+
+#     # Logs in project root
+#     stdout_log = os.path.join(str(root), "sim_stdout.log")
+#     stderr_log = os.path.join(str(root), "sim_stderr.log")
+
+#     # Clear logs on new run (so you see fresh output)
+#     try:
+#         open(stdout_log, "w").close()
+#         open(stderr_log, "w").close()
+#     except Exception:
+#         pass
+
+#     command = [
+#         "python",
+#         simulate_script,
+#         "-f", gds_path,
+#         "--sim", "emx",
+#         "-c", config_file_path,
+#         "-a", artwork_path,
+#         "-o", str(root),
+#         "-n", "artwork",
+#     ]
+
+#     print("[sim_start] cwd:", str(root))
+#     print("[sim_start] cmd:", command)
+
+#     try:
+#         out_f = open(stdout_log, "a", encoding="utf-8", buffering=1)
+#         err_f = open(stderr_log, "a", encoding="utf-8", buffering=1)
+
+#         proc = subprocess.Popen(
+#             command,
+#             cwd=str(root),
+#             stdout=out_f,
+#             stderr=err_f,
+#             text=True,
+#         )
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to start simulation: {e}")
+
+#     SIM_RUNS[ACTIVE_RUN_KEY] = proc
+#     SIM_RUN_META[ACTIVE_RUN_KEY] = {
+#         "simulator": simulator,
+#         "cmd": command,
+#         "started": time.time(),
+#         "projectId": pid,
+#         "stdout_log": stdout_log,
+#         "stderr_log": stderr_log,
+#     }
+
+#     return {"ok": True}
+
+
+# @app.post("/api/sim/stop")
+# def sim_stop(payload: Dict[str, Any] = Body(default={})):
+#     proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+#     if not proc:
+#         return {"ok": True, "stopped": False, "message": "No active simulation."}
+
+#     if proc.poll() is not None:
+#         SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+#         return {"ok": True, "stopped": False, "message": "Simulation already finished."}
+
+#     try:
+#         proc.terminate()
+#         try:
+#             proc.wait(timeout=5)
+#         except Exception:
+#             proc.kill()
+#     finally:
+#         SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+
+#     return {"ok": True, "stopped": True}
+
+
+# @app.get("/api/sim/status")
+# def sim_status():
+#     proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+#     meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
+
+#     if not proc:
+#         return {"running": False, "returncode": None}
+
+#     rc = proc.poll()
+#     if rc is None:
+#         return {"running": True, "returncode": None}
+
+#     # finished
+#     SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+#     return {"running": False, "returncode": rc}
+
+
+# # Optional but very useful for debugging UI
+# @app.get("/api/sim/logs")
+# def sim_logs():
+#     meta = SIM_RUN_META.get(ACTIVE_RUN_KEY, {})
+#     stdout_log = meta.get("stdout_log", "")
+#     stderr_log = meta.get("stderr_log", "")
+#     return {
+#         "stdout": _tail_file(stdout_log),
+#         "stderr": _tail_file(stderr_log),
+#     }
