@@ -26,23 +26,32 @@ WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
 ACTIVE_FILE = WORKSPACE_ROOT / ".active_project"  # contains project_id (folder name)
 
 # Your default state/project content
+# DEFAULT_PROJECT: Dict[str, Any] = {
+#     "nav": {
+#         "page": "landing",
+#         "tab": "artgen",
+#     },
+#     "ui": {
+#         "home": {
+#             "tabs": {
+#                 "artgen": {},
+#                 "sim": {},
+#                 "sweep": {},
+#                 "model": {},
+#                 "optimz": {},
+#             }
+#         }
+#     }
+# }
+
 DEFAULT_PROJECT: Dict[str, Any] = {
-    "nav": {
-        "page": "landing",
-        "tab": "artgen",
-    },
-    "ui": {
-        "home": {
-            "tabs": {
-                "artgen": {},
-                "sim": {},
-                "sweep": {},
-                "model": {},
-                "optimz": {},
-            }
-        }
-    }
+    "project": { "id": None, "name": None },   # (optional but recommended)
+    "nav": {"page": "landing", "tab": "artgen"},
+    "ui": {"home": {"tabs": {"artgen": {}, "sim": {}, "sweep": {}, "model": {}, "optimz": {}}}},
+    "artwork": {},   # ✅ IMPORTANT: so a new project overwrites old artwork in the UI
 }
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -208,7 +217,8 @@ def create_project(payload: Dict[str, Any]):
 
     # meta + project.json
     _write_json(_meta_path(project_id), {"displayName": raw_name.strip(), "created": time.time()})
-    _write_json(_project_json_path(project_id), DEFAULT_PROJECT)
+    #_write_json(_project_json_path(project_id), DEFAULT_PROJECT)
+    _write_json(_project_json_path(project_id), json.loads(json.dumps(DEFAULT_PROJECT)))
 
     # OPTIONAL: do NOT auto-open. (You can if you want)
     # _set_active_project_id(project_id)
