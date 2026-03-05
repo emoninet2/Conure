@@ -153,7 +153,7 @@ def generate_pce_report(models, X_train, X_test, y_train, y_test,
     return full_report
 
 # ---------------- PCE PIPELINE ----------------
-def pce_pipeline(file_path, model_base_dir, train_config):
+def train_model_pipeline(file_path, model_base_dir, train_config):
     X, y, _, _, _ = data_translator.prepare_ffi_data(file_path)
     f_train, f_test, t_train, t_test = split_data(X, y, test_size=0.2, random_state=42)
 
@@ -199,4 +199,4 @@ if __name__ == "__main__":
         "degree": 3
     }
 
-    pce_pipeline(FILE_PATH, MODEL_BASE_DIR, train_config)
+    train_model_pipeline(FILE_PATH, MODEL_BASE_DIR, train_config)
