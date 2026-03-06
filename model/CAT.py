@@ -12,7 +12,7 @@ from catboost import CatBoostRegressor
 from sklearn.model_selection import train_test_split
 
 # Custom modules
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore", category=ConvergenceWarning)
 os.environ['PYTHONWARNINGS'] = 'ignore'
 
 # Custom modules
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

@@ -13,7 +13,7 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 import psutil
 import logging
 
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

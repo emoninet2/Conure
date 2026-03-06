@@ -8,7 +8,7 @@ import psutil
 import joblib
 import lightgbm as lgb
 from sklearn.model_selection import train_test_split
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

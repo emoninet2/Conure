@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

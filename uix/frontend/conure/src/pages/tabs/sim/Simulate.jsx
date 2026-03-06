@@ -6,6 +6,13 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 const SIMULATOR_PATH = ["ui", "home", "tabs", "sim", "simulate", "simulator"];
 const RUNNING_PATH = ["ui", "home", "tabs", "sim", "simulate", "running"];
 
+// put near the top of the file
+const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g; // matches ANSI escape sequences
+function stripAnsi(s) {
+  return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
+}
+
+
 export default function Simulate() {
   const setValue = useUiStore((s) => s.setValue);
 
@@ -218,8 +225,7 @@ export default function Simulate() {
                 const prefix = "";
                 return (
                   <div key={i}>
-                    {prefix}
-                    {x.line}
+                    {stripAnsi(x.line)}
                   </div>
                 );
               })
