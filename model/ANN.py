@@ -15,7 +15,8 @@ from keras.layers import Dense, Dropout
 from keras.optimizers import Adam
 from keras import regularizers
 # Custom modules
-from model import data_translator, report
+# from . import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(

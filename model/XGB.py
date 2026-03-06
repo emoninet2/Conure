@@ -11,7 +11,7 @@ import psutil
 from sklearn.model_selection import train_test_split
 
 # Custom modules
-from model import data_translator, report
+import data_translator, report
 
 # ---------------- LOGGER ----------------
 logging.basicConfig(
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # ---------------- ULTRA-FAST TEST CONFIG ----------------
     train_config = {
         "model_name": "TX11_XGB",
-        "model_type": "XGBoost",
+        "model_type": "XGB",
         "xgb_params": {
             "n_estimators": 1,      
             "max_depth": 1,         
