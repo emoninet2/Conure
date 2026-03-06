@@ -152,6 +152,102 @@ def train_model_pipeline(X, y, config, model_base_dir):
     report.save_report(full_report, save_path)
     logger.info("Report successfully generated.")
 
+# ---------------- PREDICT ----------------
+def predict(model_dir, X_new, return_std=False):
+    """
+    Predict using saved GPR models.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the saved model directory.
+    X_new : np.ndarray
+        Input features of shape (n_samples, n_features) or (n_features,).
+    return_std : bool, optional
+        If True, also return predictive standard deviation in original target scale.
+
+    Returns
+    -------
+    y_pred : np.ndarray
+        Predictions in original target scale, shape (n_samples, n_outputs)
+
+    y_std : np.ndarray, optional
+        Predictive standard deviation in original target scale,
+        returned only if return_std=True
+    """
+    # Convert input
+    X_new = np.asarray(X_new, dtype=np.float64)
+
+    if X_new.ndim == 1:
+        X_new = X_new.reshape(1, -1)
+
+    if np.isnan(X_new).any():
+        raise ValueError("X_new contains NaN values.")
+
+    # Load saved artifacts
+    feature_scaler_path = os.path.join(model_dir, "feature_scaler.pkl")
+    target_scaler_path = os.path.join(model_dir, "target_scaler.pkl")
+    model_list_path = os.path.join(model_dir, "gpr_models_list.pkl")
+
+    if not os.path.exists(feature_scaler_path):
+        raise FileNotFoundError(f"Feature scaler not found: {feature_scaler_path}")
+    if not os.path.exists(target_scaler_path):
+        raise FileNotFoundError(f"Target scaler not found: {target_scaler_path}")
+    if not os.path.exists(model_list_path):
+        raise FileNotFoundError(f"GPR model list not found: {model_list_path}")
+
+    f_scaler = joblib.load(feature_scaler_path)
+    t_scaler = joblib.load(target_scaler_path)
+    gpr_models = joblib.load(model_list_path)
+
+    # Validate feature dimension
+    expected_features = getattr(gpr_models[0], "n_features_in_", None)
+    if expected_features is not None and X_new.shape[1] != expected_features:
+        raise ValueError(
+            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+        )
+
+    # Normalize input
+    X_new_norm = f_scaler.transform(X_new)
+
+    # Predict each output independently
+    if return_std:
+        pred_means = []
+        pred_stds = []
+
+        for model in gpr_models:
+            mean_i, std_i = model.predict(X_new_norm, return_std=True)
+            pred_means.append(mean_i)
+            pred_stds.append(std_i)
+
+        y_pred_norm = np.column_stack(pred_means)   # (n_samples, n_outputs)
+        y_std_norm = np.column_stack(pred_stds)     # (n_samples, n_outputs)
+
+        # Inverse transform mean prediction
+        y_pred = t_scaler.inverse_transform(y_pred_norm)
+
+        # Scale std back to original target scale
+        # For sklearn scalers:
+        # original = normalized * scale_ + mean_
+        # so std_original = std_normalized * scale_
+        if hasattr(t_scaler, "scale_"):
+            y_std = y_std_norm * t_scaler.scale_
+        else:
+            # Fallback: approximate via inverse transform of zero + std
+            zeros = np.zeros_like(y_std_norm)
+            y_std = t_scaler.inverse_transform(zeros + y_std_norm) - t_scaler.inverse_transform(zeros)
+
+        return y_pred, y_std
+
+    else:
+        y_pred_norm = np.column_stack([
+            model.predict(X_new_norm) for model in gpr_models
+        ])
+
+        y_pred = t_scaler.inverse_transform(y_pred_norm)
+        return y_pred
+
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
 

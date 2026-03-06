@@ -155,6 +155,56 @@ def train_model_pipeline(X, y, config, model_base_dir):
     logger.info("CatBoost training pipeline completed.")
 
 
+def predict(model_dir, X_new):
+    """
+    Predict using saved CatBoost models.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the saved model directory.
+    X_new : np.ndarray
+        Input features with shape (n_samples, n_features) or (n_features,).
+
+    Returns
+    -------
+    np.ndarray
+        Predictions with shape (n_samples, n_outputs).
+    """
+    X_new = np.asarray(X_new, dtype=np.float32)
+
+    if X_new.ndim == 1:
+        X_new = X_new.reshape(1, -1)
+
+    if np.isnan(X_new).any():
+        raise ValueError("X_new contains NaN values.")
+
+    model_file = os.path.join(model_dir, "cat_models_list.pkl")
+    config_file = os.path.join(model_dir, "config.json")
+
+    if not os.path.exists(model_file):
+        raise FileNotFoundError(f"Model file not found: {model_file}")
+
+    cat_models = joblib.load(model_file)
+
+    if len(cat_models) == 0:
+        raise ValueError("Loaded CatBoost model list is empty.")
+
+    expected_features = getattr(cat_models[0], "feature_count_", None)
+    if expected_features is not None and X_new.shape[1] != expected_features:
+        raise ValueError(
+            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+        )
+
+    # optional config load, in case you want metadata later
+    config = {}
+    if os.path.exists(config_file):
+        with open(config_file, "r") as f:
+            config = json.load(f)
+
+    y_pred = predict_cat(cat_models, X_new)
+    return y_pred
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
 

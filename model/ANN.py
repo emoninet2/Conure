@@ -1,5 +1,4 @@
 # ANN.py
-
 import os
 import json
 import joblib
@@ -133,6 +132,46 @@ def generate_model(train_features, train_targets, config):
 
     return model, history
 
+
+def predict(model_dir, X_new):
+    """
+    Run prediction using a trained ANN model.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to saved model directory
+    X_new : numpy.ndarray
+        New input samples (n_samples, n_features)
+
+    Returns
+    -------
+    y_pred : numpy.ndarray
+        Predicted values (original scale)
+    """
+
+    # 1. Load artifacts
+    model_path = os.path.join(model_dir, os.path.basename(model_dir) + ".keras")
+    feature_scaler_path = os.path.join(model_dir, "feature_scaler.pkl")
+    target_scaler_path = os.path.join(model_dir, "target_scaler.pkl")
+
+    model = tf.keras.models.load_model(model_path)
+    f_scaler = joblib.load(feature_scaler_path)
+    t_scaler = joblib.load(target_scaler_path)
+
+    # 2. Normalize input
+    X_norm = f_scaler.transform(X_new)
+
+    # 3. Predict
+    y_pred_norm = model.predict(X_norm, verbose=0)
+
+    # 4. Inverse scale prediction
+    y_pred = t_scaler.inverse_transform(y_pred_norm)
+
+    return y_pred
+
+
+    
 # ---------------- REPORT GENERATION ----------------
 def generate_report(model, history, f_train, f_test, t_train, t_test,
                     f_scaler, t_scaler, config, train_duration, save_path):
