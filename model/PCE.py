@@ -188,6 +188,73 @@ def train_model_pipeline(file_path, model_base_dir, train_config):
     report.log_metric(report_data["performance"]["metrics"], train_config.get("model_type", "PCE"), logger)
     logger.info("PCE pipeline finished successfully.")
 
+
+
+def predict(model_dir, X_new):
+    """
+    Predict using saved PCE models.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the saved model directory.
+    X_new : np.ndarray
+        Input features with shape (n_samples, n_features) or (n_features,).
+
+    Returns
+    -------
+    np.ndarray
+        Predictions with shape (n_samples, n_outputs).
+    """
+
+    X_new = np.asarray(X_new, dtype=np.float64)
+
+    if X_new.ndim == 1:
+        X_new = X_new.reshape(1, -1)
+
+    if np.isnan(X_new).any():
+        raise ValueError("X_new contains NaN values.")
+
+    # Load saved artifacts
+    model_file = os.path.join(model_dir, "models.pkl")
+    f_scaler_file = os.path.join(model_dir, "feature_scaler.pkl")
+    t_scaler_file = os.path.join(model_dir, "target_scaler.pkl")
+    config_file = os.path.join(model_dir, "config.json")
+
+    if not os.path.exists(model_file):
+        raise FileNotFoundError(f"PCE models not found: {model_file}")
+
+    models = joblib.load(model_file)
+    f_scaler = joblib.load(f_scaler_file)
+    t_scaler = joblib.load(t_scaler_file)
+
+    # Load config to get polynomial degree
+    degree = 3
+    if os.path.exists(config_file):
+        with open(config_file, "r") as f:
+            config = json.load(f)
+            degree = config.get("degree", 3)
+
+    # Validate feature count
+    expected_features = getattr(f_scaler, "n_features_in_", None)
+    if expected_features is not None and X_new.shape[1] != expected_features:
+        raise ValueError(
+            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+        )
+
+    # Normalize features
+    X_norm = f_scaler.transform(X_new)
+
+    # Predict in normalized space
+    y_pred_norm = predict_pce(models, X_norm, degree=degree)
+
+    # Convert back to original scale
+    y_pred = t_scaler.inverse_transform(y_pred_norm)
+
+    return y_pred
+
+
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     FILE_PATH = "/home/emon/projects/Conure/data/raw/simulation_data_fixed.npz"

@@ -143,6 +143,54 @@ def train_model_pipeline(X, y, config, model_base_dir):
     report.log_metric(perf_metrics, config["model_type"], logger)
     logger.info("Report successfully generated.")
 
+
+def predict(model_dir, X_new):
+    """
+    Predict using saved XGBoost models.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the saved model directory.
+    X_new : np.ndarray
+        Input features with shape (n_samples, n_features) or (n_features,).
+
+    Returns
+    -------
+    np.ndarray
+        Predictions with shape (n_samples, n_outputs).
+    """
+    X_new = np.asarray(X_new, dtype=np.float32)
+
+    if X_new.ndim == 1:
+        X_new = X_new.reshape(1, -1)
+
+    if np.isnan(X_new).any():
+        raise ValueError("X_new contains NaN values.")
+
+    model_file = os.path.join(model_dir, "xgb_models_list.pkl")
+    if not os.path.exists(model_file):
+        raise FileNotFoundError(f"XGB model file not found: {model_file}")
+
+    xgb_models = joblib.load(model_file)
+
+    if len(xgb_models) == 0:
+        raise ValueError("Loaded XGBoost model list is empty.")
+
+    expected_features = getattr(xgb_models[0], "n_features_in_", None)
+    if expected_features is not None and X_new.shape[1] != expected_features:
+        raise ValueError(
+            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+        )
+
+    y_pred = np.zeros((X_new.shape[0], len(xgb_models)), dtype=np.float32)
+    for i, model in enumerate(xgb_models):
+        y_pred[:, i] = model.predict(X_new)
+
+    return y_pred
+
+
+    
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
 

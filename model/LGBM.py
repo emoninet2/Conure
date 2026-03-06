@@ -107,6 +107,49 @@ def train_model_pipeline(X, y, config, model_base_dir):
     logger.info("LightGBM training pipeline completed.")
 
 
+
+def predict(model_dir, X_new):
+    """
+    Predict using saved LightGBM models.
+
+    Parameters
+    ----------
+    model_dir : str
+        Path to the saved model directory.
+    X_new : np.ndarray
+        Input features with shape (n_samples, n_features) or (n_features,).
+
+    Returns
+    -------
+    np.ndarray
+        Predictions with shape (n_samples, n_outputs).
+    """
+    X_new = np.asarray(X_new, dtype=np.float32)
+
+    if X_new.ndim == 1:
+        X_new = X_new.reshape(1, -1)
+
+    if np.isnan(X_new).any():
+        raise ValueError("X_new contains NaN values.")
+
+    model_file = os.path.join(model_dir, "lgb_models_list.pkl")
+    if not os.path.exists(model_file):
+        raise FileNotFoundError(f"Model file not found: {model_file}")
+
+    lgb_models = joblib.load(model_file)
+    if len(lgb_models) == 0:
+        raise ValueError("Loaded LightGBM model list is empty.")
+
+    expected_features = getattr(lgb_models[0], "n_features_in_", None)
+    if expected_features is not None and X_new.shape[1] != expected_features:
+        raise ValueError(
+            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+        )
+
+    # Use your existing helper
+    y_pred = predict_lgb(lgb_models, X_new)
+    return y_pred
+
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     FILE_PATH = "/home/emon/projects/Conure/data/raw/simulation_data_fixed.npz"
