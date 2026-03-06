@@ -64,7 +64,7 @@ def train_gpr_model(feature_train, target_train, config):
     return models
 
 # ---------------- TRAINING PIPELINE ----------------
-def train_gpr_pipeline(X, y, config, model_base_dir):
+def train_model_pipeline(X, y, config, model_base_dir):
 
     # Limit CPU threads if provided
     max_threads = config.get("max_cpu_threads")
@@ -176,4 +176,4 @@ if __name__ == "__main__":
     X, y, _, _, _ = data_translator.prepare_ffi_data(FILE_PATH)
 
     # Run GPR training pipeline
-    train_gpr_pipeline(X, y, train_config, MODEL_BASE_DIR)
+    train_model_pipeline(X, y, train_config, MODEL_BASE_DIR)

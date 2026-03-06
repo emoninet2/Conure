@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "styled-components": "^6.1.17"
+    "styled-components": "^6.1.17",
+    "zustand": "^5.0.11"
   }
 }

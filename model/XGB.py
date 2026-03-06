@@ -50,7 +50,7 @@ def train_xgb_models(feature_train, target_train, feature_val, target_val, confi
     return models, histories
 
 # ---------------- TRAINING PIPELINE ----------------
-def train_xgb_pipeline(X, y, config, model_base_dir):
+def train_model_pipeline(X, y, config, model_base_dir):
     # Limit CPU threads if specified
     max_threads = config.get("max_cpu_threads")
     if max_threads:
@@ -177,4 +177,4 @@ if __name__ == "__main__":
     num_outputs = 10  
 
     # Run the fast training pipeline
-    train_xgb_pipeline(X[:num_samples], y[:num_samples, :num_outputs], train_config, MODEL_BASE_DIR)
+    train_model_pipeline(X[:num_samples], y[:num_samples, :num_outputs], train_config, MODEL_BASE_DIR)
