@@ -341,8 +341,8 @@ def example():
     # ==========================================================
     # PATHS
     # ==========================================================
-    npz_file = "/Users/emon/Downloads/simulation_data.npz"
-    output_dir = "/Users/emon/Downloads/MAGIC"
+    npz_file = "/mnt/storage/emon/projects/Conure/data/2026/TX11/simulation_data.npz"
+    output_dir = "./data/MAGIC"
 
     # ==========================================================
     # EXPERIMENT SETTINGS
@@ -350,10 +350,10 @@ def example():
     model_type = "ANN"
 
     # Train on augmented inverse data
-    train_translation_type = "IFI_AUGMENTED"
+    train_translation_type = "IFD_AUGMENTED"
 
     # Predict on clean inverse data
-    predict_translation_type = "IFI_AUGMENTED"
+    predict_translation_type = "IFD_AUGMENTED"
 
     model_name = f"{model_type}_{train_translation_type.upper()}"
     model_dir = os.path.join(output_dir, model_name)
