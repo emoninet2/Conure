@@ -151,9 +151,18 @@ def predict(model_dir, X_new):
     """
 
     # 1. Load artifacts
-    model_path = os.path.join(model_dir, os.path.basename(model_dir) + ".keras")
+    model_path = os.path.join(model_dir, "model.keras")
+    legacy_model_path = os.path.join(model_dir, os.path.basename(model_dir) + ".keras")
     feature_scaler_path = os.path.join(model_dir, "feature_scaler.pkl")
     target_scaler_path = os.path.join(model_dir, "target_scaler.pkl")
+
+    if not os.path.exists(model_path):
+        if os.path.exists(legacy_model_path):
+            model_path = legacy_model_path
+        else:
+            raise FileNotFoundError(
+                f"ANN model file not found. Checked: {model_path} and {legacy_model_path}"
+            )
 
     model = tf.keras.models.load_model(model_path)
     f_scaler = joblib.load(feature_scaler_path)
@@ -199,7 +208,7 @@ def generate_report(model, history, f_train, f_test, t_train, t_test,
     peak_ram_gb = round(process.memory_info().rss / (1024**3), 2)
 
     # Model size
-    model_path = os.path.join(save_path, f"{config['model_name']}.keras")
+    model_path = os.path.join(save_path, "model.keras")
     if os.path.exists(model_path):
         model_size_mb = round(os.path.getsize(model_path) / (1024**2), 2)
     else:
@@ -283,7 +292,7 @@ def train_model_pipeline(X, y, config, model_base_dir):
     # 5. Save artifacts
     save_path = os.path.join(model_base_dir, config["model_name"])
     os.makedirs(save_path, exist_ok=True)
-    model_file = os.path.join(save_path, f"{config['model_name']}.keras")
+    model_file = os.path.join(save_path, "model.keras")
     model.save(model_file)
     joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
     joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
