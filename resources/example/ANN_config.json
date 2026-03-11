@@ -1,0 +1,40 @@
+{
+  "model_name": "ANN_FFD",
+  "normalization": {
+    "feature_method": "standard",
+    "target_method": "standard"
+  },
+  "training": {
+    "epochs": 100,
+    "batch_size": 32,
+    "loss": "mse",
+    "metrics": ["mae"],
+    "validation_split": 0.2,
+    "optimizer": {
+      "type": "Adam",
+      "learning_rate": 0.001,
+      "momentum": 0.9
+    }
+  },
+  "early_stopping": {
+    "monitor": "val_loss",
+    "patience": 15,
+    "restore_best_weights": true
+  },
+  "architecture": [
+    {
+      "type": "Dense",
+      "units": 128,
+      "activation": "relu",
+      "regularizer": { "type": "l2", "value": 0.01 }
+    },
+    { "type": "Dropout", "rate": 0.1 },
+    {
+      "type": "Dense",
+      "units": 512,
+      "activation": "relu",
+      "regularizer": { "type": "l1_l2", "l1": 0.001, "l2": 0.01 }
+    },
+    { "type": "Dense", "units": "AUTO", "activation": "linear" }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "translation_type": "FFD",
+  "translation_params": {
+    "feature_noise_std": 0.01,
+    "target_noise_std": 0.005,
+    "n_augment": 3,
+    "clip": true
+  }
+}

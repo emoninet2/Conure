@@ -1,0 +1,14 @@
+python model/train.py \
+  -d data/workspace/carl/sweep/mysweep2/simulation_data.npz \
+  -t ANN \
+  -a resources/example/data_translate.json \
+  -m resources/example/ANN_config.json \
+  -o data/workspace/carl/model
+
+
+
+  python model/predict.py \
+  -t ANN \
+  -m data/workspace/carl/model/ANN_FFD \
+  -x '[[10,5000000],[12,4000000],[15,3000000]]' \
+  -p
