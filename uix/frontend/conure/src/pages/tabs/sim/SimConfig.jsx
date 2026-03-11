@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../../../state/uiStore";
 
 import EmxConfig from "./config/EmxConfig";
 
 const CONFIG_TABS = [{ key: "emx", label: "EMX" }];
 
-// ✅ manage the entire sim_config
 const SIM_PATH = ["sim_config"];
 
 function safeObj(x) {
@@ -14,7 +13,6 @@ function safeObj(x) {
 
 function ensureSimConfigShape(obj) {
   const s = safeObj(obj);
-  // ensure emx_config exists so the key is never missing
   if (!safeObj(s.emx_config)) return { ...s, emx_config: {} };
   return s;
 }
@@ -27,7 +25,6 @@ export default function SimConfig() {
     s.getValue(["nav", "home", "sim", "config", "tab"], "emx")
   );
 
-  // ✅ last SAVED sim_config from store (stable string)
   const savedSimJson = useUiStore((s) => {
     const obj = s.getValue(SIM_PATH, null) || {};
     try {
@@ -45,17 +42,29 @@ export default function SimConfig() {
     }
   }, [savedSimJson]);
 
-  const [draftSimConfig, setDraftSimConfig] = useState(() => savedSimConfig);
+  const [draftSimConfig, setDraftSimConfigState] = useState(() => savedSimConfig);
   const [dirty, setDirty] = useState(false);
   const [resetToken, setResetToken] = useState(0);
 
-  // If store reloads from backend and user isn't editing, refresh draft
   useEffect(() => {
     if (!dirty) {
-      setDraftSimConfig(savedSimConfig);
+      setDraftSimConfigState(savedSimConfig);
       setResetToken((t) => t + 1);
     }
-  }, [savedSimJson]);
+  }, [savedSimConfig, dirty]);
+
+  const updateDraftSimConfig = useCallback((updater) => {
+    setDirty(true);
+    setDraftSimConfigState((prev) => {
+      const base = ensureSimConfigShape(prev);
+      const next = typeof updater === "function" ? updater(base) : updater;
+      return ensureSimConfigShape(next);
+    });
+  }, []);
+
+  const markDirty = useCallback(() => {
+    setDirty(true);
+  }, []);
 
   function saveAll() {
     setValue(SIM_PATH, draftSimConfig);
@@ -63,12 +72,11 @@ export default function SimConfig() {
   }
 
   function resetAll() {
-    setDraftSimConfig(savedSimConfig);
+    setDraftSimConfigState(savedSimConfig);
     setDirty(false);
     setResetToken((t) => t + 1);
   }
 
-  // ✅ download ENTIRE sim_config (including emx_config key)
   function downloadSimConfig() {
     const pretty = JSON.stringify(savedSimConfig, null, 2);
     const blob = new Blob([pretty], { type: "application/json" });
@@ -91,7 +99,6 @@ export default function SimConfig() {
     fileInputRef.current?.click();
   }
 
-  // ✅ upload ENTIRE sim_config (and ensure emx_config exists)
   async function onUploadFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -107,7 +114,7 @@ export default function SimConfig() {
 
       const next = ensureSimConfigShape(parsed);
 
-      setDraftSimConfig(next);
+      setDraftSimConfigState(next);
       setValue(SIM_PATH, next);
 
       setDirty(false);
@@ -119,25 +126,20 @@ export default function SimConfig() {
     }
   }
 
-  const commonTabProps = {
-    draftSimConfig,
-    setDraftSimConfig: (updater) => {
-      setDirty(true);
-      setDraftSimConfig((prev) => {
-        const base = ensureSimConfigShape(prev);
-        const next = typeof updater === "function" ? updater(base) : updater;
-        return ensureSimConfigShape(next);
-      });
-    },
-    markDirty: () => setDirty(true),
-    resetToken,
-  };
+  const commonTabProps = useMemo(
+    () => ({
+      draftSimConfig,
+      setDraftSimConfig: updateDraftSimConfig,
+      markDirty,
+      resetToken,
+    }),
+    [draftSimConfig, updateDraftSimConfig, markDirty, resetToken]
+  );
 
   return (
     <div>
       <h4>Config</h4>
 
-      {/* ✅ Shared controls */}
       <div
         style={{
           display: "flex",
@@ -214,7 +216,6 @@ export default function SimConfig() {
         />
       </div>
 
-      {/* Config tabs */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
         {CONFIG_TABS.map((t) => (
           <button
@@ -227,7 +228,6 @@ export default function SimConfig() {
         ))}
       </div>
 
-      {/* Content */}
       <div style={{ padding: 12, border: "1px solid #ccc" }}>
         {active === "emx" && <EmxConfig {...commonTabProps} />}
       </div>

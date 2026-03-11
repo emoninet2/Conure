@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 function safeObj(x) {
   return x && typeof x === "object" && !Array.isArray(x) ? x : {};
 }
 
-// Builds a fully-populated emx_config object with defaults
 function normalizeEmxConfig(emx) {
   const e = safeObj(emx);
 
@@ -50,7 +49,9 @@ function normalizeEmxConfig(emx) {
     CapacitiveOnly: typeof e.CapacitiveOnly === "boolean" ? e.CapacitiveOnly : false,
     ResistiveOnly: typeof e.ResistiveOnly === "boolean" ? e.ResistiveOnly : false,
     ResistiveAndCapacitiveOnly:
-      typeof e.ResistiveAndCapacitiveOnly === "boolean" ? e.ResistiveAndCapacitiveOnly : false,
+      typeof e.ResistiveAndCapacitiveOnly === "boolean"
+        ? e.ResistiveAndCapacitiveOnly
+        : false,
 
     dumpConnectivity: typeof e.dumpConnectivity === "boolean" ? e.dumpConnectivity : true,
     quasistatic: typeof e.quasistatic === "boolean" ? e.quasistatic : true,
@@ -58,15 +59,18 @@ function normalizeEmxConfig(emx) {
 
     parallelCPU: e.parallelCPU ?? 128,
     simultaneousFrequencies: e.simultaneousFrequencies ?? 0,
-    recommendedMemory: typeof e.recommendedMemory === "boolean" ? e.recommendedMemory : true,
+    recommendedMemory:
+      typeof e.recommendedMemory === "boolean" ? e.recommendedMemory : true,
     verbose: e.verbose ?? 3,
-    printCommandLine: typeof e.printCommandLine === "boolean" ? e.printCommandLine : true,
+    printCommandLine:
+      typeof e.printCommandLine === "boolean" ? e.printCommandLine : true,
 
     format: e.format ?? "touchstone",
 
     SParam: {
       formats: {
-        touchstone: typeof sFormats.touchstone === "boolean" ? sFormats.touchstone : true,
+        touchstone:
+          typeof sFormats.touchstone === "boolean" ? sFormats.touchstone : true,
         matlab: typeof sFormats.matlab === "boolean" ? sFormats.matlab : true,
         spectre: typeof sFormats.spectre === "boolean" ? sFormats.spectre : true,
         psf: typeof sFormats.psf === "boolean" ? sFormats.psf : true,
@@ -74,7 +78,8 @@ function normalizeEmxConfig(emx) {
     },
     YParam: {
       formats: {
-        touchstone: typeof yFormats.touchstone === "boolean" ? yFormats.touchstone : true,
+        touchstone:
+          typeof yFormats.touchstone === "boolean" ? yFormats.touchstone : true,
         matlab: typeof yFormats.matlab === "boolean" ? yFormats.matlab : true,
         spectre: typeof yFormats.spectre === "boolean" ? yFormats.spectre : true,
         psf: typeof yFormats.psf === "boolean" ? yFormats.psf : true,
@@ -85,7 +90,14 @@ function normalizeEmxConfig(emx) {
 
 function Section({ title, children }) {
   return (
-    <div style={{ padding: 12, border: "1px solid #ddd", borderRadius: 6, background: "#fff" }}>
+    <div
+      style={{
+        padding: 12,
+        border: "1px solid #ddd",
+        borderRadius: 6,
+        background: "#fff",
+      }}
+    >
       <div style={{ fontWeight: 600, marginBottom: 10 }}>{title}</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>{children}</div>
     </div>
@@ -94,7 +106,14 @@ function Section({ title, children }) {
 
 function Row({ label, children }) {
   return (
-    <label style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 12, alignItems: "center" }}>
+    <label
+      style={{
+        display: "grid",
+        gridTemplateColumns: "220px 1fr",
+        gap: 12,
+        alignItems: "center",
+      }}
+    >
       <div style={{ opacity: 0.85 }}>{label}</div>
       <div>{children}</div>
     </label>
@@ -113,7 +132,6 @@ function TextInput({ value, onChange, placeholder }) {
 }
 
 function NumInput({ value, onChange, placeholder }) {
-  // store numbers as numbers, but allow empty while typing
   return (
     <input
       value={value === "" || value === null || value === undefined ? "" : String(value)}
@@ -122,7 +140,7 @@ function NumInput({ value, onChange, placeholder }) {
         const s = e.target.value;
         if (s.trim() === "") return onChange("");
         const n = Number(s);
-        if (Number.isNaN(n)) return; // ignore invalid keystrokes
+        if (Number.isNaN(n)) return;
         onChange(n);
       }}
       style={{ width: "100%" }}
@@ -139,40 +157,57 @@ function Check({ checked, onChange, label }) {
   );
 }
 
-// Generic nested patch helper
 function setAtPath(obj, path, value) {
   const root = safeObj(obj);
   const out = { ...root };
   let cur = out;
+
   for (let i = 0; i < path.length - 1; i++) {
     const k = path[i];
     const next = safeObj(cur[k]);
     cur[k] = { ...next };
     cur = cur[k];
   }
+
   cur[path[path.length - 1]] = value;
   return out;
 }
 
-export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, resetToken = 0 }) {
+export default function EmxConfig({
+  draftSimConfig,
+  setDraftSimConfig,
+  markDirty,
+  resetToken = 0,
+}) {
   const emxFromProps = useMemo(() => {
     const cfg = safeObj(draftSimConfig);
     return normalizeEmxConfig(cfg.emx_config);
   }, [draftSimConfig]);
 
-  // Local draft for smooth typing + reset behavior (same pattern as your other tabs)
   const [local, setLocal] = useState(() => emxFromProps);
+  const lastPushedRef = useRef(JSON.stringify(emxFromProps));
 
   useEffect(() => {
-    // Rehydrate ONLY on reset token changes (matches your pattern)
     setLocal(emxFromProps);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetToken]);
+    lastPushedRef.current = JSON.stringify(emxFromProps);
+  }, [resetToken, emxFromProps]);
 
-  // Push local -> draftSimConfig.emx_config on every change
   useEffect(() => {
+    const nextJson = JSON.stringify(local);
+
+    if (nextJson === lastPushedRef.current) return;
+
     setDraftSimConfig?.((prev) => {
       const p = safeObj(prev);
+      const prevEmx = normalizeEmxConfig(p.emx_config);
+      const prevJson = JSON.stringify(prevEmx);
+
+      if (prevJson === nextJson) {
+        lastPushedRef.current = nextJson;
+        return prev;
+      }
+
+      lastPushedRef.current = nextJson;
       return { ...p, emx_config: local };
     });
   }, [local, setDraftSimConfig]);
@@ -182,7 +217,6 @@ export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, rese
     setLocal((prev) => setAtPath(prev, path, value));
   }
 
-  // Convenience getters
   const remote = safeObj(local.remote);
   const sweep = safeObj(local.sweepFreq);
   const sFormats = safeObj(safeObj(local.SParam).formats);
@@ -193,11 +227,7 @@ export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, rese
       <h5 style={{ margin: 0 }}>EMX</h5>
 
       <Section title="Remote">
-        <Check
-          checked={remote.use}
-          label="use"
-          onChange={(v) => patch(["remote", "use"], v)}
-        />
+        <Check checked={remote.use} label="use" onChange={(v) => patch(["remote", "use"], v)} />
         <Row label="sshHost">
           <TextInput
             value={remote.sshHost}
@@ -317,13 +347,29 @@ export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, rese
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
           <Check checked={!!local["3dCond"]} label="3dCond" onChange={(v) => patch(["3dCond"], v)} />
           <Check checked={!!local.sidewalls} label="sidewalls" onChange={(v) => patch(["sidewalls"], v)} />
-          <Check checked={!!local.viaSidewalls} label="viaSidewalls" onChange={(v) => patch(["viaSidewalls"], v)} />
-          <Check checked={!!local.viaInductance} label="viaInductance" onChange={(v) => patch(["viaInductance"], v)} />
-          <Check checked={!!local.useCadencePins} label="useCadencePins" onChange={(v) => patch(["useCadencePins"], v)} />
+          <Check
+            checked={!!local.viaSidewalls}
+            label="viaSidewalls"
+            onChange={(v) => patch(["viaSidewalls"], v)}
+          />
+          <Check
+            checked={!!local.viaInductance}
+            label="viaInductance"
+            onChange={(v) => patch(["viaInductance"], v)}
+          />
+          <Check
+            checked={!!local.useCadencePins}
+            label="useCadencePins"
+            onChange={(v) => patch(["useCadencePins"], v)}
+          />
         </div>
 
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Check checked={!!local.dumpConnectivity} label="dumpConnectivity" onChange={(v) => patch(["dumpConnectivity"], v)} />
+          <Check
+            checked={!!local.dumpConnectivity}
+            label="dumpConnectivity"
+            onChange={(v) => patch(["dumpConnectivity"], v)}
+          />
           <Check checked={!!local.quasistatic} label="quasistatic" onChange={(v) => patch(["quasistatic"], v)} />
           <Check checked={!!local.fullwave} label="fullwave" onChange={(v) => patch(["fullwave"], v)} />
         </div>
@@ -355,16 +401,36 @@ export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, rese
         </Row>
 
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Check checked={!!local.recommendedMemory} label="recommendedMemory" onChange={(v) => patch(["recommendedMemory"], v)} />
-          <Check checked={!!local.printCommandLine} label="printCommandLine" onChange={(v) => patch(["printCommandLine"], v)} />
+          <Check
+            checked={!!local.recommendedMemory}
+            label="recommendedMemory"
+            onChange={(v) => patch(["recommendedMemory"], v)}
+          />
+          <Check
+            checked={!!local.printCommandLine}
+            label="printCommandLine"
+            onChange={(v) => patch(["printCommandLine"], v)}
+          />
         </div>
       </Section>
 
       <Section title="Modes">
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Check checked={!!local.InductiveOnly} label="InductiveOnly" onChange={(v) => patch(["InductiveOnly"], v)} />
-          <Check checked={!!local.CapacitiveOnly} label="CapacitiveOnly" onChange={(v) => patch(["CapacitiveOnly"], v)} />
-          <Check checked={!!local.ResistiveOnly} label="ResistiveOnly" onChange={(v) => patch(["ResistiveOnly"], v)} />
+          <Check
+            checked={!!local.InductiveOnly}
+            label="InductiveOnly"
+            onChange={(v) => patch(["InductiveOnly"], v)}
+          />
+          <Check
+            checked={!!local.CapacitiveOnly}
+            label="CapacitiveOnly"
+            onChange={(v) => patch(["CapacitiveOnly"], v)}
+          />
+          <Check
+            checked={!!local.ResistiveOnly}
+            label="ResistiveOnly"
+            onChange={(v) => patch(["ResistiveOnly"], v)}
+          />
           <Check
             checked={!!local.ResistiveAndCapacitiveOnly}
             label="ResistiveAndCapacitiveOnly"
@@ -391,20 +457,52 @@ export default function Emx({ draftSimConfig, setDraftSimConfig, markDirty, rese
           <div style={{ border: "1px solid #eee", borderRadius: 6, padding: 10 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>SParam.formats</div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <Check checked={!!sFormats.touchstone} label="touchstone" onChange={(v) => patch(["SParam", "formats", "touchstone"], v)} />
-              <Check checked={!!sFormats.matlab} label="matlab" onChange={(v) => patch(["SParam", "formats", "matlab"], v)} />
-              <Check checked={!!sFormats.spectre} label="spectre" onChange={(v) => patch(["SParam", "formats", "spectre"], v)} />
-              <Check checked={!!sFormats.psf} label="psf" onChange={(v) => patch(["SParam", "formats", "psf"], v)} />
+              <Check
+                checked={!!sFormats.touchstone}
+                label="touchstone"
+                onChange={(v) => patch(["SParam", "formats", "touchstone"], v)}
+              />
+              <Check
+                checked={!!sFormats.matlab}
+                label="matlab"
+                onChange={(v) => patch(["SParam", "formats", "matlab"], v)}
+              />
+              <Check
+                checked={!!sFormats.spectre}
+                label="spectre"
+                onChange={(v) => patch(["SParam", "formats", "spectre"], v)}
+              />
+              <Check
+                checked={!!sFormats.psf}
+                label="psf"
+                onChange={(v) => patch(["SParam", "formats", "psf"], v)}
+              />
             </div>
           </div>
 
           <div style={{ border: "1px solid #eee", borderRadius: 6, padding: 10 }}>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>YParam.formats</div>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-              <Check checked={!!yFormats.touchstone} label="touchstone" onChange={(v) => patch(["YParam", "formats", "touchstone"], v)} />
-              <Check checked={!!yFormats.matlab} label="matlab" onChange={(v) => patch(["YParam", "formats", "matlab"], v)} />
-              <Check checked={!!yFormats.spectre} label="spectre" onChange={(v) => patch(["YParam", "formats", "spectre"], v)} />
-              <Check checked={!!yFormats.psf} label="psf" onChange={(v) => patch(["YParam", "formats", "psf"], v)} />
+              <Check
+                checked={!!yFormats.touchstone}
+                label="touchstone"
+                onChange={(v) => patch(["YParam", "formats", "touchstone"], v)}
+              />
+              <Check
+                checked={!!yFormats.matlab}
+                label="matlab"
+                onChange={(v) => patch(["YParam", "formats", "matlab"], v)}
+              />
+              <Check
+                checked={!!yFormats.spectre}
+                label="spectre"
+                onChange={(v) => patch(["YParam", "formats", "spectre"], v)}
+              />
+              <Check
+                checked={!!yFormats.psf}
+                label="psf"
+                onChange={(v) => patch(["YParam", "formats", "psf"], v)}
+              />
             </div>
           </div>
         </div>
