@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
-import os
-import sys
-import json
 import argparse
 import inspect
+import json
+import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 import ANN
+import CAT
 import GPR
 import PCE
-import CAT
-import XGB
-import RF
 import PR
+import RF
 import SVR
+import XGB
 import data_translator
+import report
 
 
 # ==========================================================
@@ -91,6 +92,7 @@ def load_json_input(value):
         ) from e
 
 
+
 def load_translate_config(config_input):
     config = load_json_input(config_input)
 
@@ -107,6 +109,7 @@ def load_translate_config(config_input):
         raise TypeError("'translation_params' must be a dictionary.")
 
     return config
+
 
 
 def load_model_config(config_input):
@@ -136,6 +139,7 @@ def get_model_module(model_type):
     return MODEL_MODULES[model_type_key]
 
 
+
 def build_effective_train_config(model_type, model_config):
     """
     Build the flat config expected by existing model modules.
@@ -150,7 +154,8 @@ def build_effective_train_config(model_type, model_config):
     return effective_config
 
 
-def load_translated_data(npz_file, translation_type, translation_params=None):
+
+def load_translated_data(npz_file, translation_type, translation_params=None, return_metadata=False):
     if not os.path.exists(npz_file):
         raise FileNotFoundError(f"NPZ data file not found: {npz_file}")
 
@@ -173,7 +178,38 @@ def load_translated_data(npz_file, translation_type, translation_params=None):
         if k in allowed_params
     }
 
+    if return_metadata and "return_metadata" in allowed_params:
+        filtered_params["return_metadata"] = True
+
     return translator_fn(npz_file, **filtered_params)
+
+
+
+def build_artifact_metadata(npz_file, translate_config, translation_metadata):
+    return {
+        "npz_file": os.path.abspath(npz_file),
+        "translate_config": translate_config,
+        "translation_metadata": translation_metadata,
+    }
+
+
+
+def get_model_artifact_dir(output_dir, effective_config):
+    model_name = effective_config.get("model_name")
+    if not model_name:
+        raise KeyError("model_config must contain 'model_name'.")
+    return os.path.join(output_dir, model_name)
+
+
+
+def save_artifact_metadata_into_report(model_artifact_dir, artifact_metadata):
+    os.makedirs(model_artifact_dir, exist_ok=True)
+    report_path = os.path.join(model_artifact_dir, "report.json")
+
+    report_data = report.load_report(report_path)
+    report_data["artifact_metadata"] = artifact_metadata
+    report.save_report(report_data, model_artifact_dir)
+    return report_path
 
 
 # ==========================================================
@@ -188,16 +224,37 @@ def train_model(npz_file, model_type, translate_config, model_config, output_dir
 
     os.makedirs(output_dir, exist_ok=True)
 
-    X, y, _, _, _ = load_translated_data(
+    translated = load_translated_data(
         npz_file=npz_file,
         translation_type=translation_type,
         translation_params=translation_params,
+        return_metadata=True,
     )
+
+    if len(translated) == 6:
+        X, y, _, _, _, translation_metadata = translated
+    else:
+        X, y, _, _, _ = translated
+        translation_metadata = None
 
     if str(effective_config["model_type"]).strip().upper() == "PCE":
         model_module.train_model_pipeline(npz_file, output_dir, effective_config)
     else:
         model_module.train_model_pipeline(X, y, effective_config, output_dir)
+
+    model_artifact_dir = get_model_artifact_dir(output_dir, effective_config)
+    artifact_metadata = build_artifact_metadata(
+        npz_file=npz_file,
+        translate_config=translate_config,
+        translation_metadata=translation_metadata,
+    )
+    report_path = save_artifact_metadata_into_report(model_artifact_dir, artifact_metadata)
+
+    legacy_metadata_path = os.path.join(model_artifact_dir, "translation_metadata.json")
+    if os.path.isfile(legacy_metadata_path):
+        os.remove(legacy_metadata_path)
+
+    return report_path
 
 
 # ==========================================================
@@ -254,7 +311,7 @@ def main():
     translate_config = load_translate_config(args.translate_config)
     model_config = load_model_config(args.model_config)
 
-    train_model(
+    report_path = train_model(
         npz_file=args.npz_file,
         model_type=args.model_type,
         translate_config=translate_config,
@@ -263,6 +320,7 @@ def main():
     )
 
     print("Training completed.")
+    print(f"Artifact metadata written into: {report_path}")
 
 
 if __name__ == "__main__":
