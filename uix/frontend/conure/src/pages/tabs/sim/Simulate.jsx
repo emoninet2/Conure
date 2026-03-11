@@ -3,45 +3,90 @@ import { useUiStore } from "../../../state/uiStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
-const SIMULATOR_PATH = ["ui", "home", "tabs", "sim", "simulate", "simulator"];
-const RUNNING_PATH = ["ui", "home", "tabs", "sim", "simulate", "running"];
+const SIM_ROOT = ["ui", "home", "tabs", "sim", "simulate"];
+const SIMULATOR_PATH = [...SIM_ROOT, "simulator"];
+const RUNNING_PATH = [...SIM_ROOT, "running"];
+const LINES_PATH = [...SIM_ROOT, "lines"];
+const AUTOSCROLL_PATH = [...SIM_ROOT, "autoScroll"];
 
-// put near the top of the file
-const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g; // matches ANSI escape sequences
+const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 function stripAnsi(s) {
   return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
 }
 
-
 export default function Simulate() {
   const setValue = useUiStore((s) => s.setValue);
 
-  const simulator = useUiStore((s) => s.getValue(SIMULATOR_PATH, "emx"));
-  const running = useUiStore((s) => s.getValue(RUNNING_PATH, false));
+  // Keep the important UI state locally, but initialize from store.
+  const [simulator, setSimulatorLocal] = useState(() =>
+    useUiStore.getState().getValue(SIMULATOR_PATH, "emx")
+  );
 
-  // local console state (fast + simple)
-  const [lines, setLines] = useState([]); // [{t, stream, line}]
+  const [running, setRunningLocal] = useState(() =>
+    !!useUiStore.getState().getValue(RUNNING_PATH, false)
+  );
+
+  const [lines, setLines] = useState(() =>
+    useUiStore.getState().getValue(LINES_PATH, []) || []
+  );
+
+  const [autoScroll, setAutoScrollLocal] = useState(() => {
+    const v = useUiStore.getState().getValue(AUTOSCROLL_PATH, true);
+    return typeof v === "boolean" ? v : true;
+  });
+
   const esRef = useRef(null);
   const scrollerRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
 
-  // sync on mount with backend status so UI never gets stuck
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/sim/status`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setValue(RUNNING_PATH, !!data.running);
-      } catch {
-        // ignore
-      }
-    })();
-  }, [setValue]);
+  function setSimulator(next) {
+    setSimulatorLocal(next);
+    setValue(SIMULATOR_PATH, next);
+  }
 
-  // SSE live stream when running
+  function setRunning(next) {
+    const b = !!next;
+    setRunningLocal(b);
+    setValue(RUNNING_PATH, b);
+  }
+
+  function setAutoScroll(next) {
+    const b = !!next;
+    setAutoScrollLocal(b);
+    setValue(AUTOSCROLL_PATH, b);
+  }
+
+  function setConsoleLines(next) {
+    setLines((prev) => {
+      const resolved = typeof next === "function" ? next(prev) : next;
+      setValue(LINES_PATH, resolved);
+      return resolved;
+    });
+  }
+
+  async function syncStatus() {
+    try {
+      const res = await fetch(`${API_BASE}/api/sim/status`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRunning(!!data.running);
+    } catch {
+      //
+    }
+  }
+
   useEffect(() => {
-    // close any previous stream
+    // restore from store on mount in case component remounted after tab switch
+    const store = useUiStore.getState();
+    setSimulatorLocal(store.getValue(SIMULATOR_PATH, "emx"));
+    setRunningLocal(!!store.getValue(RUNNING_PATH, false));
+    setLines(store.getValue(LINES_PATH, []) || []);
+    const v = store.getValue(AUTOSCROLL_PATH, true);
+    setAutoScrollLocal(typeof v === "boolean" ? v : true);
+
+    syncStatus();
+  }, []);
+
+  useEffect(() => {
     if (esRef.current) {
       esRef.current.close();
       esRef.current = null;
@@ -55,48 +100,33 @@ export default function Simulate() {
     es.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        setLines((prev) => {
+
+        setConsoleLines((prev) => {
           const next = [...prev, msg];
-          // keep last N lines
           if (next.length > 3000) next.splice(0, next.length - 3000);
           return next;
         });
 
-        // If backend sends "[done]" line, reflect running=false
         if (typeof msg?.line === "string" && msg.line.startsWith("[done]")) {
-          setValue(RUNNING_PATH, false);
+          setRunning(false);
         }
       } catch {
-        // ignore parse errors
+        //
       }
     };
 
-    es.onerror = () => {
-      // server ended stream or network issue
-      // Don't force running=false here (backend may still be running).
-      // But we can do a quick status check:
-      (async () => {
-        try {
-          const res = await fetch(`${API_BASE}/api/sim/status`);
-          if (!res.ok) return;
-          const data = await res.json();
-          setValue(RUNNING_PATH, !!data.running);
-        } catch {
-          // ignore
-        }
-      })();
-
+    es.onerror = async () => {
       es.close();
       esRef.current = null;
+      await syncStatus();
     };
 
     return () => {
       es.close();
       esRef.current = null;
     };
-  }, [running, setValue]);
+  }, [running]);
 
-  // autoscroll
   useEffect(() => {
     if (!autoScroll) return;
     const el = scrollerRef.current;
@@ -106,8 +136,8 @@ export default function Simulate() {
 
   async function start() {
     try {
-      setLines([]);
-      setValue(RUNNING_PATH, true);
+      setConsoleLines([]);
+      setRunning(true);
 
       const res = await fetch(`${API_BASE}/api/sim/start`, {
         method: "POST",
@@ -119,9 +149,11 @@ export default function Simulate() {
         const text = await res.text().catch(() => "");
         throw new Error(text || `Start failed (${res.status})`);
       }
+
+      await syncStatus();
     } catch (err) {
       alert(err?.message || String(err));
-      setValue(RUNNING_PATH, false);
+      setRunning(false);
     }
   }
 
@@ -140,12 +172,12 @@ export default function Simulate() {
     } catch (err) {
       alert(err?.message || String(err));
     } finally {
-      setValue(RUNNING_PATH, false);
+      setRunning(false);
     }
   }
 
   function clearConsole() {
-    setLines([]);
+    setConsoleLines([]);
   }
 
   return (
@@ -158,7 +190,7 @@ export default function Simulate() {
             Simulator:
             <select
               value={simulator}
-              onChange={(e) => setValue(SIMULATOR_PATH, e.target.value)}
+              onChange={(e) => setSimulator(e.target.value)}
               disabled={running}
             >
               <option value="emx">EMX</option>
@@ -192,7 +224,9 @@ export default function Simulate() {
         </div>
 
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Simulation output</div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
+            Simulation output
+          </div>
 
           <div
             ref={scrollerRef}
@@ -203,12 +237,12 @@ export default function Simulate() {
               border: "1px solid #ddd",
               background: "#fafafa",
               whiteSpace: "pre-wrap",
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
               fontSize: 12,
               lineHeight: 1.35,
             }}
             onScroll={() => {
-              // if user scrolls up, disable autoscroll; if at bottom, enable
               const el = scrollerRef.current;
               if (!el) return;
               const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
@@ -220,15 +254,9 @@ export default function Simulate() {
                 {running ? "Waiting for output…" : "No output yet. Press Start."}
               </span>
             ) : (
-              lines.map((x, i) => {
-                // const prefix = x.stream ? `${x.stream}: ` : "";
-                const prefix = "";
-                return (
-                  <div key={i}>
-                    {stripAnsi(x.line)}
-                  </div>
-                );
-              })
+              lines.map((x, i) => (
+                <div key={i}>{stripAnsi(x.line)}</div>
+              ))
             )}
           </div>
         </div>

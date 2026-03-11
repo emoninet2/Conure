@@ -4,7 +4,7 @@ function safeObj(x) {
   return x && typeof x === "object" && !Array.isArray(x) ? x : {};
 }
 
-function normalizeEmxConfig(emx) {
+export function normalizeEmxConfig(emx) {
   const e = safeObj(emx);
 
   const remote = safeObj(e.remote);
@@ -30,7 +30,8 @@ function normalizeEmxConfig(emx) {
       stopFreq: sweepFreq.stopFreq ?? 50_000_000_000,
       stepNum: sweepFreq.stepNum ?? 2000,
       stepSize: sweepFreq.stepSize ?? 10_000_000,
-      useStepSize: typeof sweepFreq.useStepSize === "boolean" ? sweepFreq.useStepSize : false,
+      useStepSize:
+        typeof sweepFreq.useStepSize === "boolean" ? sweepFreq.useStepSize : false,
     },
 
     referenceImpedance: e.referenceImpedance ?? 100,

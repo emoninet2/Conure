@@ -1139,6 +1139,7 @@ def sim_start(payload: Dict[str, Any] = Body(default={})):
         str(root),
         "-n",
         "artwork",
+        "--verbose",
     ]
 
     with SIM_RING_LOCK:

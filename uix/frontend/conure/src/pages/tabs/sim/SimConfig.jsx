@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../../../state/uiStore";
 
-import EmxConfig from "./config/EmxConfig";
+import EmxConfig, { normalizeEmxConfig } from "./config/EmxConfig";
 
 const CONFIG_TABS = [{ key: "emx", label: "EMX" }];
 
@@ -15,6 +15,18 @@ function ensureSimConfigShape(obj) {
   const s = safeObj(obj);
   if (!safeObj(s.emx_config)) return { ...s, emx_config: {} };
   return s;
+}
+
+function buildDefaultSimConfig() {
+  return {
+    emx_config: normalizeEmxConfig({}),
+  };
+}
+
+function hasPersistedEmxConfig(obj) {
+  const s = safeObj(obj);
+  const emx = safeObj(s.emx_config);
+  return Object.keys(emx).length > 0;
 }
 
 export default function SimConfig() {
@@ -42,16 +54,25 @@ export default function SimConfig() {
     }
   }, [savedSimJson]);
 
-  const [draftSimConfig, setDraftSimConfigState] = useState(() => savedSimConfig);
-  const [dirty, setDirty] = useState(false);
+  const hasSavedEmx = useMemo(() => {
+    return hasPersistedEmxConfig(savedSimConfig);
+  }, [savedSimConfig]);
+
+  const [draftSimConfig, setDraftSimConfigState] = useState(() => {
+    return hasSavedEmx ? savedSimConfig : buildDefaultSimConfig();
+  });
+
+  const [dirty, setDirty] = useState(() => !hasSavedEmx);
   const [resetToken, setResetToken] = useState(0);
 
   useEffect(() => {
     if (!dirty) {
-      setDraftSimConfigState(savedSimConfig);
+      const next = hasSavedEmx ? savedSimConfig : buildDefaultSimConfig();
+      setDraftSimConfigState(next);
+      setDirty(!hasSavedEmx);
       setResetToken((t) => t + 1);
     }
-  }, [savedSimConfig, dirty]);
+  }, [savedSimConfig, hasSavedEmx, dirty]);
 
   const updateDraftSimConfig = useCallback((updater) => {
     setDirty(true);
@@ -72,13 +93,14 @@ export default function SimConfig() {
   }
 
   function resetAll() {
-    setDraftSimConfigState(savedSimConfig);
-    setDirty(false);
+    const next = hasSavedEmx ? savedSimConfig : buildDefaultSimConfig();
+    setDraftSimConfigState(next);
+    setDirty(!hasSavedEmx);
     setResetToken((t) => t + 1);
   }
 
   function downloadSimConfig() {
-    const pretty = JSON.stringify(savedSimConfig, null, 2);
+    const pretty = JSON.stringify(draftSimConfig, null, 2);
     const blob = new Blob([pretty], { type: "application/json" });
     const url = URL.createObjectURL(blob);
 
@@ -206,6 +228,12 @@ export default function SimConfig() {
         >
           Reset
         </button>
+
+        {!hasSavedEmx && (
+          <div style={{ fontSize: 12, opacity: 0.75 }}>
+            Default EMX config is loaded but not saved yet.
+          </div>
+        )}
 
         <input
           ref={fileInputRef}
