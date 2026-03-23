@@ -53,7 +53,6 @@ export default function Landing() {
   }
 
   async function openProject(id, name) {
-
     setBusy(true);
     setError("");
     try {
@@ -63,12 +62,18 @@ export default function Landing() {
         throw new Error(j?.detail || (await res.text()));
       }
 
-      // Now that a project is open, load project.json into zustand store
-      await load();
+      // IMPORTANT: fully load the newly opened project state
+      //await load();
+      await load({ force: true });
 
+      // IMPORTANT: explicitly set project identity
+      setValue(["project", "id"], id);
       setValue(["project", "name"], name);
 
-      // Go to Home
+      // optional: reset visible tab on project switch
+      setValue(["nav", "tab"], "artgen");
+
+      // go to home
       setValue(["nav", "page"], "home");
 
       await refresh();

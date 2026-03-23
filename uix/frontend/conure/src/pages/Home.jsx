@@ -16,6 +16,7 @@ const TABS = [
 
 function Home({ onBack }) {
   const tab = useUiStore((s) => s.getValue(["nav", "tab"], "artgen"));
+  const projectId = useUiStore((s) => s.getValue(["project", "id"], ""));
   const projectName = useUiStore((s) => s.getValue(["project", "name"], ""));
   const setValue = useUiStore((s) => s.setValue);
 
@@ -28,8 +29,6 @@ function Home({ onBack }) {
         flexDirection: "column",
       }}
     >
-
-      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -75,7 +74,6 @@ function Home({ onBack }) {
         </button>
       </div>
 
-      {/* TAB BAR */}
       <div
         style={{
           display: "flex",
@@ -104,8 +102,8 @@ function Home({ onBack }) {
         ))}
       </div>
 
-      {/* CONTENT AREA */}
       <div
+        key={projectId || "no-project"}
         style={{
           flex: 1,
           padding: 12,
@@ -121,7 +119,6 @@ function Home({ onBack }) {
         {tab === "model" && <Model />}
         {tab === "optimz" && <Optimz />}
       </div>
-
     </div>
   );
 }
