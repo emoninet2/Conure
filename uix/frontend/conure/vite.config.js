@@ -1,28 +1,28 @@
-// import { defineConfig } from 'vite'
-// import react from '@vitejs/plugin-react'
-
-// // https://vite.dev/config/
-// export default defineConfig({
-//   plugins: [react()],
-// })
-
-
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
-import path from "path";
 
-export default ({ mode }) => {
-  // Conure/uix/frontend/conure -> Conure
-  const rootDir = path.resolve(__dirname, "../../..");
+export default defineConfig(({ mode }) => {
+  // Load ALL env vars from current folder
+  const env = loadEnv(mode, __dirname, "");
 
-  // Load ONLY VITE_* vars from Conure/.env* files
-  const env = loadEnv(mode, rootDir, "VITE_");
+  const frontendPort = env.FRONTEND_PORT || "5173";
+  const backendPort = env.BACKEND_PORT || "8001";
+  const apiHost = env.VITE_API_HOST || "http://localhost";
 
-  return defineConfig({
+  const apiBase = `${apiHost}:${backendPort}`;
+
+  console.log("Frontend port:", frontendPort);
+  console.log("Backend API:", apiBase);
+
+  return {
     plugins: [react()],
-    define: {
-      // Make it available exactly like normal Vite env vars
-      "import.meta.env.VITE_API_BASE": JSON.stringify(env.VITE_API_BASE),
+
+    server: {
+      port: Number(frontendPort),
     },
-  });
-};
+
+    define: {
+      "import.meta.env.VITE_API_BASE": JSON.stringify(apiBase),
+    },
+  };
+});
