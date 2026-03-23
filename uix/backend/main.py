@@ -19,9 +19,11 @@ app = FastAPI()
 
 APP_ORIGIN = "http://localhost:5173"
 
-BACKEND_DIR = Path(__file__).resolve().parent / "../../data"
+#BACKEND_DIR = Path(__file__).resolve().parent / "../../data"
+BACKEND_DIR = Path(__file__).resolve().parent 
+print(BACKEND_DIR)
 
-WORKSPACE_ROOT = (BACKEND_DIR / "workspace").resolve()
+WORKSPACE_ROOT = (BACKEND_DIR / "../../data" / "workspace").resolve()
 WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
 
 ACTIVE_FILE = WORKSPACE_ROOT / ".active_project"
@@ -365,7 +367,7 @@ def patch_state(partial: Dict[str, Any]):
 # ------------------------------------------------------------
 # Preview SVG + GDS generation
 # ------------------------------------------------------------
-GENERATOR_PY = (BACKEND_DIR / "../artwork_generator/artwork_generator.py").resolve()
+GENERATOR_PY = (BACKEND_DIR / "../../artwork_generator/artwork_generator.py").resolve()
 
 
 def _preview_root_for_active_project() -> Path:

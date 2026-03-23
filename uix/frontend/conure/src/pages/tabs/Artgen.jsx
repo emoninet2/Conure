@@ -115,19 +115,42 @@ export default function Artgen() {
         return;
       }
 
-      // Load into draft + persist to backend/store
+      // Load into draft only
       setDraftArtwork(parsed);
-      setValue(ARTWORK_PATH, parsed);
-
-      setDirty(false);
+      setDirty(true);
       setResetToken((t) => t + 1);
     } catch (err) {
       alert(`Upload failed: ${err?.message || String(err)}`);
     } finally {
-      // allow uploading the same file again
       e.target.value = "";
     }
   }
+  // async function onUploadFile(e) {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+
+  //   try {
+  //     const text = await file.text();
+  //     const parsed = JSON.parse(text);
+
+  //     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+  //       alert("Invalid file: expected a JSON object at the root.");
+  //       return;
+  //     }
+
+  //     // Load into draft + persist to backend/store
+  //     setDraftArtwork(parsed);
+  //     setValue(ARTWORK_PATH, parsed);
+
+  //     setDirty(false);
+  //     setResetToken((t) => t + 1);
+  //   } catch (err) {
+  //     alert(`Upload failed: ${err?.message || String(err)}`);
+  //   } finally {
+  //     // allow uploading the same file again
+  //     e.target.value = "";
+  //   }
+  // }
 
   const commonTabProps = {
     draftArtwork,
