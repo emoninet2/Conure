@@ -17,7 +17,20 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 app = FastAPI()
 
-APP_ORIGIN = "http://localhost:5173"
+# APP_ORIGIN = "http://localhost:5173"
+
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FRONTEND_HOST = os.getenv("FRONTEND_HOST", "http://localhost")
+FRONTEND_PORT = os.getenv("FRONTEND_PORT", "5173")
+APP_ORIGIN = f"{FRONTEND_HOST}:{FRONTEND_PORT}"
+
+
+print("APP ORIGIN IS : ", APP_ORIGIN)
 
 #BACKEND_DIR = Path(__file__).resolve().parent / "../../data"
 BACKEND_DIR = Path(__file__).resolve().parent 
@@ -145,9 +158,16 @@ def normalize_project_name(name: str) -> str:
 
 
 def _project_dir(project_id: str) -> Path:
-    p = (WORKSPACE_ROOT / project_id).resolve()
-    if WORKSPACE_ROOT not in p.parents:
+    if not isinstance(project_id, str) or not project_id.strip():
+        raise HTTPException(status_code=400, detail="Project id is required.")
+
+    p = (WORKSPACE_ROOT / project_id.strip()).resolve()
+
+    try:
+        p.relative_to(WORKSPACE_ROOT)
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid project id.")
+
     return p
 
 
