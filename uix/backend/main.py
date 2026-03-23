@@ -144,9 +144,10 @@ def _deepcopy_jsonish(obj: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def normalize_project_name(name: str) -> str:
-    name = (name or "").strip().lower()
+    #name = (name or "").strip().lower()
+    name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
-    name = re.sub(r"[^a-z0-9_\-]", "", name)
+    name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
     name = name.strip("_-")
 
     if not name:
@@ -545,9 +546,10 @@ SWEEP_RING_LOCK = threading.Lock()
 
 
 def normalize_sweep_name(name: str) -> str:
-    name = (name or "").strip().lower()
+    #name = (name or "").strip().lower()
+    name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
-    name = re.sub(r"[^a-z0-9_\-]", "", name)
+    name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
     name = name.strip("_-")
 
     if not name:
@@ -1213,9 +1215,10 @@ MODEL_RING_LOCK = threading.Lock()
 
 
 def normalize_model_name(name: str) -> str:
-    name = (name or "").strip().lower()
+    #name = (name or "").strip().lower()
+    name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
-    name = re.sub(r"[^a-z0-9_\-]", "", name)
+    name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
     name = name.strip("_-")
 
     if not name:
@@ -1319,42 +1322,217 @@ def _load_model_report(model_name: str) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) and data else None
 
 
-def _default_model_draft(model_name: str = "") -> Dict[str, Any]:
-    return {
+# def _default_model_draft(model_name: str = "") -> Dict[str, Any]:
+#     return {
+#         "sweep_name": "",
+#         "model_type": "ANN",
+#         "translate_config": {
+#             "translation_type": "FFD",
+#             "translation_params": {},
+#         },
+#         "model_config": {
+#             "model_name": model_name or "",
+#             "normalization": {
+#                 "feature_method": "standard",
+#                 "target_method": "standard",
+#             },
+#             "training": {
+#                 "epochs": 100,
+#                 "batch_size": 32,
+#                 "loss": "mse",
+#                 "metrics": ["mae"],
+#                 "validation_split": 0.2,
+#                 "optimizer": {
+#                     "type": "Adam",
+#                     "learning_rate": 0.001,
+#                     "momentum": 0.9,
+#                 },
+#             },
+#             "early_stopping": {
+#                 "monitor": "val_loss",
+#                 "patience": 15,
+#                 "restore_best_weights": True,
+#             },
+#             "architecture": [
+#                 {"type": "Dense", "units": 128, "activation": "relu"},
+#                 {"type": "Dense", "units": "AUTO", "activation": "linear"},
+#             ],
+#         },
+#     }
+
+
+def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[str, Any]:
+    model_type = (model_type or "ANN").upper()
+
+    base = {
         "sweep_name": "",
-        "model_type": "ANN",
+        "model_type": model_type,
         "translate_config": {
             "translation_type": "FFD",
             "translation_params": {},
         },
-        "model_config": {
-            "model_name": model_name or "",
-            "normalization": {
-                "feature_method": "standard",
-                "target_method": "standard",
-            },
-            "training": {
-                "epochs": 100,
-                "batch_size": 32,
-                "loss": "mse",
-                "metrics": ["mae"],
-                "validation_split": 0.2,
-                "optimizer": {
-                    "type": "Adam",
-                    "learning_rate": 0.001,
-                    "momentum": 0.9,
+    }
+
+    MODEL_DEFAULTS = {
+        "ANN": {
+            "model_config": {
+                "model_name": model_name,
+                "normalization": {
+                    "feature_method": "standard",
+                    "target_method": "standard",
                 },
-            },
-            "early_stopping": {
-                "monitor": "val_loss",
-                "patience": 15,
-                "restore_best_weights": True,
-            },
-            "architecture": [
-                {"type": "Dense", "units": 128, "activation": "relu"},
-                {"type": "Dense", "units": "AUTO", "activation": "linear"},
-            ],
+                "training": {
+                    "epochs": 100,
+                    "batch_size": 32,
+                    "loss": "mse",
+                    "metrics": ["mae"],
+                    "validation_split": 0.2,
+                    "optimizer": {
+                        "type": "Adam",
+                        "learning_rate": 0.001,
+                        "momentum": 0.9,
+                    },
+                },
+                "early_stopping": {
+                    "monitor": "val_loss",
+                    "patience": 15,
+                    "restore_best_weights": True,
+                },
+                "architecture": [
+                    {"type": "Dense", "units": 128, "activation": "relu"},
+                    {"type": "Dense", "units": "AUTO", "activation": "linear"},
+                ],
+            }
         },
+
+        "CAT": {
+            "model_config": {
+                "model_name": model_name,
+                "cat_params": {
+                    "iterations": 1000,
+                    "learning_rate": 0.05,
+                    "depth": 6,
+                    "l2_leaf_reg": 3,
+                    "random_seed": 42,
+                    "task_type": "GPU",
+                    "devices": "0",
+                },
+            }
+        },
+
+        "GPR": {
+            "model_config": {
+                "model_name": model_name,
+                "normalization": {
+                    "feature_method": "standard",
+                    "target_method": "standard",
+                },
+                "max_cpu_threads": 8,
+                "gpr_params": {
+                    "kernel": "RBF",
+                    "n_restarts_optimizer": 3,
+                    "normalize_y": True,
+                    "alpha": 1e-8,
+                },
+            }
+        },
+
+        "LGBM": {
+            "model_config": {
+                "model_name": model_name,
+                "lgb_params": {
+                    "n_estimators": 500,
+                    "learning_rate": 0.05,
+                    "max_depth": 6,
+                    "num_leaves": 31,
+                    "subsample": 0.8,
+                    "colsample_bytree": 0.8,
+                    "random_state": 42,
+                    "n_jobs": -1,
+                    "verbose": -1,
+                },
+            }
+        },
+
+        "PCE": {
+            "model_config": {
+                "model_name": model_name,
+                "degree": 3,
+            }
+        },
+
+        "PR": {
+            "model_config": {
+                "model_name": model_name,
+                "normalization": {
+                    "feature_method": "standard",
+                    "target_method": "standard",
+                },
+                "pr_params": {
+                    "degree": 2,
+                    "include_bias": False,
+                },
+            }
+        },
+
+        "RF": {
+            "model_config": {
+                "model_name": model_name,
+                "rf_params": {
+                    "n_estimators": 200,
+                    "max_depth": 20,
+                    "min_samples_split": 5,
+                    "min_samples_leaf": 5,
+                    "max_features": "sqrt",
+                    "bootstrap": True,
+                    "random_state": 42,
+                    "n_jobs": -1,
+                },
+            }
+        },
+
+        "SVR": {
+            "model_config": {
+                "model_name": model_name,
+                "normalization": {
+                    "feature_method": "standard",
+                    "target_method": "standard",
+                },
+                "svr_params": {
+                    "kernel": "rbf",
+                    "C": 100.0,
+                    "epsilon": 0.001,
+                    "gamma": "scale",
+                },
+            }
+        },
+
+        "XGB": {
+            "model_config": {
+                "model_name": model_name,
+                "xgb_params": {
+                    "n_estimators": 1,
+                    "max_depth": 1,
+                    "learning_rate": 1.0,
+                    "eval_metric": "rmse",
+                    "subsample": 0.2,
+                    "colsample_bytree": 0.2,
+                    "gamma": 0.0,
+                    "reg_alpha": 0.0,
+                    "reg_lambda": 1.0,
+                    "random_state": 42,
+                    "tree_method": "hist",
+                    "device": "cpu",
+                },
+            }
+        },
+    }
+
+    selected = MODEL_DEFAULTS.get(model_type, MODEL_DEFAULTS["ANN"])
+
+    return {
+        **base,
+        **selected,
     }
 
 
@@ -1486,6 +1664,13 @@ def list_models():
     items.sort()
     return {"models": items}
 
+@app.post("/api/models/default-config")
+def get_default_model_config(payload: Dict[str, Any] = Body(...)):
+    model_type = payload.get("model_type", "ANN")
+    model_name = payload.get("model_name", "")
+    draft = _default_model_draft(model_name, model_type)
+    return draft
+
 
 @app.post("/api/models/create")
 def create_model(payload: Dict[str, Any] = Body(...)):
@@ -1496,7 +1681,10 @@ def create_model(payload: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=400, detail="Model already exists.")
 
     mdir.mkdir(parents=True, exist_ok=False)
-    draft = _default_model_draft(model_name)
+    
+    model_type = payload.get("model_type", "ANN")
+    draft = _default_model_draft(model_name, model_type)
+
     _write_json(_model_translate_config_path(model_name), draft["translate_config"])
     model_config = _deepcopy_jsonish(draft["model_config"])
     model_config["model_type"] = draft["model_type"]

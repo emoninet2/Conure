@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../../state/uiStore";
 
@@ -7,6 +6,24 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 const MODEL_UI_PATH = ["ui", "home", "tabs", "model"];
 const ACTIVE_MODEL_PATH = [...MODEL_UI_PATH, "activeModel"];
 const RUNNING_PATH = [...MODEL_UI_PATH, "running"];
+
+const MODEL_TYPE_OPTIONS = [
+  "ANN",
+  "GPR",
+  "PCE",
+  "CAT",
+  "XGB",
+  "RF",
+  "PR",
+  "SVR",
+];
+
+const TRANSLATION_BASE_TYPES = ["FFD", "FFI", "IFD", "IFI"];
+
+const DEFAULT_TRANSLATE_CONFIG = {
+  translation_type: "FFD",
+  translation_params: {},
+};
 
 const DEFAULT_DRAFT = {
   sweep_name: "",
@@ -44,6 +61,20 @@ const DEFAULT_DRAFT = {
     ],
   },
 };
+
+
+async function fetchDefaultModelDraft(model_type, model_name = "") {
+  const res = await fetch(`${API_BASE}/api/models/default-config`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model_type, model_name }),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+
+
 
 const DEFAULT_REPORT = null;
 const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
@@ -97,6 +128,215 @@ function statusPillStyle(background, color = "#111") {
   };
 }
 
+function cloneJson(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function normalizeTranslateConfig(config) {
+  const input =
+    config && typeof config === "object" && !Array.isArray(config)
+      ? config
+      : DEFAULT_TRANSLATE_CONFIG;
+
+  const rawType = String(input.translation_type || "FFD").trim();
+  const isAugmented = rawType.endsWith("_augmented");
+  const baseType = isAugmented
+    ? rawType.replace(/_augmented$/, "")
+    : rawType;
+
+  const safeBaseType = TRANSLATION_BASE_TYPES.includes(baseType)
+    ? baseType
+    : "FFD";
+
+  const params =
+    input.translation_params &&
+      typeof input.translation_params === "object" &&
+      !Array.isArray(input.translation_params)
+      ? input.translation_params
+      : {};
+
+  return {
+    baseType: safeBaseType,
+    augmented: isAugmented,
+    feature_noise_std:
+      params.feature_noise_std === undefined ? 0.01 : Number(params.feature_noise_std),
+    target_noise_std:
+      params.target_noise_std === undefined ? 0.005 : Number(params.target_noise_std),
+    n_augment:
+      params.n_augment === undefined ? 3 : Number(params.n_augment),
+    clip:
+      params.clip === undefined ? true : Boolean(params.clip),
+  };
+}
+
+function buildTranslateConfigFromForm(form) {
+  const baseType = TRANSLATION_BASE_TYPES.includes(form.baseType)
+    ? form.baseType
+    : "FFD";
+
+  const augmented = !!form.augmented;
+  const translation_type = augmented ? `${baseType}_augmented` : baseType;
+
+  if (!augmented) {
+    return {
+      translation_type,
+      translation_params: {},
+    };
+  }
+
+  return {
+    translation_type,
+    translation_params: {
+      feature_noise_std: Number(form.feature_noise_std || 0),
+      target_noise_std: Number(form.target_noise_std || 0),
+      n_augment: Number(form.n_augment || 0),
+      clip: !!form.clip,
+    },
+  };
+}
+
+function TranslationConfigForm({ value, onChange, disabled }) {
+  return (
+    <div
+      style={{
+        border: "1px solid #ddd",
+        padding: 12,
+        background: "#fafafa",
+      }}
+    >
+      <div style={{ fontWeight: "bold", marginBottom: 10 }}>
+        data_translate.json
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          Translation type:
+          <select
+            value={value.baseType}
+            onChange={(e) =>
+              onChange((prev) => ({ ...prev, baseType: e.target.value }))
+            }
+            disabled={disabled}
+          >
+            {TRANSLATION_BASE_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="checkbox"
+            checked={value.augmented}
+            onChange={(e) =>
+              onChange((prev) => ({ ...prev, augmented: e.target.checked }))
+            }
+            disabled={disabled}
+          />
+          Use augmented translation
+        </label>
+
+        {value.augmented ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 12,
+              padding: 12,
+              border: "1px solid #e0e0e0",
+              background: "#fff",
+            }}
+          >
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Feature noise std</span>
+              <input
+                type="number"
+                step="any"
+                value={value.feature_noise_std}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    feature_noise_std: e.target.value,
+                  }))
+                }
+                disabled={disabled}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Target noise std</span>
+              <input
+                type="number"
+                step="any"
+                value={value.target_noise_std}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    target_noise_std: e.target.value,
+                  }))
+                }
+                disabled={disabled}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Number of augmentations</span>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={value.n_augment}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    n_augment: e.target.value,
+                  }))
+                }
+                disabled={disabled}
+              />
+            </label>
+
+            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 24 }}>
+              <input
+                type="checkbox"
+                checked={!!value.clip}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    clip: e.target.checked,
+                  }))
+                }
+                disabled={disabled}
+              />
+              Clip augmented values
+            </label>
+          </div>
+        ) : null}
+
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
+            Preview
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              padding: 12,
+              border: "1px solid #ddd",
+              background: "#fff",
+              overflow: "auto",
+              fontSize: 12,
+            }}
+          >
+            {safePretty(buildTranslateConfigFromForm(value))}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Model() {
   const setValue = useUiStore((s) => s.setValue);
 
@@ -109,17 +349,28 @@ export default function Model() {
   const [draft, setDraft] = useState(DEFAULT_DRAFT);
   const [savedSnapshot, setSavedSnapshot] = useState(DEFAULT_DRAFT);
 
-  const [translateConfigText, setTranslateConfigText] = useState(
-    safePretty(DEFAULT_DRAFT.translate_config)
+  const [translateForm, setTranslateForm] = useState(
+    normalizeTranslateConfig(DEFAULT_DRAFT.translate_config)
   );
   const [modelConfigText, setModelConfigText] = useState(
     safePretty(DEFAULT_DRAFT.model_config)
   );
 
   const [sweepOptions, setSweepOptions] = useState([]);
+  const [report, setReport] = useState(DEFAULT_REPORT);
+  const [lines, setLines] = useState([]);
+  const [predictionInput, setPredictionInput] = useState("[[10, 5000000]]");
+  const [predictionOutput, setPredictionOutput] = useState("");
+  const [apiError, setApiError] = useState("");
+  const [predicting, setPredicting] = useState(false);
+
+  const esRef = useRef(null);
+  const scrollerRef = useRef(null);
+
   useEffect(() => {
     refreshSweepOptions();
   }, []);
+
   async function refreshSweepOptions() {
     try {
       const res = await fetch(`${API_BASE}/api/models/sweep-options`);
@@ -135,20 +386,6 @@ export default function Model() {
       setApiError(err?.message || String(err));
     }
   }
-
-  function getSelectedSweepOption(sweepName) {
-    return (sweepOptions || []).find((item) => item.sweep_name === sweepName) || null;
-  }
-
-  const [report, setReport] = useState(DEFAULT_REPORT);
-  const [lines, setLines] = useState([]);
-  const [predictionInput, setPredictionInput] = useState("[[10, 5000000]]");
-  const [predictionOutput, setPredictionOutput] = useState("");
-  const [apiError, setApiError] = useState("");
-  const [predicting, setPredicting] = useState(false);
-
-  const esRef = useRef(null);
-  const scrollerRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,12 +492,12 @@ export default function Model() {
   }, [report, activeModel, draft.model_type]);
 
   function syncEditorsFromDraft(nextDraft) {
-    setTranslateConfigText(safePretty(nextDraft.translate_config));
+    setTranslateForm(normalizeTranslateConfig(nextDraft.translate_config));
     setModelConfigText(safePretty(nextDraft.model_config));
   }
 
   function buildDraftFromEditors() {
-    const translate_config = parseJsonText(translateConfigText, "Translate config");
+    const translate_config = buildTranslateConfigFromForm(translateForm);
     const model_config = parseJsonText(modelConfigText, "Model config");
 
     return {
@@ -271,8 +508,7 @@ export default function Model() {
     };
   }
 
-
-    async function hydrateFromProjectState() {
+  async function hydrateFromProjectState() {
     try {
       const res = await fetch(`${API_BASE}/api/state`);
       if (!res.ok) throw new Error(await res.text());
@@ -289,7 +525,7 @@ export default function Model() {
       setRunningLocal(nextRunning);
 
       setDraft(nextDraft);
-      setSavedSnapshot(JSON.parse(JSON.stringify(nextDraft)));
+      setSavedSnapshot(cloneJson(nextDraft));
       syncEditorsFromDraft(nextDraft);
 
       return { nextActiveModel, nextRunning, nextDraft };
@@ -299,7 +535,6 @@ export default function Model() {
     }
   }
 
-  
   async function refreshModels() {
     try {
       setApiError("");
@@ -402,7 +637,7 @@ export default function Model() {
       setRunningLocal(!!data.running);
 
       setDraft(nextDraft);
-      setSavedSnapshot(JSON.parse(JSON.stringify(nextDraft)));
+      setSavedSnapshot(cloneJson(nextDraft));
       syncEditorsFromDraft(nextDraft);
       setReport(data.report || null);
       setLines([]);
@@ -433,7 +668,7 @@ export default function Model() {
       if (!res.ok) throw new Error(await res.text());
 
       setDraft(nextDraft);
-      setSavedSnapshot(JSON.parse(JSON.stringify(nextDraft)));
+      setSavedSnapshot(cloneJson(nextDraft));
       await fetchReport(activeModel);
       await refreshModels();
     } catch (err) {
@@ -465,7 +700,7 @@ export default function Model() {
       nextDraft.sweep_name = draft.sweep_name || "";
 
       setDraft(nextDraft);
-      setSavedSnapshot(JSON.parse(JSON.stringify(nextDraft)));
+      setSavedSnapshot(cloneJson(nextDraft));
 
       setApiError("");
       setLines([]);
@@ -480,8 +715,6 @@ export default function Model() {
         config: nextDraft,
         sweep_name: nextDraft.sweep_name || "",
       };
-
-      // The backend will resolve the first .npz in the chosen sweep automatically.
 
       const res = await fetch(`${API_BASE}/api/models/start`, {
         method: "POST",
@@ -692,7 +925,7 @@ export default function Model() {
           <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
               Model type:
-              <select
+              {/* <select
                 value={draft.model_type}
                 onChange={(e) => setDraft((prev) => ({ ...prev, model_type: e.target.value }))}
                 disabled={running}
@@ -706,6 +939,33 @@ export default function Model() {
                 <option value="PR">PR</option>
                 <option value="SVR">SVR</option>
               </select>
+               */}
+
+              <select
+                value={draft.model_type}
+                onChange={async (e) => {
+                  const newType = e.target.value;
+
+                  try {
+                    const newDraft = await fetchDefaultModelDraft(newType, activeModel);
+
+                    setDraft(newDraft);
+                    setSavedSnapshot(cloneJson(newDraft));
+                    syncEditorsFromDraft(newDraft);
+                  } catch (err) {
+                    setApiError(err?.message || String(err));
+                  }
+                }}
+                disabled={running}
+              >
+                {MODEL_TYPE_OPTIONS.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+
+
             </label>
 
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -727,26 +987,22 @@ export default function Model() {
                 ))}
               </select>
             </label>
-
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ marginBottom: 6, fontWeight: "bold" }}>data_translate.json</div>
-              <textarea
-                value={translateConfigText}
-                onChange={(e) => setTranslateConfigText(e.target.value)}
-                disabled={running}
-                style={{ width: "100%", minHeight: 240, fontFamily: "monospace", fontSize: 12 }}
-              />
-            </div>
+          <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+            <TranslationConfigForm
+              value={translateForm}
+              onChange={setTranslateForm}
+              disabled={running}
+            />
+
             <div>
               <div style={{ marginBottom: 6, fontWeight: "bold" }}>model_config.json</div>
               <textarea
                 value={modelConfigText}
                 onChange={(e) => setModelConfigText(e.target.value)}
                 disabled={running}
-                style={{ width: "100%", minHeight: 240, fontFamily: "monospace", fontSize: 12 }}
+                style={{ width: "100%", minHeight: 280, fontFamily: "monospace", fontSize: 12 }}
               />
             </div>
           </div>
@@ -859,7 +1115,6 @@ export default function Model() {
                   <div><strong>Normalization used:</strong> {String(report?.performance?.evaluation_protocol?.normalization_used ?? "—")}</div>
                 </div>
               </div>
-
 
               <details id="model-raw-summary">
                 <summary style={{ cursor: "pointer", fontWeight: "bold" }}>Raw summary / report JSON</summary>
