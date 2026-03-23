@@ -1,6 +1,0 @@
-    gdspy
-    numpy
-    flask
-    flask-cors
-    python-dotenv
-    scikit-rf
