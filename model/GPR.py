@@ -1,4 +1,4 @@
-# gpr.py
+# GPR.py
 
 import os
 import json
@@ -6,176 +6,411 @@ import joblib
 import time
 import logging
 import warnings
-import threadpoolctl  # optional: enforce thread limits
+import threadpoolctl
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C, WhiteKernel
-from sklearn.exceptions import ConvergenceWarning
 import psutil
 
-# Suppress convergence warnings
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import (
+    StandardScaler,
+    MinMaxScaler,
+    RobustScaler,
+    MaxAbsScaler,
+)
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import (
+    RBF,
+    Matern,
+    RationalQuadratic,
+    WhiteKernel,
+    ConstantKernel as C,
+)
+from sklearn.exceptions import ConvergenceWarning
+
+import data_translator
+import report
+
+
+# ============================================================
+# WARNINGS
+# ============================================================
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
-os.environ['PYTHONWARNINGS'] = 'ignore'
+os.environ["PYTHONWARNINGS"] = "ignore"
 
-# Custom modules
-import data_translator, report
 
-# ---------------- LOGGER ----------------
+# ============================================================
+# LOGGER
+# ============================================================
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    handlers=[logging.StreamHandler()]
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
 
-# ---------------- NORMALIZATION ----------------
-def normalize_data_sets(feature_train, feature_test, target_train, target_test,
-                        feature_method="standard", target_method="standard"):
+
+# ============================================================
+# NORMALIZATION
+# ============================================================
+def normalize_data_sets(
+    feature_train,
+    feature_test,
+    target_train,
+    target_test,
+    feature_method="standard",
+    target_method="standard",
+):
     scalers = {
         "standard": StandardScaler,
         "minmax": MinMaxScaler,
         "robust": RobustScaler,
-        "maxabs": MaxAbsScaler
+        "maxabs": MaxAbsScaler,
     }
-    f_scaler = scalers[feature_method.lower()]()
-    t_scaler = scalers[target_method.lower()]()
+
+    feature_method = str(feature_method).strip().lower()
+    target_method = str(target_method).strip().lower()
+
+    if feature_method not in scalers:
+        raise ValueError(f"Unsupported feature normalization method: {feature_method}")
+    if target_method not in scalers:
+        raise ValueError(f"Unsupported target normalization method: {target_method}")
+
+    f_scaler = scalers[feature_method]()
+    t_scaler = scalers[target_method]()
 
     f_train_norm = f_scaler.fit_transform(feature_train)
     f_test_norm = f_scaler.transform(feature_test)
+
     t_train_norm = t_scaler.fit_transform(target_train)
     t_test_norm = t_scaler.transform(target_test)
 
     return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
 
-# ---------------- TRAIN GPR ----------------
+
+# ============================================================
+# SPLIT HELPERS
+# ============================================================
+def get_split_config(config):
+    split_cfg = config.get("data_split", {}) or {}
+
+    test_size = float(split_cfg.get("test_size", 0.2))
+    random_state = split_cfg.get("random_state", 42)
+
+    if not (0.0 < test_size < 1.0):
+        raise ValueError(f"data_split.test_size must be between 0 and 1, got {test_size}")
+
+    return {
+        "test_size": test_size,
+        "random_state": random_state,
+    }
+
+
+# ============================================================
+# KERNEL BUILDER
+# ============================================================
+def build_gpr_kernel(kernel_config):
+    """
+    Convert a JSON-friendly kernel config into a sklearn kernel object.
+
+    Supported string values:
+        "RBF"
+        "RBF+WHITE"
+        "MATERN"
+        "MATERN+WHITE"
+        "RQ"
+        "RQ+WHITE"
+
+    Supported dict examples:
+        {"type": "RBF"}
+        {"type": "RBF+WHITE"}
+        {"type": "MATERN", "nu": 1.5}
+        {"type": "MATERN+WHITE", "nu": 2.5}
+        {"type": "RQ", "alpha": 1.0}
+        {"type": "RQ+WHITE", "alpha": 1.0}
+
+    If kernel_config is already a sklearn kernel object, it is returned as-is.
+    """
+    if kernel_config is None:
+        return None
+
+    if hasattr(kernel_config, "get_params"):
+        return kernel_config
+
+    if isinstance(kernel_config, str):
+        kernel_type = kernel_config.strip().upper()
+        kernel_params = {}
+    elif isinstance(kernel_config, dict):
+        kernel_type = str(kernel_config.get("type", "RBF")).strip().upper()
+        kernel_params = dict(kernel_config)
+    else:
+        raise TypeError(
+            f"Unsupported kernel config type: {type(kernel_config)}. "
+            "Expected None, str, dict, or sklearn kernel object."
+        )
+
+    const = C(
+        kernel_params.get("constant_value", 1.0),
+        kernel_params.get("constant_value_bounds", (1e-2, 1e7)),
+    )
+
+    rbf = RBF(
+        length_scale=kernel_params.get("length_scale", 1.0),
+        length_scale_bounds=kernel_params.get("length_scale_bounds", (1e-2, 1e4)),
+    )
+
+    matern = Matern(
+        length_scale=kernel_params.get("length_scale", 1.0),
+        length_scale_bounds=kernel_params.get("length_scale_bounds", (1e-2, 1e4)),
+        nu=kernel_params.get("nu", 1.5),
+    )
+
+    rq = RationalQuadratic(
+        length_scale=kernel_params.get("length_scale", 1.0),
+        alpha=kernel_params.get("alpha", 1.0),
+    )
+
+    white = WhiteKernel(
+        noise_level=kernel_params.get("noise_level", 1e-3),
+        noise_level_bounds=kernel_params.get("noise_level_bounds", (1e-5, 1e-1)),
+    )
+
+    if kernel_type == "RBF":
+        return const * rbf
+    if kernel_type in {"RBF+WHITE", "RBF_WHITE", "RBF_WITH_WHITE"}:
+        return const * rbf + white
+    if kernel_type == "MATERN":
+        return const * matern
+    if kernel_type in {"MATERN+WHITE", "MATERN_WHITE", "MATERN_WITH_WHITE"}:
+        return const * matern + white
+    if kernel_type in {"RQ", "RATIONALQUADRATIC", "RATIONAL_QUADRATIC"}:
+        return const * rq
+    if kernel_type in {"RQ+WHITE", "RATIONALQUADRATIC+WHITE", "RATIONAL_QUADRATIC+WHITE"}:
+        return const * rq + white
+
+    raise ValueError(
+        f"Unsupported GPR kernel: {kernel_config}. "
+        "Supported values: RBF, RBF+WHITE, MATERN, MATERN+WHITE, RQ, RQ+WHITE."
+    )
+
+
+def _json_safe_gpr_params(params):
+    out = {}
+    for k, v in params.items():
+        if k == "kernel":
+            if isinstance(v, (dict, str)) or v is None:
+                out[k] = v
+            else:
+                out[k] = str(v)
+        else:
+            out[k] = v
+    return out
+
+
+# ============================================================
+# THREAD CONTROL
+# ============================================================
+def apply_thread_limits(config):
+    max_threads = config.get("max_cpu_threads")
+    if not max_threads:
+        return
+
+    max_threads = int(max_threads)
+
+    os.environ["OMP_NUM_THREADS"] = str(max_threads)
+    os.environ["MKL_NUM_THREADS"] = str(max_threads)
+    os.environ["NUMEXPR_NUM_THREADS"] = str(max_threads)
+    os.environ["OPENBLAS_NUM_THREADS"] = str(max_threads)
+
+    threadpoolctl.threadpool_limits(limits=max_threads)
+    logger.info(f"CPU threads limited to {max_threads}")
+
+
+# ============================================================
+# PARAM HELPERS
+# ============================================================
+def build_gpr_params(config):
+    raw_params = dict(config.get("gpr_params", {}) or {})
+    params = dict(raw_params)
+    params["kernel"] = build_gpr_kernel(raw_params.get("kernel"))
+
+    if "n_restarts_optimizer" in params:
+        params["n_restarts_optimizer"] = int(params["n_restarts_optimizer"])
+
+    if "normalize_y" in params:
+        params["normalize_y"] = bool(params["normalize_y"])
+
+    if "alpha" in params:
+        params["alpha"] = float(params["alpha"])
+
+    return params
+
+
+# ============================================================
+# TRAIN GPR
+# ============================================================
 def train_gpr_model(feature_train, target_train, config):
     n_outputs = target_train.shape[1]
     models = []
-    params = config["gpr_params"]
+    params = build_gpr_params(config)
 
     for i in range(n_outputs):
         gpr = GaussianProcessRegressor(**params)
         gpr.fit(feature_train, target_train[:, i])
         models.append(gpr)
-        logger.info(f"Trained GPR for output {i+1}/{n_outputs}")
+        logger.info(f"Trained GPR for output {i + 1}/{n_outputs}")
 
     return models
 
-# ---------------- TRAINING PIPELINE ----------------
+
+# ============================================================
+# REPORT GENERATION
+# ============================================================
+def generate_report(
+    gpr_models,
+    f_train,
+    f_test,
+    t_train,
+    t_test,
+    f_scaler,
+    t_scaler,
+    config,
+    train_duration,
+    save_path,
+):
+    f_test_norm = f_scaler.transform(f_test)
+    preds_norm = np.column_stack([m.predict(f_test_norm) for m in gpr_models])
+    preds = t_scaler.inverse_transform(preds_norm)
+
+    perf_metrics = report.calculate_metrics(t_test, preds)
+
+    system_info = report.get_system_info()
+    process = psutil.Process(os.getpid())
+    peak_ram = round(process.memory_info().rss / (1024**3), 2)
+
+    model_files = [
+        os.path.join(save_path, "feature_scaler.pkl"),
+        os.path.join(save_path, "target_scaler.pkl"),
+        os.path.join(save_path, "gpr_models_list.pkl"),
+        os.path.join(save_path, "config.json"),
+    ]
+    model_size_bytes = sum(os.path.getsize(p) for p in model_files if os.path.exists(p))
+    model_size_mb = round(model_size_bytes / (1024**2), 2)
+
+    split_cfg = get_split_config(config)
+
+    full_report = {
+        "model_info": {
+            "model_name": config["model_name"],
+            "model_type": config["model_type"],
+            "framework": "scikit-learn",
+            "framework_version": None,
+            "trainable_outputs": t_train.shape[1],
+            "model_size_mb": model_size_mb,
+            "training_duration_sec": train_duration,
+            "completion_timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        },
+        "data_info": {
+            "input_dim": f_train.shape[1],
+            "output_dim": t_train.shape[1],
+            "total_samples": f_train.shape[0] + f_test.shape[0],
+            "train_samples": f_train.shape[0],
+            "test_samples": f_test.shape[0],
+            "split_strategy": "train_test_split",
+            "test_size": split_cfg["test_size"],
+            "random_state": split_cfg["random_state"],
+        },
+        "performance": {
+            "metrics": perf_metrics,
+            "evaluation_protocol": {
+                "evaluation_dataset": "held-out test set",
+                "predictions_inverse_transformed": True,
+                "normalization_used": True,
+            },
+        },
+        "system_info": system_info,
+        "hardware_info": {
+            "peak_process_ram_gb": peak_ram,
+        },
+        "configuration": {
+            **config,
+            "gpr_params": _json_safe_gpr_params(config.get("gpr_params", {})),
+        },
+    }
+
+    return full_report
+
+
+# ============================================================
+# TRAINING PIPELINE
+# ============================================================
 def train_model_pipeline(X, y, config, model_base_dir):
+    apply_thread_limits(config)
 
-    # Limit CPU threads if provided
-    max_threads = config.get("max_cpu_threads")
-    if max_threads:
-        os.environ["OMP_NUM_THREADS"] = str(max_threads)   # OpenMP
-        os.environ["MKL_NUM_THREADS"] = str(max_threads)   # Intel MKL
-        os.environ["NUMEXPR_NUM_THREADS"] = str(max_threads)
-        os.environ["OPENBLAS_NUM_THREADS"] = str(max_threads)
-        
-        threadpoolctl.threadpool_limits(limits=max_threads)
-        logger.info(f"CPU threads limited to {max_threads}")
-
+    split_cfg = get_split_config(config)
 
     # 1. Split data
-    f_train, f_test, t_train, t_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # 2. Normalize
-    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
-        f_train, f_test, t_train, t_test, **config["normalization"]
+    f_train, f_test, t_train, t_test = train_test_split(
+        X,
+        y,
+        test_size=split_cfg["test_size"],
+        random_state=split_cfg["random_state"],
     )
 
-    # 3. Train GPR models
+    # 2. Normalize
+    normalization_cfg = config.get("normalization", {}) or {}
+    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
+        f_train,
+        f_test,
+        t_train,
+        t_test,
+        feature_method=normalization_cfg.get("feature_method", "standard"),
+        target_method=normalization_cfg.get("target_method", "standard"),
+    )
+
+    # 3. Train
     logger.info(f"Starting GPR training for {y.shape[1]} outputs...")
     start_time = time.time()
     gpr_models = train_gpr_model(f_train_n, t_train_n, config)
     train_duration = time.time() - start_time
     logger.info(f"Total training time: {train_duration:.2f} seconds.")
 
-    # 4. Save models & scalers
+    # 4. Save artifacts
     save_path = os.path.join(model_base_dir, config["model_name"])
     os.makedirs(save_path, exist_ok=True)
+
     joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
     joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
     joblib.dump(gpr_models, os.path.join(save_path, "gpr_models_list.pkl"))
 
-    # Save config (omit kernel object for JSON)
-    json_config = config.copy()
-    json_config["gpr_params"] = {k: v for k, v in config["gpr_params"].items() if k != "kernel"}
-    with open(os.path.join(save_path, "config.json"), "w") as f:
+    json_config = dict(config)
+    json_config["gpr_params"] = _json_safe_gpr_params(config.get("gpr_params", {}))
+
+    with open(os.path.join(save_path, "config.json"), "w", encoding="utf-8") as f:
         json.dump(json_config, f, indent=4)
 
-    # 5. Evaluate
-    preds_norm = np.array([m.predict(f_test_n) for m in gpr_models]).T
-    preds = t_scaler.inverse_transform(preds_norm)
+    # 5. Report
+    report_data = generate_report(
+        gpr_models=gpr_models,
+        f_train=f_train,
+        f_test=f_test,
+        t_train=t_train,
+        t_test=t_test,
+        f_scaler=f_scaler,
+        t_scaler=t_scaler,
+        config=config,
+        train_duration=train_duration,
+        save_path=save_path,
+    )
 
-    # 6. Generate report
-    report_data = report.calculate_metrics(t_test, preds)
-    system_info = report.get_system_info()
-    process = psutil.Process(os.getpid())
-    peak_ram = round(process.memory_info().rss / (1024**3), 2)
-
-    full_report = {
-        "model_info": {
-            "model_name": config["model_name"],
-            "model_type": config["model_type"],
-            "trainable_outputs": y.shape[1],
-            "training_duration_sec": train_duration,
-            "completion_timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-        },
-        "data_info": {
-            "input_dim": f_train.shape[1],
-            "output_dim": t_train.shape[1],
-            "total_samples": X.shape[0],
-            "train_samples": f_train.shape[0],
-            "test_samples": f_test.shape[0],
-            "split_strategy": "train_test_split",
-            "test_size": 0.2,
-            "random_state": 42
-        },
-        "performance": {
-            "metrics": report_data,
-            "evaluation_protocol": {
-                "dataset": "held-out test set",
-                "predictions_inverse_transformed": True,
-                "normalization_used": True
-            }
-        },
-        "system_info": system_info,
-        "hardware_info": {
-            "peak_process_ram_gb": peak_ram
-        },
-        "configuration": json_config
-    }
-
-    report.save_report(full_report, save_path)
+    report.save_report(report_data, save_path)
+    report.log_metric(report_data["performance"]["metrics"], config["model_type"], logger)
     logger.info("Report successfully generated.")
 
-# ---------------- PREDICT ----------------
+
+# ============================================================
+# PREDICT
+# ============================================================
 def predict(model_dir, X_new, return_std=False):
-    """
-    Predict using saved GPR models.
-
-    Parameters
-    ----------
-    model_dir : str
-        Path to the saved model directory.
-    X_new : np.ndarray
-        Input features of shape (n_samples, n_features) or (n_features,).
-    return_std : bool, optional
-        If True, also return predictive standard deviation in original target scale.
-
-    Returns
-    -------
-    y_pred : np.ndarray
-        Predictions in original target scale, shape (n_samples, n_outputs)
-
-    y_std : np.ndarray, optional
-        Predictive standard deviation in original target scale,
-        returned only if return_std=True
-    """
-    # Convert input
     X_new = np.asarray(X_new, dtype=np.float64)
 
     if X_new.ndim == 1:
@@ -184,7 +419,6 @@ def predict(model_dir, X_new, return_std=False):
     if np.isnan(X_new).any():
         raise ValueError("X_new contains NaN values.")
 
-    # Load saved artifacts
     feature_scaler_path = os.path.join(model_dir, "feature_scaler.pkl")
     target_scaler_path = os.path.join(model_dir, "target_scaler.pkl")
     model_list_path = os.path.join(model_dir, "gpr_models_list.pkl")
@@ -200,17 +434,14 @@ def predict(model_dir, X_new, return_std=False):
     t_scaler = joblib.load(target_scaler_path)
     gpr_models = joblib.load(model_list_path)
 
-    # Validate feature dimension
     expected_features = getattr(gpr_models[0], "n_features_in_", None)
     if expected_features is not None and X_new.shape[1] != expected_features:
         raise ValueError(
             f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
         )
 
-    # Normalize input
     X_new_norm = f_scaler.transform(X_new)
 
-    # Predict each output independently
     if return_std:
         pred_means = []
         pred_stds = []
@@ -220,56 +451,53 @@ def predict(model_dir, X_new, return_std=False):
             pred_means.append(mean_i)
             pred_stds.append(std_i)
 
-        y_pred_norm = np.column_stack(pred_means)   # (n_samples, n_outputs)
-        y_std_norm = np.column_stack(pred_stds)     # (n_samples, n_outputs)
+        y_pred_norm = np.column_stack(pred_means)
+        y_std_norm = np.column_stack(pred_stds)
 
-        # Inverse transform mean prediction
         y_pred = t_scaler.inverse_transform(y_pred_norm)
 
-        # Scale std back to original target scale
-        # For sklearn scalers:
-        # original = normalized * scale_ + mean_
-        # so std_original = std_normalized * scale_
         if hasattr(t_scaler, "scale_"):
             y_std = y_std_norm * t_scaler.scale_
         else:
-            # Fallback: approximate via inverse transform of zero + std
             zeros = np.zeros_like(y_std_norm)
-            y_std = t_scaler.inverse_transform(zeros + y_std_norm) - t_scaler.inverse_transform(zeros)
+            y_std = (
+                t_scaler.inverse_transform(zeros + y_std_norm)
+                - t_scaler.inverse_transform(zeros)
+            )
 
         return y_pred, y_std
 
-    else:
-        y_pred_norm = np.column_stack([
-            model.predict(X_new_norm) for model in gpr_models
-        ])
-
-        y_pred = t_scaler.inverse_transform(y_pred_norm)
-        return y_pred
+    y_pred_norm = np.column_stack([model.predict(X_new_norm) for model in gpr_models])
+    y_pred = t_scaler.inverse_transform(y_pred_norm)
+    return y_pred
 
 
-# ---------------- MAIN ----------------
+# ============================================================
+# MAIN
+# ============================================================
 if __name__ == "__main__":
-
-    FILE_PATH = "/home/emon/projects/Conure/data/raw/simulation_data_fixed.npz"
+    FILE_PATH = "/mnt/storage/emon/projects/Conure/data/workspace/tx33/sweep/TX33/simulation_data.npz"
     MODEL_BASE_DIR = "/home/emon/projects/Conure/data/model_library/"
 
-    # Config
     train_config = {
         "model_name": "TX11_GPR",
         "model_type": "GPR",
-        "normalization": {"feature_method": "standard", "target_method": "standard"},
-        "max_cpu_threads": 8,  # <--- Limit CPU threads here
+        "data_split": {
+            "test_size": 0.2,
+            "random_state": 42,
+        },
+        "normalization": {
+            "feature_method": "standard",
+            "target_method": "standard",
+        },
+        "max_cpu_threads": 8,
         "gpr_params": {
-            "kernel": C(1.0, (1e-2, 1e7)) * RBF(1.0, (1e-2, 1e4)) + WhiteKernel(1e-3, (1e-5, 1e-1)),
+            "kernel": "RBF+WHITE",
             "n_restarts_optimizer": 3,
             "normalize_y": True,
-            "alpha": 1e-8
-        }
+            "alpha": 1e-8,
+        },
     }
 
-    # Load data
     X, y, _, _, _ = data_translator.prepare_ffi_data(FILE_PATH)
-
-    # Run GPR training pipeline
     train_model_pipeline(X, y, train_config, MODEL_BASE_DIR)

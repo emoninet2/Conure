@@ -280,6 +280,7 @@ def train_model_pipeline(X, y, config, model_base_dir):
     )
 
     # 3. Adjust last layer
+    config = json.loads(json.dumps(config))
     if config["architecture"][-1]["units"] == "AUTO":
         config["architecture"][-1]["units"] = y.shape[1]
 
