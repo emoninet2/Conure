@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import inspect
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -13,12 +14,15 @@ import RF
 import PR
 import SVR
 import data_translator
-import inspect
+
 
 # ==========================================================
 # TRANSLATION DISPATCH
 # ==========================================================
 TRANSLATORS = {
+    # ------------------------------------------------------
+    # Original S-parameter translators
+    # ------------------------------------------------------
     "ffi": data_translator.prepare_ffi_data,
     "ffi_augmented": data_translator.prepare_ffi_augmented,
     "ffd": data_translator.prepare_ffd_data,
@@ -27,6 +31,30 @@ TRANSLATORS = {
     "ifi_augmented": data_translator.prepare_ifi_augmented,
     "ifd": data_translator.prepare_ifd_data,
     "ifd_augmented": data_translator.prepare_ifd_augmented,
+
+    # ------------------------------------------------------
+    # Inductor translators
+    # ------------------------------------------------------
+    "ffi_inductor": data_translator.prepare_ffi_inductor_data,
+    "ffi_inductor_augmented": data_translator.prepare_ffi_inductor_augmented,
+    "ffd_inductor": data_translator.prepare_ffd_inductor_data,
+    "ffd_inductor_augmented": data_translator.prepare_ffd_inductor_augmented,
+    "ifi_inductor": data_translator.prepare_ifi_inductor_data,
+    "ifi_inductor_augmented": data_translator.prepare_ifi_inductor_augmented,
+    "ifd_inductor": data_translator.prepare_ifd_inductor_data,
+    "ifd_inductor_augmented": data_translator.prepare_ifd_inductor_augmented,
+
+    # ------------------------------------------------------
+    # Transformer translators
+    # ------------------------------------------------------
+    "ffi_transformer": data_translator.prepare_ffi_transformer_data,
+    "ffi_transformer_augmented": data_translator.prepare_ffi_transformer_augmented,
+    "ffd_transformer": data_translator.prepare_ffd_transformer_data,
+    "ffd_transformer_augmented": data_translator.prepare_ffd_transformer_augmented,
+    "ifi_transformer": data_translator.prepare_ifi_transformer_data,
+    "ifi_transformer_augmented": data_translator.prepare_ifi_transformer_augmented,
+    "ifd_transformer": data_translator.prepare_ifd_transformer_data,
+    "ifd_transformer_augmented": data_translator.prepare_ifd_transformer_augmented,
 }
 
 
@@ -64,7 +92,7 @@ def load_train_config(train_config):
         raise TypeError("train_config must be a dict, JSON string, or path to JSON file.")
 
     if os.path.isfile(train_config):
-        with open(train_config, "r") as f:
+        with open(train_config, "r", encoding="utf-8") as f:
             return json.load(f)
 
     try:
@@ -90,12 +118,8 @@ def get_model_module(model_type):
     return MODEL_MODULES[model_type_key]
 
 
-
-def load_translated_data(npz_file, translation_type, translation_params=None):
-    if not os.path.exists(npz_file):
-        raise FileNotFoundError(f"NPZ data file not found: {npz_file}")
-
-    translation_key = translation_type.strip().lower()
+def get_translator(translation_type):
+    translation_key = str(translation_type).strip().lower()
 
     if translation_key not in TRANSLATORS:
         raise ValueError(
@@ -103,17 +127,32 @@ def load_translated_data(npz_file, translation_type, translation_params=None):
             f"Supported values: {list(TRANSLATORS.keys())}"
         )
 
-    translator_fn = TRANSLATORS[translation_key]
-    translation_params = translation_params or {}
+    return TRANSLATORS[translation_key]
 
-    # Keep only parameters the translator actually accepts
+
+def filter_translation_params(translator_fn, translation_params=None):
+    """
+    Keep only parameters actually accepted by the translator function.
+    """
+    translation_params = translation_params or {}
     sig = inspect.signature(translator_fn)
     allowed_params = sig.parameters
 
-    filtered_params = {
+    return {
         k: v for k, v in translation_params.items()
         if k in allowed_params
     }
+
+
+def load_translated_data(npz_file, translation_type, translation_params=None):
+    """
+    Load translated dataset using any registered translator.
+    """
+    if not os.path.exists(npz_file):
+        raise FileNotFoundError(f"NPZ data file not found: {npz_file}")
+
+    translator_fn = get_translator(translation_type)
+    filtered_params = filter_translation_params(translator_fn, translation_params)
 
     return translator_fn(npz_file, **filtered_params)
 
@@ -136,21 +175,19 @@ def train_model(npz_file, translation_type, train_config, output_dir, translatio
     if translation_params is None:
         translation_params = config.get("translation_params", {})
 
-    model_module = get_model_module(config["model_type"])
+    model_type = str(config["model_type"]).strip().upper()
+    model_module = get_model_module(model_type)
 
     os.makedirs(output_dir, exist_ok=True)
 
     X, y, _, _, _ = load_translated_data(
         npz_file=npz_file,
         translation_type=translation_type,
-        translation_params=translation_params
+        translation_params=translation_params,
     )
 
-    # PCE currently has a different training signature
-    if str(config["model_type"]).strip().upper() == "PCE":
-        model_module.train_model_pipeline(npz_file, output_dir, config)
-    else:
-        model_module.train_model_pipeline(X, y, config, output_dir)
+    # All model modules, including PCE, now use the same interface
+    model_module.train_model_pipeline(X, y, config, output_dir)
 
 
 # ==========================================================
@@ -174,35 +211,32 @@ def predict_model(model_type, model_dir, X_new):
 # EXAMPLE
 # ==========================================================
 def example():
-    # ---------------------------
-    # Paths
-    # ---------------------------
     npz_file = "/mnt/storage/emon/projects/Conure/data/2026/TX11/simulation_data.npz"
     output_dir = "./data/MAGIC"
 
-    # ---------------------------
-    # Experiment settings
-    # ---------------------------
     model_type = "ANN"
-    translation_type = "FFD"
-    model_name = f"{model_type}_{translation_type.upper()}"
+
+    # Examples:
+    # translation_type = "FFD"
+    # translation_type = "FFD_Inductor"
+    translation_type = "FFD_Transformer"
+
+    model_name = f"{model_type}_{translation_type}"
     model_dir = os.path.join(output_dir, model_name)
 
-    # ---------------------------
-    # Training config
-    # ---------------------------
     train_config = {
         "model_name": model_name,
         "model_type": model_type,
         "translation_params": {
+            "z0": 50.0,
             "feature_noise_std": 0.01,
             "target_noise_std": 0.005,
             "n_augment": 3,
-            "clip": True
+            "clip": True,
         },
         "normalization": {
             "feature_method": "standard",
-            "target_method": "standard"
+            "target_method": "standard",
         },
         "training": {
             "epochs": 100,
@@ -213,66 +247,67 @@ def example():
             "optimizer": {
                 "type": "Adam",
                 "learning_rate": 0.001,
-                "momentum": 0.9
-            }
+                "momentum": 0.9,
+            },
         },
         "early_stopping": {
             "monitor": "val_loss",
             "patience": 15,
-            "restore_best_weights": True
+            "restore_best_weights": True,
         },
         "architecture": [
             {
                 "type": "Dense",
                 "units": 128,
                 "activation": "relu",
-                "regularizer": {"type": "l2", "value": 0.01}
+                "regularizer": {"type": "l2", "value": 0.01},
             },
             {"type": "Dropout", "rate": 0.1},
             {
                 "type": "Dense",
                 "units": 512,
                 "activation": "relu",
-                "regularizer": {"type": "l1_l2", "l1": 0.001, "l2": 0.01}
+                "regularizer": {"type": "l1_l2", "l1": 0.001, "l2": 0.01},
             },
-            {"type": "Dense", "units": "AUTO", "activation": "linear"}
+            {"type": "Dense", "units": "AUTO", "activation": "linear"},
         ],
     }
 
-    # ==========================================================
-    # 1. TRAIN
-    # ==========================================================
+    # ------------------------------------------------------
+    # Train
+    # ------------------------------------------------------
     train_model(
         npz_file=npz_file,
         translation_type=translation_type,
         train_config=train_config,
-        output_dir=output_dir
+        output_dir=output_dir,
     )
     print("Training completed.")
 
-    # ==========================================================
-    # 2. LOAD DATA
-    # ==========================================================
+    # ------------------------------------------------------
+    # Load translated data
+    # ------------------------------------------------------
     X, y, feature_names, target_names, freqs = load_translated_data(
         npz_file=npz_file,
-        translation_type=translation_type
+        translation_type=translation_type,
+        translation_params={"z0": 50.0},
     )
 
     X_test = X[0].reshape(1, -1)
     y_true = y[0].reshape(1, -1)
 
-    # ==========================================================
-    # 3. PREDICT
-    # ==========================================================
+    # ------------------------------------------------------
+    # Predict
+    # ------------------------------------------------------
     pred = predict_model(
         model_type=model_type,
         model_dir=model_dir,
-        X_new=X_test
+        X_new=X_test,
     )
 
-    # ==========================================================
-    # 4. DISPLAY
-    # ==========================================================
+    # ------------------------------------------------------
+    # Display
+    # ------------------------------------------------------
     print("\n" + "=" * 60)
     print("PREDICTION SUMMARY")
     print("=" * 60)

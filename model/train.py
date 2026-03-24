@@ -36,6 +36,7 @@ CLI = {
 # TRANSLATION DISPATCH
 # ==========================================================
 TRANSLATORS = {
+    # Original S-parameter translators
     "ffi": data_translator.prepare_ffi_data,
     "ffi_augmented": data_translator.prepare_ffi_augmented,
     "ffd": data_translator.prepare_ffd_data,
@@ -44,6 +45,26 @@ TRANSLATORS = {
     "ifi_augmented": data_translator.prepare_ifi_augmented,
     "ifd": data_translator.prepare_ifd_data,
     "ifd_augmented": data_translator.prepare_ifd_augmented,
+
+    # Inductor translators
+    "ffi_inductor": data_translator.prepare_ffi_inductor_data,
+    "ffi_inductor_augmented": data_translator.prepare_ffi_inductor_augmented,
+    "ffd_inductor": data_translator.prepare_ffd_inductor_data,
+    "ffd_inductor_augmented": data_translator.prepare_ffd_inductor_augmented,
+    "ifi_inductor": data_translator.prepare_ifi_inductor_data,
+    "ifi_inductor_augmented": data_translator.prepare_ifi_inductor_augmented,
+    "ifd_inductor": data_translator.prepare_ifd_inductor_data,
+    "ifd_inductor_augmented": data_translator.prepare_ifd_inductor_augmented,
+
+    # Transformer translators
+    "ffi_transformer": data_translator.prepare_ffi_transformer_data,
+    "ffi_transformer_augmented": data_translator.prepare_ffi_transformer_augmented,
+    "ffd_transformer": data_translator.prepare_ffd_transformer_data,
+    "ffd_transformer_augmented": data_translator.prepare_ffd_transformer_augmented,
+    "ifi_transformer": data_translator.prepare_ifi_transformer_data,
+    "ifi_transformer_augmented": data_translator.prepare_ifi_transformer_augmented,
+    "ifd_transformer": data_translator.prepare_ifd_transformer_data,
+    "ifd_transformer_augmented": data_translator.prepare_ifd_transformer_augmented,
 }
 
 

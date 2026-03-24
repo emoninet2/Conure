@@ -18,7 +18,20 @@ const MODEL_TYPE_OPTIONS = [
   "SVR",
 ];
 
-const TRANSLATION_BASE_TYPES = ["FFD", "FFI", "IFD", "IFI"];
+const TRANSLATION_BASE_TYPES = [
+  "FFD",
+  "FFI",
+  "IFD",
+  "IFI",
+  "FFD_Inductor",
+  "FFI_Inductor",
+  "IFD_Inductor",
+  "IFI_Inductor",
+  "FFD_Transformer",
+  "FFI_Transformer",
+  "IFD_Transformer",
+  "IFI_Transformer",
+];
 
 const DEFAULT_TRANSLATE_CONFIG = {
   translation_type: "FFD",
@@ -62,6 +75,8 @@ const DEFAULT_DRAFT = {
   },
 };
 
+const DEFAULT_REPORT = null;
+const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 
 async function fetchDefaultModelDraft(model_type, model_name = "") {
   const res = await fetch(`${API_BASE}/api/models/default-config`, {
@@ -73,11 +88,6 @@ async function fetchDefaultModelDraft(model_type, model_name = "") {
   if (!res.ok) throw new Error(await res.text());
   return await res.json();
 }
-
-
-
-const DEFAULT_REPORT = null;
-const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 
 function stripAnsi(s) {
   return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
@@ -132,6 +142,13 @@ function cloneJson(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+function needsReferenceImpedance(baseType) {
+  return (
+    typeof baseType === "string" &&
+    (baseType.includes("_Inductor") || baseType.includes("_Transformer"))
+  );
+}
+
 function normalizeTranslateConfig(config) {
   const input =
     config && typeof config === "object" && !Array.isArray(config)
@@ -150,22 +167,22 @@ function normalizeTranslateConfig(config) {
 
   const params =
     input.translation_params &&
-      typeof input.translation_params === "object" &&
-      !Array.isArray(input.translation_params)
+    typeof input.translation_params === "object" &&
+    !Array.isArray(input.translation_params)
       ? input.translation_params
       : {};
 
   return {
     baseType: safeBaseType,
     augmented: isAugmented,
+    z0: params.z0 === undefined ? 50.0 : Number(params.z0),
     feature_noise_std:
       params.feature_noise_std === undefined ? 0.01 : Number(params.feature_noise_std),
     target_noise_std:
       params.target_noise_std === undefined ? 0.005 : Number(params.target_noise_std),
     n_augment:
       params.n_augment === undefined ? 3 : Number(params.n_augment),
-    clip:
-      params.clip === undefined ? true : Boolean(params.clip),
+    clip: params.clip === undefined ? true : Boolean(params.clip),
   };
 }
 
@@ -177,25 +194,28 @@ function buildTranslateConfigFromForm(form) {
   const augmented = !!form.augmented;
   const translation_type = augmented ? `${baseType}_augmented` : baseType;
 
-  if (!augmented) {
-    return {
-      translation_type,
-      translation_params: {},
-    };
+  const translation_params = {};
+
+  if (needsReferenceImpedance(baseType)) {
+    translation_params.z0 = Number(form.z0 || 50.0);
+  }
+
+  if (augmented) {
+    translation_params.feature_noise_std = Number(form.feature_noise_std || 0);
+    translation_params.target_noise_std = Number(form.target_noise_std || 0);
+    translation_params.n_augment = Number(form.n_augment || 0);
+    translation_params.clip = !!form.clip;
   }
 
   return {
     translation_type,
-    translation_params: {
-      feature_noise_std: Number(form.feature_noise_std || 0),
-      target_noise_std: Number(form.target_noise_std || 0),
-      n_augment: Number(form.n_augment || 0),
-      clip: !!form.clip,
-    },
+    translation_params,
   };
 }
 
 function TranslationConfigForm({ value, onChange, disabled }) {
+  const showZ0 = needsReferenceImpedance(value.baseType);
+
   return (
     <div
       style={{
@@ -225,6 +245,24 @@ function TranslationConfigForm({ value, onChange, disabled }) {
             ))}
           </select>
         </label>
+
+        {showZ0 ? (
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Reference impedance Z0</span>
+            <input
+              type="number"
+              step="any"
+              value={value.z0}
+              onChange={(e) =>
+                onChange((prev) => ({
+                  ...prev,
+                  z0: e.target.value,
+                }))
+              }
+              disabled={disabled}
+            />
+          </label>
+        ) : null}
 
         <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
@@ -298,7 +336,14 @@ function TranslationConfigForm({ value, onChange, disabled }) {
               />
             </label>
 
-            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 24 }}>
+            <label
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginTop: 24,
+              }}
+            >
               <input
                 type="checkbox"
                 checked={!!value.clip}
@@ -531,7 +576,11 @@ export default function Model() {
       return { nextActiveModel, nextRunning, nextDraft };
     } catch (err) {
       setApiError(err?.message || String(err));
-      return { nextActiveModel: "", nextRunning: false, nextDraft: DEFAULT_DRAFT };
+      return {
+        nextActiveModel: "",
+        nextRunning: false,
+        nextDraft: DEFAULT_DRAFT,
+      };
     }
   }
 
@@ -601,7 +650,10 @@ export default function Model() {
       const res = await fetch(`${API_BASE}/api/models/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model_name: name }),
+        body: JSON.stringify({
+          model_name: name,
+          model_type: draft.model_type,
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
 
@@ -756,9 +808,12 @@ export default function Model() {
 
     try {
       setApiError("");
-      const res = await fetch(`${API_BASE}/api/models/${encodeURIComponent(name)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `${API_BASE}/api/models/${encodeURIComponent(name)}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (!res.ok) throw new Error(await res.text());
 
       if (name === activeModel) {
@@ -822,12 +877,16 @@ export default function Model() {
       <h3>Model</h3>
 
       {apiError ? (
-        <div style={{ marginBottom: 12, color: "crimson", whiteSpace: "pre-wrap" }}>
+        <div
+          style={{ marginBottom: 12, color: "crimson", whiteSpace: "pre-wrap" }}
+        >
           API error: {apiError}
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}
+      >
         <div style={{ border: "1px solid #ccc", padding: 12 }}>
           <h4 style={{ marginTop: 0 }}>Models</h4>
 
@@ -857,7 +916,10 @@ export default function Model() {
                   >
                     {name}
                   </button>
-                  <button onClick={() => deleteModel(name)} disabled={running && activeModel === name}>
+                  <button
+                    onClick={() => deleteModel(name)}
+                    disabled={running && activeModel === name}
+                  >
                     Delete
                   </button>
                 </div>
@@ -867,7 +929,15 @@ export default function Model() {
         </div>
 
         <div style={{ border: "1px solid #ccc", padding: 12 }}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginBottom: 12,
+            }}
+          >
             <div>
               Active model: <strong>{activeModel || "None"}</strong>
             </div>
@@ -895,9 +965,18 @@ export default function Model() {
                 marginBottom: 16,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
                 <div>
-                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>Model Availability</div>
+                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                    Model Availability
+                  </div>
                   <div>
                     {isTrained
                       ? `Model artifacts are present for ${modelSummary?.modelName || activeModel}.`
@@ -911,7 +990,14 @@ export default function Model() {
                 </div>
 
                 {isTrained ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "flex-start",
+                    }}
+                  >
                     <a href="#model-overview">Overview</a>
                     <a href="#model-metrics">Metrics</a>
                     <a href="#model-raw-summary">Raw Summary</a>
@@ -925,30 +1011,16 @@ export default function Model() {
           <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
               Model type:
-              {/* <select
-                value={draft.model_type}
-                onChange={(e) => setDraft((prev) => ({ ...prev, model_type: e.target.value }))}
-                disabled={running}
-              >
-                <option value="ANN">ANN</option>
-                <option value="GPR">GPR</option>
-                <option value="PCE">PCE</option>
-                <option value="CAT">CAT</option>
-                <option value="XGB">XGB</option>
-                <option value="RF">RF</option>
-                <option value="PR">PR</option>
-                <option value="SVR">SVR</option>
-              </select>
-               */}
-
               <select
                 value={draft.model_type}
                 onChange={async (e) => {
                   const newType = e.target.value;
 
                   try {
-                    const newDraft = await fetchDefaultModelDraft(newType, activeModel);
-
+                    const newDraft = await fetchDefaultModelDraft(
+                      newType,
+                      activeModel
+                    );
                     setDraft(newDraft);
                     setSavedSnapshot(cloneJson(newDraft));
                     syncEditorsFromDraft(newDraft);
@@ -964,8 +1036,6 @@ export default function Model() {
                   </option>
                 ))}
               </select>
-
-
             </label>
 
             <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -997,21 +1067,38 @@ export default function Model() {
             />
 
             <div>
-              <div style={{ marginBottom: 6, fontWeight: "bold" }}>model_config.json</div>
+              <div style={{ marginBottom: 6, fontWeight: "bold" }}>
+                model_config.json
+              </div>
               <textarea
                 value={modelConfigText}
                 onChange={(e) => setModelConfigText(e.target.value)}
                 disabled={running}
-                style={{ width: "100%", minHeight: 280, fontFamily: "monospace", fontSize: 12 }}
+                style={{
+                  width: "100%",
+                  minHeight: 280,
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                }}
               />
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button onClick={saveModel} disabled={!activeModel || running}>Save</button>
-            <button onClick={resetModel} disabled={running}>Reset</button>
-            <button onClick={startTraining} disabled={!activeModel || running}>Train</button>
-            <button onClick={stopTraining} disabled={!running}>Stop</button>
+          <div
+            style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}
+          >
+            <button onClick={saveModel} disabled={!activeModel || running}>
+              Save
+            </button>
+            <button onClick={resetModel} disabled={running}>
+              Reset
+            </button>
+            <button onClick={startTraining} disabled={!activeModel || running}>
+              Train
+            </button>
+            <button onClick={stopTraining} disabled={!running}>
+              Stop
+            </button>
             <button onClick={() => setLines([])}>Clear Console</button>
           </div>
 
@@ -1040,85 +1127,251 @@ export default function Model() {
             <div style={{ marginBottom: 16 }}>
               <div id="model-overview" style={{ marginBottom: 16 }}>
                 <h4 style={{ marginBottom: 10 }}>Model Overview</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 12,
+                    marginBottom: 12,
+                  }}
+                >
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Model</div>
-                    <div style={{ fontWeight: "bold" }}>{modelSummary?.modelName ?? "—"}</div>
-                    <div style={{ marginTop: 4 }}>{modelSummary?.modelType ?? "—"}</div>
+                    <div
+                      style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}
+                    >
+                      Model
+                    </div>
+                    <div style={{ fontWeight: "bold" }}>
+                      {modelSummary?.modelName ?? "—"}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      {modelSummary?.modelType ?? "—"}
+                    </div>
                   </div>
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Framework</div>
-                    <div style={{ fontWeight: "bold" }}>{modelSummary?.framework ?? "—"}</div>
-                    <div style={{ marginTop: 4 }}>Duration: {formatNumber(modelSummary?.durationSec)} s</div>
+                    <div
+                      style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}
+                    >
+                      Framework
+                    </div>
+                    <div style={{ fontWeight: "bold" }}>
+                      {modelSummary?.framework ?? "—"}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      Duration: {formatNumber(modelSummary?.durationSec)} s
+                    </div>
                   </div>
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Aggregate R2</div>
-                    <div style={{ fontWeight: "bold" }}>{formatNumber(modelSummary?.r2)}</div>
+                    <div
+                      style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}
+                    >
+                      Aggregate R2
+                    </div>
+                    <div style={{ fontWeight: "bold" }}>
+                      {formatNumber(modelSummary?.r2)}
+                    </div>
                   </div>
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>Aggregate RMSE / MAE</div>
-                    <div style={{ fontWeight: "bold" }}>{formatNumber(modelSummary?.rmse)}</div>
-                    <div style={{ marginTop: 4 }}>MAE: {formatNumber(modelSummary?.mae)}</div>
+                    <div
+                      style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}
+                    >
+                      Aggregate RMSE / MAE
+                    </div>
+                    <div style={{ fontWeight: "bold" }}>
+                      {formatNumber(modelSummary?.rmse)}
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      MAE: {formatNumber(modelSummary?.mae)}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
                 <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                  <div style={{ fontWeight: "bold", marginBottom: 8 }}>Model Info</div>
-                  <div><strong>Name:</strong> {report?.model_info?.model_name ?? "—"}</div>
-                  <div><strong>Type:</strong> {report?.model_info?.model_type ?? "—"}</div>
-                  <div><strong>Framework:</strong> {report?.model_info?.framework ?? "—"}</div>
-                  <div><strong>Framework version:</strong> {report?.model_info?.framework_version ?? "—"}</div>
-                  <div><strong>Trainable parameters:</strong> {report?.model_info?.trainable_parameters ?? "—"}</div>
-                  <div><strong>Model size (MB):</strong> {report?.model_info?.model_size_mb ?? "—"}</div>
-                  <div><strong>Training duration (s):</strong> {report?.model_info?.training_duration_sec ?? "—"}</div>
-                  <div><strong>Completed:</strong> {formatDateTime(report?.model_info?.completion_timestamp)}</div>
+                  <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+                    Model Info
+                  </div>
+                  <div>
+                    <strong>Name:</strong>{" "}
+                    {report?.model_info?.model_name ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Type:</strong>{" "}
+                    {report?.model_info?.model_type ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Framework:</strong>{" "}
+                    {report?.model_info?.framework ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Framework version:</strong>{" "}
+                    {report?.model_info?.framework_version ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Trainable parameters:</strong>{" "}
+                    {report?.model_info?.trainable_parameters ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Model size (MB):</strong>{" "}
+                    {report?.model_info?.model_size_mb ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Training duration (s):</strong>{" "}
+                    {report?.model_info?.training_duration_sec ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Completed:</strong>{" "}
+                    {formatDateTime(report?.model_info?.completion_timestamp)}
+                  </div>
                 </div>
                 <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                  <div style={{ fontWeight: "bold", marginBottom: 8 }}>Data Info</div>
-                  <div><strong>Input dim:</strong> {report?.data_info?.input_dim ?? "—"}</div>
-                  <div><strong>Output dim:</strong> {report?.data_info?.output_dim ?? "—"}</div>
-                  <div><strong>Total samples:</strong> {report?.data_info?.total_samples ?? "—"}</div>
-                  <div><strong>Train samples:</strong> {report?.data_info?.train_samples ?? "—"}</div>
-                  <div><strong>Validation samples:</strong> {report?.data_info?.validation_samples ?? "—"}</div>
-                  <div><strong>Test samples:</strong> {report?.data_info?.test_samples ?? "—"}</div>
-                  <div><strong>Split strategy:</strong> {report?.data_info?.split_strategy ?? "—"}</div>
+                  <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+                    Data Info
+                  </div>
+                  <div>
+                    <strong>Input dim:</strong>{" "}
+                    {report?.data_info?.input_dim ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Output dim:</strong>{" "}
+                    {report?.data_info?.output_dim ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Total samples:</strong>{" "}
+                    {report?.data_info?.total_samples ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Train samples:</strong>{" "}
+                    {report?.data_info?.train_samples ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Validation samples:</strong>{" "}
+                    {report?.data_info?.validation_samples ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Test samples:</strong>{" "}
+                    {report?.data_info?.test_samples ?? "—"}
+                  </div>
+                  <div>
+                    <strong>Split strategy:</strong>{" "}
+                    {report?.data_info?.split_strategy ?? "—"}
+                  </div>
                 </div>
               </div>
 
               <div id="model-metrics" style={{ marginBottom: 12 }}>
                 <h4 style={{ marginBottom: 10 }}>Performance Metrics</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: 12,
+                    marginBottom: 12,
+                  }}
+                >
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>Aggregate</div>
-                    <div>R2: {formatNumber(report?.performance?.metrics?.Aggregate?.R2)}</div>
-                    <div>RMSE: {formatNumber(report?.performance?.metrics?.Aggregate?.RMSE)}</div>
-                    <div>MAE: {formatNumber(report?.performance?.metrics?.Aggregate?.MAE)}</div>
+                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                      Aggregate
+                    </div>
+                    <div>
+                      R2: {formatNumber(report?.performance?.metrics?.Aggregate?.R2)}
+                    </div>
+                    <div>
+                      RMSE:{" "}
+                      {formatNumber(report?.performance?.metrics?.Aggregate?.RMSE)}
+                    </div>
+                    <div>
+                      MAE: {formatNumber(report?.performance?.metrics?.Aggregate?.MAE)}
+                    </div>
                   </div>
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>Per-Output</div>
-                    <div>RMSE Mean: {formatNumber(report?.performance?.metrics?.["Per-Output"]?.RMSE_Mean)}</div>
-                    <div>RMSE Max: {formatNumber(report?.performance?.metrics?.["Per-Output"]?.RMSE_Max)}</div>
-                    <div>RMSE Min: {formatNumber(report?.performance?.metrics?.["Per-Output"]?.RMSE_Min)}</div>
+                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                      Per-Output
+                    </div>
+                    <div>
+                      RMSE Mean:{" "}
+                      {formatNumber(
+                        report?.performance?.metrics?.["Per-Output"]?.RMSE_Mean
+                      )}
+                    </div>
+                    <div>
+                      RMSE Max:{" "}
+                      {formatNumber(
+                        report?.performance?.metrics?.["Per-Output"]?.RMSE_Max
+                      )}
+                    </div>
+                    <div>
+                      RMSE Min:{" "}
+                      {formatNumber(
+                        report?.performance?.metrics?.["Per-Output"]?.RMSE_Min
+                      )}
+                    </div>
                   </div>
                   <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>Per-Sample</div>
-                    <div>RMSE Mean: {formatNumber(report?.performance?.metrics?.["Per-Sample"]?.RMSE_Mean)}</div>
-                    <div>RMSE Max: {formatNumber(report?.performance?.metrics?.["Per-Sample"]?.RMSE_Max)}</div>
+                    <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                      Per-Sample
+                    </div>
+                    <div>
+                      RMSE Mean:{" "}
+                      {formatNumber(
+                        report?.performance?.metrics?.["Per-Sample"]?.RMSE_Mean
+                      )}
+                    </div>
+                    <div>
+                      RMSE Max:{" "}
+                      {formatNumber(
+                        report?.performance?.metrics?.["Per-Sample"]?.RMSE_Max
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div style={{ border: "1px solid #ddd", padding: 12 }}>
-                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>Evaluation Protocol</div>
-                  <div><strong>Dataset:</strong> {report?.performance?.evaluation_protocol?.evaluation_dataset ?? "—"}</div>
-                  <div><strong>Inverse transformed:</strong> {String(report?.performance?.evaluation_protocol?.predictions_inverse_transformed ?? "—")}</div>
-                  <div><strong>Normalization used:</strong> {String(report?.performance?.evaluation_protocol?.normalization_used ?? "—")}</div>
+                  <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+                    Evaluation Protocol
+                  </div>
+                  <div>
+                    <strong>Dataset:</strong>{" "}
+                    {report?.performance?.evaluation_protocol?.evaluation_dataset ??
+                      "—"}
+                  </div>
+                  <div>
+                    <strong>Inverse transformed:</strong>{" "}
+                    {String(
+                      report?.performance?.evaluation_protocol
+                        ?.predictions_inverse_transformed ?? "—"
+                    )}
+                  </div>
+                  <div>
+                    <strong>Normalization used:</strong>{" "}
+                    {String(
+                      report?.performance?.evaluation_protocol
+                        ?.normalization_used ?? "—"
+                    )}
+                  </div>
                 </div>
               </div>
 
               <details id="model-raw-summary">
-                <summary style={{ cursor: "pointer", fontWeight: "bold" }}>Raw summary / report JSON</summary>
-                <pre style={{ border: "1px solid #ddd", background: "#fafafa", padding: 12, overflow: "auto", fontSize: 12 }}>
+                <summary style={{ cursor: "pointer", fontWeight: "bold" }}>
+                  Raw summary / report JSON
+                </summary>
+                <pre
+                  style={{
+                    border: "1px solid #ddd",
+                    background: "#fafafa",
+                    padding: 12,
+                    overflow: "auto",
+                    fontSize: 12,
+                  }}
+                >
                   {safePretty(report)}
                 </pre>
               </details>
@@ -1128,13 +1381,22 @@ export default function Model() {
           {report ? (
             <div id="model-predict">
               <h4 style={{ marginBottom: 8 }}>Predict</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div
+                style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+              >
                 <div>
-                  <div style={{ marginBottom: 6, fontWeight: "bold" }}>Input JSON</div>
+                  <div style={{ marginBottom: 6, fontWeight: "bold" }}>
+                    Input JSON
+                  </div>
                   <textarea
                     value={predictionInput}
                     onChange={(e) => setPredictionInput(e.target.value)}
-                    style={{ width: "100%", minHeight: 140, fontFamily: "monospace", fontSize: 12 }}
+                    style={{
+                      width: "100%",
+                      minHeight: 140,
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                    }}
                   />
                   <div style={{ marginTop: 8 }}>
                     <button onClick={runPrediction} disabled={predicting}>
@@ -1143,11 +1405,18 @@ export default function Model() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ marginBottom: 6, fontWeight: "bold" }}>Prediction Output</div>
+                  <div style={{ marginBottom: 6, fontWeight: "bold" }}>
+                    Prediction Output
+                  </div>
                   <textarea
                     value={predictionOutput}
                     readOnly
-                    style={{ width: "100%", minHeight: 180, fontFamily: "monospace", fontSize: 12 }}
+                    style={{
+                      width: "100%",
+                      minHeight: 180,
+                      fontFamily: "monospace",
+                      fontSize: 12,
+                    }}
                   />
                 </div>
               </div>
