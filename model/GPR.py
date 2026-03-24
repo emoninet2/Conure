@@ -65,6 +65,7 @@ def normalize_data_sets(
         "minmax": MinMaxScaler,
         "robust": RobustScaler,
         "maxabs": MaxAbsScaler,
+        "none": None,
     }
 
     feature_method = str(feature_method).strip().lower()
@@ -75,14 +76,25 @@ def normalize_data_sets(
     if target_method not in scalers:
         raise ValueError(f"Unsupported target normalization method: {target_method}")
 
-    f_scaler = scalers[feature_method]()
-    t_scaler = scalers[target_method]()
+    # Features
+    if scalers[feature_method] is None:
+        f_scaler = None
+        f_train_norm = np.asarray(feature_train, dtype=np.float64)
+        f_test_norm = np.asarray(feature_test, dtype=np.float64)
+    else:
+        f_scaler = scalers[feature_method]()
+        f_train_norm = f_scaler.fit_transform(feature_train)
+        f_test_norm = f_scaler.transform(feature_test)
 
-    f_train_norm = f_scaler.fit_transform(feature_train)
-    f_test_norm = f_scaler.transform(feature_test)
-
-    t_train_norm = t_scaler.fit_transform(target_train)
-    t_test_norm = t_scaler.transform(target_test)
+    # Targets
+    if scalers[target_method] is None:
+        t_scaler = None
+        t_train_norm = np.asarray(target_train, dtype=np.float64)
+        t_test_norm = np.asarray(target_test, dtype=np.float64)
+    else:
+        t_scaler = scalers[target_method]()
+        t_train_norm = t_scaler.fit_transform(target_train)
+        t_test_norm = t_scaler.transform(target_test)
 
     return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
 
@@ -277,9 +289,17 @@ def generate_report(
     train_duration,
     save_path,
 ):
-    f_test_norm = f_scaler.transform(f_test)
-    preds_norm = np.column_stack([m.predict(f_test_norm) for m in gpr_models])
-    preds = t_scaler.inverse_transform(preds_norm)
+    if f_scaler is not None:
+        f_test_eval = f_scaler.transform(f_test)
+    else:
+        f_test_eval = np.asarray(f_test, dtype=np.float64)
+
+    preds_norm = np.column_stack([m.predict(f_test_eval) for m in gpr_models])
+
+    if t_scaler is not None:
+        preds = t_scaler.inverse_transform(preds_norm)
+    else:
+        preds = preds_norm
 
     perf_metrics = report.calculate_metrics(t_test, preds)
 
@@ -288,15 +308,23 @@ def generate_report(
     peak_ram = round(process.memory_info().rss / (1024**3), 2)
 
     model_files = [
-        os.path.join(save_path, "feature_scaler.pkl"),
-        os.path.join(save_path, "target_scaler.pkl"),
         os.path.join(save_path, "gpr_models_list.pkl"),
         os.path.join(save_path, "config.json"),
     ]
+
+    if f_scaler is not None:
+        model_files.append(os.path.join(save_path, "feature_scaler.pkl"))
+    if t_scaler is not None:
+        model_files.append(os.path.join(save_path, "target_scaler.pkl"))
+
     model_size_bytes = sum(os.path.getsize(p) for p in model_files if os.path.exists(p))
     model_size_mb = round(model_size_bytes / (1024**2), 2)
 
     split_cfg = get_split_config(config)
+    normalization_cfg = config.get("normalization", {}) or {}
+
+    feature_norm_used = str(normalization_cfg.get("feature_method", "standard")).lower() != "none"
+    target_norm_used = str(normalization_cfg.get("target_method", "standard")).lower() != "none"
 
     full_report = {
         "model_info": {
@@ -323,8 +351,10 @@ def generate_report(
             "metrics": perf_metrics,
             "evaluation_protocol": {
                 "evaluation_dataset": "held-out test set",
-                "predictions_inverse_transformed": True,
-                "normalization_used": True,
+                "predictions_inverse_transformed": target_norm_used,
+                "normalization_used": feature_norm_used or target_norm_used,
+                "feature_normalization_used": feature_norm_used,
+                "target_normalization_used": target_norm_used,
             },
         },
         "system_info": system_info,
@@ -378,8 +408,11 @@ def train_model_pipeline(X, y, config, model_base_dir):
     save_path = os.path.join(model_base_dir, config["model_name"])
     os.makedirs(save_path, exist_ok=True)
 
-    joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
-    joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
+    if f_scaler is not None:
+        joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
+    if t_scaler is not None:
+        joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
+
     joblib.dump(gpr_models, os.path.join(save_path, "gpr_models_list.pkl"))
 
     json_config = dict(config)
@@ -423,15 +456,11 @@ def predict(model_dir, X_new, return_std=False):
     target_scaler_path = os.path.join(model_dir, "target_scaler.pkl")
     model_list_path = os.path.join(model_dir, "gpr_models_list.pkl")
 
-    if not os.path.exists(feature_scaler_path):
-        raise FileNotFoundError(f"Feature scaler not found: {feature_scaler_path}")
-    if not os.path.exists(target_scaler_path):
-        raise FileNotFoundError(f"Target scaler not found: {target_scaler_path}")
     if not os.path.exists(model_list_path):
         raise FileNotFoundError(f"GPR model list not found: {model_list_path}")
 
-    f_scaler = joblib.load(feature_scaler_path)
-    t_scaler = joblib.load(target_scaler_path)
+    f_scaler = joblib.load(feature_scaler_path) if os.path.exists(feature_scaler_path) else None
+    t_scaler = joblib.load(target_scaler_path) if os.path.exists(target_scaler_path) else None
     gpr_models = joblib.load(model_list_path)
 
     expected_features = getattr(gpr_models[0], "n_features_in_", None)
@@ -440,7 +469,10 @@ def predict(model_dir, X_new, return_std=False):
             f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
         )
 
-    X_new_norm = f_scaler.transform(X_new)
+    if f_scaler is not None:
+        X_new_norm = f_scaler.transform(X_new)
+    else:
+        X_new_norm = X_new.astype(np.float64)
 
     if return_std:
         pred_means = []
@@ -454,21 +486,30 @@ def predict(model_dir, X_new, return_std=False):
         y_pred_norm = np.column_stack(pred_means)
         y_std_norm = np.column_stack(pred_stds)
 
-        y_pred = t_scaler.inverse_transform(y_pred_norm)
+        if t_scaler is not None:
+            y_pred = t_scaler.inverse_transform(y_pred_norm)
 
-        if hasattr(t_scaler, "scale_"):
-            y_std = y_std_norm * t_scaler.scale_
+            if hasattr(t_scaler, "scale_"):
+                y_std = y_std_norm * t_scaler.scale_
+            else:
+                zeros = np.zeros_like(y_std_norm)
+                y_std = (
+                    t_scaler.inverse_transform(zeros + y_std_norm)
+                    - t_scaler.inverse_transform(zeros)
+                )
         else:
-            zeros = np.zeros_like(y_std_norm)
-            y_std = (
-                t_scaler.inverse_transform(zeros + y_std_norm)
-                - t_scaler.inverse_transform(zeros)
-            )
+            y_pred = y_pred_norm
+            y_std = y_std_norm
 
         return y_pred, y_std
 
     y_pred_norm = np.column_stack([model.predict(X_new_norm) for model in gpr_models])
-    y_pred = t_scaler.inverse_transform(y_pred_norm)
+
+    if t_scaler is not None:
+        y_pred = t_scaler.inverse_transform(y_pred_norm)
+    else:
+        y_pred = y_pred_norm
+
     return y_pred
 
 
@@ -487,8 +528,8 @@ if __name__ == "__main__":
             "random_state": 42,
         },
         "normalization": {
-            "feature_method": "standard",
-            "target_method": "standard",
+            "feature_method": "standard",   # standard / minmax / robust / maxabs / none
+            "target_method": "standard",    # standard / minmax / robust / maxabs / none
         },
         "max_cpu_threads": 8,
         "gpr_params": {

@@ -5,17 +5,20 @@ import json
 import time
 import joblib
 import numpy as np
-from numpy.polynomial.legendre import legval
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
 import psutil
 import logging
+
+from numpy.polynomial.legendre import legval
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
+from sklearn.linear_model import LinearRegression
 
 import report
 
 
-# ---------------- LOGGER ----------------
+# ============================================================
+# LOGGER
+# ============================================================
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -24,25 +27,72 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ---------------- DATA PREPROCESSING ----------------
-def split_data(features, targets, test_size=0.2, random_state=None):
-    return train_test_split(features, targets, test_size=test_size, random_state=random_state)
+# ============================================================
+# DATA SPLIT CONFIG
+# ============================================================
+def get_data_split_config(config):
+    split_cfg = config.get("data_split", {}) or {}
+
+    test_size = float(split_cfg.get("test_size", 0.2))
+    random_state = split_cfg.get("random_state", 42)
+
+    if not (0.0 < test_size < 1.0):
+        raise ValueError(f"data_split.test_size must be between 0 and 1, got {test_size}")
+
+    return test_size, random_state
 
 
-def normalize_data_sets(feature_train, feature_test, target_train, target_test):
-    feature_scaler = StandardScaler()
-    target_scaler = StandardScaler()
+# ============================================================
+# NORMALIZATION
+# ============================================================
+def normalize_data_sets(
+    feature_train,
+    feature_test,
+    target_train,
+    target_test,
+    feature_method="standard",
+    target_method="standard",
+):
+    scalers = {
+        "standard": StandardScaler,
+        "minmax": MinMaxScaler,
+        "robust": RobustScaler,
+        "maxabs": MaxAbsScaler,
+        "none": None,
+    }
 
-    f_train_n = feature_scaler.fit_transform(feature_train)
-    f_test_n = feature_scaler.transform(feature_test)
+    feature_method = str(feature_method).strip().lower()
+    target_method = str(target_method).strip().lower()
 
-    t_train_n = target_scaler.fit_transform(target_train)
-    t_test_n = target_scaler.transform(target_test)
+    if feature_method not in scalers:
+        raise ValueError(f"Unsupported feature normalization method: {feature_method}")
+    if target_method not in scalers:
+        raise ValueError(f"Unsupported target normalization method: {target_method}")
 
-    return f_train_n, f_test_n, t_train_n, t_test_n, feature_scaler, target_scaler
+    if scalers[feature_method] is None:
+        f_scaler = None
+        f_train_n = np.asarray(feature_train, dtype=np.float64)
+        f_test_n = np.asarray(feature_test, dtype=np.float64)
+    else:
+        f_scaler = scalers[feature_method]()
+        f_train_n = f_scaler.fit_transform(feature_train)
+        f_test_n = f_scaler.transform(feature_test)
+
+    if scalers[target_method] is None:
+        t_scaler = None
+        t_train_n = np.asarray(target_train, dtype=np.float64)
+        t_test_n = np.asarray(target_test, dtype=np.float64)
+    else:
+        t_scaler = scalers[target_method]()
+        t_train_n = t_scaler.fit_transform(target_train)
+        t_test_n = t_scaler.transform(target_test)
+
+    return f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler
 
 
-# ---------------- PCE BASIS ----------------
+# ============================================================
+# PCE BASIS
+# ============================================================
 def build_legendre_basis(X, degree):
     """
     Build a simple per-feature Legendre basis:
@@ -60,7 +110,9 @@ def build_legendre_basis(X, degree):
     return np.hstack(basis_list)
 
 
-# ---------------- PCE MODEL TRAINING ----------------
+# ============================================================
+# PCE MODEL TRAINING
+# ============================================================
 def train_pce_models(feature_train, target_train, degree=3):
     n_outputs = target_train.shape[1]
     models = []
@@ -75,7 +127,9 @@ def train_pce_models(feature_train, target_train, degree=3):
     return models
 
 
-# ---------------- PCE PREDICTION ----------------
+# ============================================================
+# PCE PREDICTION
+# ============================================================
 def predict_pce(models, feature_data, degree=3):
     X_basis = build_legendre_basis(feature_data, degree)
     predictions = np.zeros((feature_data.shape[0], len(models)), dtype=np.float64)
@@ -86,7 +140,9 @@ def predict_pce(models, feature_data, degree=3):
     return predictions
 
 
-# ---------------- HELPERS ----------------
+# ============================================================
+# HELPERS
+# ============================================================
 def _ensure_2d_array(name, value):
     arr = np.asarray(value, dtype=np.float64)
 
@@ -109,12 +165,23 @@ def _get_degree(train_config):
     return degree
 
 
+def _get_normalization_config(config):
+    normalization_cfg = config.get("normalization", {}) or {}
+    feature_method = normalization_cfg.get("feature_method", "standard")
+    target_method = normalization_cfg.get("target_method", "standard")
+    return feature_method, target_method
+
+
 def _save_training_artifacts(save_path, models, f_scaler, t_scaler, train_config):
     os.makedirs(save_path, exist_ok=True)
 
     joblib.dump(models, os.path.join(save_path, "models.pkl"))
-    joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
-    joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
+
+    if f_scaler is not None:
+        joblib.dump(f_scaler, os.path.join(save_path, "feature_scaler.pkl"))
+
+    if t_scaler is not None:
+        joblib.dump(t_scaler, os.path.join(save_path, "target_scaler.pkl"))
 
     with open(os.path.join(save_path, "config.json"), "w", encoding="utf-8") as f:
         json.dump(train_config, f, indent=4)
@@ -123,9 +190,9 @@ def _save_training_artifacts(save_path, models, f_scaler, t_scaler, train_config
 def _compute_model_size_mb(save_path):
     artifact_files = [
         os.path.join(save_path, "models.pkl"),
+        os.path.join(save_path, "config.json"),
         os.path.join(save_path, "feature_scaler.pkl"),
         os.path.join(save_path, "target_scaler.pkl"),
-        os.path.join(save_path, "config.json"),
     ]
 
     total_bytes = 0
@@ -136,7 +203,9 @@ def _compute_model_size_mb(save_path):
     return round(total_bytes / (1024 ** 2), 2)
 
 
-# ---------------- PCE REPORT ----------------
+# ============================================================
+# PCE REPORT
+# ============================================================
 def generate_pce_report(
     models,
     X_train,
@@ -151,14 +220,22 @@ def generate_pce_report(
     model_name="PCE_MODEL",
 ):
     degree = _get_degree(params)
+    test_size, random_state = get_data_split_config(params)
+    feature_method, target_method = _get_normalization_config(params)
 
-    X_test_norm = f_scaler.transform(X_test)
-    preds_norm = predict_pce(models, X_test_norm, degree=degree)
-    preds = t_scaler.inverse_transform(preds_norm)
+    if f_scaler is not None:
+        X_test_eval = f_scaler.transform(X_test)
+    else:
+        X_test_eval = np.asarray(X_test, dtype=np.float64)
 
-    perf_metrics = {
-        "Aggregate": report.calculate_metrics(y_test, preds)["Aggregate"]
-    }
+    preds_norm = predict_pce(models, X_test_eval, degree=degree)
+
+    if t_scaler is not None:
+        preds = t_scaler.inverse_transform(preds_norm)
+    else:
+        preds = preds_norm
+
+    perf_metrics = report.calculate_metrics(y_test, preds)
 
     process = psutil.Process(os.getpid())
     peak_ram_gb = round(process.memory_info().rss / (1024 ** 3), 2)
@@ -169,6 +246,9 @@ def generate_pce_report(
     test_samples = X_test.shape[0]
 
     total_model_size_mb = _compute_model_size_mb(save_path)
+
+    feature_norm_used = str(feature_method).lower() != "none"
+    target_norm_used = str(target_method).lower() != "none"
 
     full_report = {
         "model_info": {
@@ -189,7 +269,8 @@ def generate_pce_report(
             "validation_samples": 0,
             "test_samples": int(test_samples),
             "split_strategy": "train_test_split",
-            "test_size": round(test_samples / total_samples, 2),
+            "test_size": test_size,
+            "random_state": random_state,
         },
         "training_summary": {
             "degree": degree,
@@ -199,8 +280,10 @@ def generate_pce_report(
             "metrics": perf_metrics,
             "evaluation_protocol": {
                 "evaluation_dataset": "held-out test set",
-                "predictions_inverse_transformed": True,
-                "normalization_used": True,
+                "predictions_inverse_transformed": target_norm_used,
+                "normalization_used": feature_norm_used or target_norm_used,
+                "feature_normalization_used": feature_norm_used,
+                "target_normalization_used": target_norm_used,
             },
         },
         "system_info": sys_info,
@@ -214,16 +297,15 @@ def generate_pce_report(
     return full_report
 
 
-# ---------------- PCE PIPELINE ----------------
+# ============================================================
+# PCE PIPELINE
+# ============================================================
 def train_model_pipeline(X, y, train_config, model_base_dir):
     """
     Unified PCE training interface.
 
-    This now matches the other model modules:
+    Same style as the other model modules:
         train_model_pipeline(X, y, config, output_dir)
-
-    So the outer trainer is responsible for translation selection, and PCE
-    simply trains on the translated X and y it receives.
     """
     X = _ensure_2d_array("X", X)
     y = _ensure_2d_array("y", y)
@@ -232,29 +314,38 @@ def train_model_pipeline(X, y, train_config, model_base_dir):
         raise KeyError("train_config must contain 'model_name'.")
 
     degree = _get_degree(train_config)
+    test_size, random_state = get_data_split_config(train_config)
+    feature_method, target_method = _get_normalization_config(train_config)
 
-    f_train, f_test, t_train, t_test = split_data(
+    # 1. Split
+    f_train, f_test, t_train, t_test = train_test_split(
         X,
         y,
-        test_size=float(train_config.get("test_size", 0.2)),
-        random_state=int(train_config.get("random_state", 42)),
+        test_size=test_size,
+        random_state=random_state,
     )
 
+    # 2. Normalize
     f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
         f_train,
         f_test,
         t_train,
         t_test,
+        feature_method=feature_method,
+        target_method=target_method,
     )
 
+    # 3. Train
     start_time = time.time()
     models = train_pce_models(f_train_n, t_train_n, degree=degree)
     train_duration = time.time() - start_time
     logger.info(f"PCE training completed in {train_duration:.2f} seconds.")
 
+    # 4. Save
     save_path = os.path.join(model_base_dir, train_config["model_name"])
     _save_training_artifacts(save_path, models, f_scaler, t_scaler, train_config)
 
+    # 5. Report
     report_data = generate_pce_report(
         models=models,
         X_train=f_train,
@@ -270,10 +361,17 @@ def train_model_pipeline(X, y, train_config, model_base_dir):
     )
 
     report.save_report(report_data, save_path)
-    report.log_metric(report_data["performance"]["metrics"], train_config.get("model_type", "PCE"), logger)
+    report.log_metric(
+        report_data["performance"]["metrics"],
+        train_config.get("model_type", "PCE"),
+        logger,
+    )
     logger.info("PCE pipeline finished successfully.")
 
 
+# ============================================================
+# PREDICT
+# ============================================================
 def predict(model_dir, X_new):
     """
     Predict using saved PCE models.
@@ -308,14 +406,10 @@ def predict(model_dir, X_new):
 
     if not os.path.exists(model_file):
         raise FileNotFoundError(f"PCE models not found: {model_file}")
-    if not os.path.exists(f_scaler_file):
-        raise FileNotFoundError(f"PCE feature scaler not found: {f_scaler_file}")
-    if not os.path.exists(t_scaler_file):
-        raise FileNotFoundError(f"PCE target scaler not found: {t_scaler_file}")
 
     models = joblib.load(model_file)
-    f_scaler = joblib.load(f_scaler_file)
-    t_scaler = joblib.load(t_scaler_file)
+    f_scaler = joblib.load(f_scaler_file) if os.path.exists(f_scaler_file) else None
+    t_scaler = joblib.load(t_scaler_file) if os.path.exists(t_scaler_file) else None
 
     degree = 3
     if os.path.exists(config_file):
@@ -323,19 +417,28 @@ def predict(model_dir, X_new):
             config = json.load(f)
             degree = int(config.get("degree", 3))
 
-    expected_features = getattr(f_scaler, "n_features_in_", None)
-    if expected_features is not None and X_new.shape[1] != expected_features:
-        raise ValueError(
-            f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
-        )
+    if f_scaler is not None:
+        expected_features = getattr(f_scaler, "n_features_in_", None)
+        if expected_features is not None and X_new.shape[1] != expected_features:
+            raise ValueError(
+                f"Feature mismatch: model expects {expected_features}, got {X_new.shape[1]}"
+            )
+        X_eval = f_scaler.transform(X_new)
+    else:
+        X_eval = X_new
 
-    X_norm = f_scaler.transform(X_new)
-    y_pred_norm = predict_pce(models, X_norm, degree=degree)
-    y_pred = t_scaler.inverse_transform(y_pred_norm)
+    y_pred_norm = predict_pce(models, X_eval, degree=degree)
+
+    if t_scaler is not None:
+        y_pred = t_scaler.inverse_transform(y_pred_norm)
+    else:
+        y_pred = y_pred_norm
 
     return y_pred
 
 
-# ---------------- MAIN ----------------
+# ============================================================
+# MAIN
+# ============================================================
 if __name__ == "__main__":
     print("PCE.py is now a model module and should be called from the unified trainer.")

@@ -1377,9 +1377,13 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "ANN": {
             "model_config": {
                 "model_name": model_name,
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42,
+                },
                 "normalization": {
-                    "feature_method": "standard",
-                    "target_method": "standard",
+                    "feature_method": "standard",   # standard / minmax / robust / maxabs / none
+                    "target_method": "standard",    # standard / minmax / robust / maxabs / none
                 },
                 "training": {
                     "epochs": 100,
@@ -1408,6 +1412,14 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "CAT": {
             "model_config": {
                 "model_name": model_name,
+                "normalization": {
+                    "feature_method": "none",
+                    "target_method": "none"
+                },
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42
+                },
                 "cat_params": {
                     "iterations": 1000,
                     "learning_rate": 0.05,
@@ -1444,6 +1456,14 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "LGBM": {
             "model_config": {
                 "model_name": model_name,
+                "normalization": {
+                    "feature_method": "none",
+                    "target_method": "none"
+                },
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42
+                },
                 "lgb_params": {
                     "n_estimators": 500,
                     "learning_rate": 0.05,
@@ -1462,15 +1482,27 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
             "model_config": {
                 "model_name": model_name,
                 "degree": 3,
+                "normalization": {
+                    "feature_method": "none",
+                    "target_method": "none"
+                },
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42
+                }
             }
         },
 
         "PR": {
             "model_config": {
                 "model_name": model_name,
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42
+                },
                 "normalization": {
-                    "feature_method": "standard",
-                    "target_method": "standard",
+                    "feature_method": "none",
+                    "target_method": "none"
                 },
                 "pr_params": {
                     "degree": 2,
@@ -1482,6 +1514,14 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "RF": {
             "model_config": {
                 "model_name": model_name,
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42
+                },
+                "normalization": {
+                    "feature_method": "none",
+                    "target_method": "none"
+                },                
                 "rf_params": {
                     "n_estimators": 200,
                     "max_depth": 20,
@@ -1498,6 +1538,10 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "SVR": {
             "model_config": {
                 "model_name": model_name,
+                "data_split": {
+                    "test_size": 0.2,
+                    "random_state": 42,
+                },
                 "normalization": {
                     "feature_method": "standard",
                     "target_method": "standard",
