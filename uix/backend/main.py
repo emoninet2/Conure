@@ -1,3 +1,4 @@
+
 import json
 import os
 import re
@@ -10,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from dotenv import load_dotenv
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
@@ -17,23 +19,15 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 app = FastAPI()
 
-# APP_ORIGIN = "http://localhost:5173"
-
-
-import os
-from dotenv import load_dotenv
-
 load_dotenv()
 
 FRONTEND_HOST = os.getenv("FRONTEND_HOST", "http://localhost")
 FRONTEND_PORT = os.getenv("FRONTEND_PORT", "5173")
 APP_ORIGIN = f"{FRONTEND_HOST}:{FRONTEND_PORT}"
 
-
 print("APP ORIGIN IS : ", APP_ORIGIN)
 
-#BACKEND_DIR = Path(__file__).resolve().parent / "../../data"
-BACKEND_DIR = Path(__file__).resolve().parent 
+BACKEND_DIR = Path(__file__).resolve().parent
 print(BACKEND_DIR)
 
 WORKSPACE_ROOT = (BACKEND_DIR / "../../data" / "workspace").resolve()
@@ -41,8 +35,6 @@ WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
 
 ACTIVE_FILE = WORKSPACE_ROOT / ".active_project"
 
-# IMPORTANT:
-# This lock protects all read-modify-write operations on project.json.
 PROJECT_STATE_LOCK = threading.RLock()
 ACTIVE_FILE_LOCK = threading.RLock()
 
@@ -75,13 +67,13 @@ DEFAULT_PROJECT: Dict[str, Any] = {
                         "model_type": "ANN",
                         "translate_config": {
                             "translation_type": "FFD",
-                            "translation_params": {}
+                            "translation_params": {},
                         },
                         "model_config": {
                             "model_name": "",
                             "normalization": {
                                 "feature_method": "standard",
-                                "target_method": "standard"
+                                "target_method": "standard",
                             },
                             "training": {
                                 "epochs": 100,
@@ -92,20 +84,20 @@ DEFAULT_PROJECT: Dict[str, Any] = {
                                 "optimizer": {
                                     "type": "Adam",
                                     "learning_rate": 0.001,
-                                    "momentum": 0.9
-                                }
+                                    "momentum": 0.9,
+                                },
                             },
                             "early_stopping": {
                                 "monitor": "val_loss",
                                 "patience": 15,
-                                "restore_best_weights": True
+                                "restore_best_weights": True,
                             },
                             "architecture": [
                                 {"type": "Dense", "units": 128, "activation": "relu"},
-                                {"type": "Dense", "units": "AUTO", "activation": "linear"}
-                            ]
-                        }
-                    }
+                                {"type": "Dense", "units": "AUTO", "activation": "linear"},
+                            ],
+                        },
+                    },
                 },
                 "optimz": {},
             }
@@ -144,7 +136,6 @@ def _deepcopy_jsonish(obj: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def normalize_project_name(name: str) -> str:
-    #name = (name or "").strip().lower()
     name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
     name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
@@ -196,11 +187,6 @@ def _read_json(path: Path, fallback: Dict[str, Any], *, strict: bool = False) ->
 
 
 def _write_json(path: Path, obj: Dict[str, Any]) -> None:
-    """
-    Atomic JSON write:
-    write to temp file in same directory, then replace.
-    This prevents readers from seeing partially written JSON.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_name(f".{path.name}.tmp")
     tmp_path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -263,6 +249,54 @@ def _write_project_state(state: Dict[str, Any]) -> None:
 
     with PROJECT_STATE_LOCK:
         _write_json(_project_json_path(pid), state)
+
+
+# ------------------------------------------------------------
+# Process helpers
+# ------------------------------------------------------------
+def _terminate_process_group(proc: Optional[subprocess.Popen], label: str = "process", timeout: float = 5.0) -> bool:
+    if not proc:
+        return False
+
+    try:
+        if proc.poll() is not None:
+            return False
+
+        if os.name == "nt":
+            try:
+                proc.terminate()
+                proc.wait(timeout=timeout)
+            except Exception:
+                proc.kill()
+        else:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+                proc.wait(timeout=timeout)
+            except Exception:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except Exception:
+                    pass
+        return True
+    except Exception:
+        return False
+
+
+def _cleanup_run_dicts(run_dict: Dict[str, subprocess.Popen], meta_dict: Dict[str, Dict[str, Any]], key: str) -> Optional[Dict[str, Any]]:
+    proc = run_dict.pop(key, None)
+    meta = meta_dict.pop(key, None)
+    if proc:
+        try:
+            if proc.stdout:
+                proc.stdout.close()
+        except Exception:
+            pass
+        try:
+            if proc.stderr:
+                proc.stderr.close()
+        except Exception:
+            pass
+    return meta
 
 
 # ------------------------------------------------------------
@@ -389,6 +423,7 @@ def patch_state(partial: Dict[str, Any]):
 # Preview SVG + GDS generation
 # ------------------------------------------------------------
 GENERATOR_PY = (BACKEND_DIR / "../../artwork_generator/artwork_generator.py").resolve()
+SIMULATOR_PY = (BACKEND_DIR / "../../simulator/simulator.py").resolve()
 
 
 def _preview_root_for_active_project() -> Path:
@@ -450,9 +485,12 @@ def generate_preview(payload: Dict[str, Any]):
     cmd = [
         sys.executable,
         str(GENERATOR_PY),
-        "-a", str(in_json),
-        "-o", str(out_dir),
-        "-n", "artwork",
+        "-a",
+        str(in_json),
+        "-o",
+        str(out_dir),
+        "-n",
+        "artwork",
         "--layout",
         "--svg",
     ]
@@ -546,7 +584,6 @@ SWEEP_RING_LOCK = threading.Lock()
 
 
 def normalize_sweep_name(name: str) -> str:
-    #name = (name or "").strip().lower()
     name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
     name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
@@ -574,12 +611,6 @@ def _sweeps_root_for_active_project() -> Path:
 
 
 def _safe_sweep_child_path(child_name: str) -> Path:
-    """
-    Resolve a child path under the active project's sweep root safely.
-
-    This accepts the raw on-disk folder name, which is important for manually
-    copied folders whose names may not match normalize_sweep_name(...).
-    """
     root = _sweeps_root_for_active_project()
     if not isinstance(child_name, str):
         raise HTTPException(status_code=400, detail="Invalid sweep name.")
@@ -595,34 +626,19 @@ def _safe_sweep_child_path(child_name: str) -> Path:
 
 
 def _sweep_dir_for_create(sweep_name: str) -> Path:
-    """
-    For newly created sweeps, normalize the name so app-created folders are stable.
-    """
     safe = normalize_sweep_name(sweep_name)
     return _safe_sweep_child_path(safe)
 
 
 def _resolve_existing_sweep_dir(sweep_name: str) -> tuple[str, Path]:
-    """
-    Resolve an existing sweep directory robustly.
-
-    Resolution order:
-    1. exact raw name from disk / frontend
-    2. normalized name fallback
-
-    This makes manually copied folders openable from the frontend even if
-    they were not created through the API.
-    """
     raw_name = str(sweep_name or "").strip()
     if not raw_name:
         raise HTTPException(status_code=400, detail="Sweep name is required.")
 
-    # 1) exact raw name first
     raw_dir = _safe_sweep_child_path(raw_name)
     if raw_dir.exists() and raw_dir.is_dir():
         return raw_dir.name, raw_dir
 
-    # 2) normalized fallback
     try:
         normalized = normalize_sweep_name(raw_name)
     except HTTPException:
@@ -780,9 +796,6 @@ def list_sweeps():
             continue
         if p.name.startswith("."):
             continue
-
-        # Show copied sweep folders as long as they look like sweeps.
-        # The minimum requirement is sweep.json.
         if not (p / "sweep.json").exists():
             continue
 
@@ -871,8 +884,6 @@ def save_sweep(payload: Dict[str, Any] = Body(...)):
     requested_name = str(payload.get("sweep_name", ""))
     config = _validate_sweep_ui_config(payload.get("config"))
 
-    # If it already exists, preserve the real on-disk folder name.
-    # If it doesn't, create a normalized folder name.
     try:
         sweep_name, sdir = _resolve_existing_sweep_dir(requested_name)
     except HTTPException as e:
@@ -1046,11 +1057,13 @@ def start_sweep(payload: Dict[str, Any] = Body(...)):
         proc = subprocess.Popen(
             command,
             cwd=str(project_dir),
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             start_new_session=True,
+            close_fds=True,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start sweep: {e}")
@@ -1096,8 +1109,7 @@ def stop_sweep(payload: Dict[str, Any] = Body(default={})):
 
     if proc.poll() is not None:
         finished_name = SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
-        SWEEP_RUNS.pop(SWEEP_ACTIVE_RUN_KEY, None)
-        SWEEP_RUN_META.pop(SWEEP_ACTIVE_RUN_KEY, None)
+        _cleanup_run_dicts(SWEEP_RUNS, SWEEP_RUN_META, SWEEP_ACTIVE_RUN_KEY)
         _set_project_sweep_ui(running=False)
         _push_sweep_line("system", "Sweep already finished.")
         return {"ok": True, "stopped": False, "message": "Sweep already finished.", "sweep_name": finished_name}
@@ -1105,15 +1117,10 @@ def stop_sweep(payload: Dict[str, Any] = Body(default={})):
     _push_sweep_line("system", "Stopping sweep…")
 
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
-        try:
-            proc.wait(timeout=5)
-        except Exception:
-            os.killpg(proc.pid, signal.SIGKILL)
+        _terminate_process_group(proc, "sweep")
     finally:
-        stopped_name = SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
-        SWEEP_RUNS.pop(SWEEP_ACTIVE_RUN_KEY, None)
-        SWEEP_RUN_META.pop(SWEEP_ACTIVE_RUN_KEY, None)
+        stopped_name = (SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY) or {}).get("sweep_name")
+        _cleanup_run_dicts(SWEEP_RUNS, SWEEP_RUN_META, SWEEP_ACTIVE_RUN_KEY)
         _set_project_sweep_ui(running=False)
 
     _push_sweep_line("system", "Sweep stopped by user.")
@@ -1130,11 +1137,11 @@ def sweep_status():
 
     rc = proc.poll()
     if rc is None:
-        sweep_name = SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
+        sweep_name = (SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY) or {}).get("sweep_name")
         return {"running": True, "returncode": None, "sweep_name": sweep_name}
 
-    SWEEP_RUNS.pop(SWEEP_ACTIVE_RUN_KEY, None)
-    finished_name = SWEEP_RUN_META.pop(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
+    finished_name = (SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY) or {}).get("sweep_name")
+    _cleanup_run_dicts(SWEEP_RUNS, SWEEP_RUN_META, SWEEP_ACTIVE_RUN_KEY)
     _set_project_sweep_ui(running=False)
     _push_sweep_line("system", f"Sweep finished. returncode={rc}")
     return {"running": False, "returncode": rc, "sweep_name": finished_name}
@@ -1142,7 +1149,6 @@ def sweep_status():
 
 @app.get("/api/sweeps/stream")
 def sweep_stream(request: Request, sweep_name: str):
-    # Validate that the requested sweep exists, but keep using the actual on-disk name.
     actual_name, _ = _resolve_existing_sweep_dir(sweep_name)
 
     def event_gen():
@@ -1173,7 +1179,7 @@ def sweep_stream(request: Request, sweep_name: str):
                 proc = SWEEP_RUNS.get(SWEEP_ACTIVE_RUN_KEY)
                 if proc:
                     rc = proc.poll()
-                    running_name = SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
+                    running_name = (SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY) or {}).get("sweep_name")
                     if rc is not None and running_name == actual_name:
                         done_msg = {
                             "t": time.time(),
@@ -1194,10 +1200,7 @@ def sweep_stream(request: Request, sweep_name: str):
     return StreamingResponse(
         event_gen(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
@@ -1215,7 +1218,6 @@ MODEL_RING_LOCK = threading.Lock()
 
 
 def normalize_model_name(name: str) -> str:
-    #name = (name or "").strip().lower()
     name = (name or "").strip()
     name = re.sub(r"\s+", "_", name)
     name = re.sub(r"[^A-Za-z0-9_\-]", "", name)
@@ -1244,16 +1246,7 @@ def _model_dir(model_name: str) -> Path:
     return p
 
 
-# Helper to resolve correct artifact directory (handles legacy nested dirs)
 def _resolve_model_artifact_dir(model_name: str) -> Path:
-    """
-    Resolve the directory that actually contains trained model artifacts.
-
-    Older training runs may have been saved under:
-        <models_root>/<model_name>/<model_name>/...
-    while newer runs should live under:
-        <models_root>/<model_name>/...
-    """
     base_dir = _model_dir(model_name)
     nested_dir = (base_dir / model_name).resolve()
 
@@ -1271,9 +1264,6 @@ def _model_config_path(model_name: str) -> Path:
 
 
 def _model_report_path(model_name: str) -> Path:
-    """
-    Primary expected path for the model summary/report file.
-    """
     return _model_dir(model_name) / "summary.json"
 
 
@@ -1322,47 +1312,13 @@ def _load_model_report(model_name: str) -> Optional[Dict[str, Any]]:
     return data if isinstance(data, dict) and data else None
 
 
-# def _default_model_draft(model_name: str = "") -> Dict[str, Any]:
-#     return {
-#         "sweep_name": "",
-#         "model_type": "ANN",
-#         "translate_config": {
-#             "translation_type": "FFD",
-#             "translation_params": {},
-#         },
-#         "model_config": {
-#             "model_name": model_name or "",
-#             "normalization": {
-#                 "feature_method": "standard",
-#                 "target_method": "standard",
-#             },
-#             "training": {
-#                 "epochs": 100,
-#                 "batch_size": 32,
-#                 "loss": "mse",
-#                 "metrics": ["mae"],
-#                 "validation_split": 0.2,
-#                 "optimizer": {
-#                     "type": "Adam",
-#                     "learning_rate": 0.001,
-#                     "momentum": 0.9,
-#                 },
-#             },
-#             "early_stopping": {
-#                 "monitor": "val_loss",
-#                 "patience": 15,
-#                 "restore_best_weights": True,
-#             },
-#             "architecture": [
-#                 {"type": "Dense", "units": 128, "activation": "relu"},
-#                 {"type": "Dense", "units": "AUTO", "activation": "linear"},
-#             ],
-#         },
-#     }
-
-
 def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[str, Any]:
     model_type = (model_type or "ANN").upper()
+
+    if model_type == "CATBOOST":
+        model_type = "CAT"
+    elif model_type == "RANDOMFOREST":
+        model_type = "RF"
 
     base = {
         "sweep_name": "",
@@ -1377,49 +1333,28 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "ANN": {
             "model_config": {
                 "model_name": model_name,
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42,
-                },
-                "normalization": {
-                    "feature_method": "standard",   # standard / minmax / robust / maxabs / none
-                    "target_method": "standard",    # standard / minmax / robust / maxabs / none
-                },
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "standard", "target_method": "standard"},
                 "training": {
                     "epochs": 100,
                     "batch_size": 32,
                     "loss": "mse",
                     "metrics": ["mae"],
                     "validation_split": 0.2,
-                    "optimizer": {
-                        "type": "Adam",
-                        "learning_rate": 0.001,
-                        "momentum": 0.9,
-                    },
+                    "optimizer": {"type": "Adam", "learning_rate": 0.001, "momentum": 0.9},
                 },
-                "early_stopping": {
-                    "monitor": "val_loss",
-                    "patience": 15,
-                    "restore_best_weights": True,
-                },
+                "early_stopping": {"monitor": "val_loss", "patience": 15, "restore_best_weights": True},
                 "architecture": [
                     {"type": "Dense", "units": 128, "activation": "relu"},
                     {"type": "Dense", "units": "AUTO", "activation": "linear"},
                 ],
             }
         },
-
         "CAT": {
             "model_config": {
                 "model_name": model_name,
-                "normalization": {
-                    "feature_method": "none",
-                    "target_method": "none"
-                },
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42
-                },
+                "normalization": {"feature_method": "none", "target_method": "none"},
+                "data_split": {"test_size": 0.2, "random_state": 42},
                 "cat_params": {
                     "iterations": 1000,
                     "learning_rate": 0.05,
@@ -1431,18 +1366,11 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
                 },
             }
         },
-
         "GPR": {
             "model_config": {
                 "model_name": model_name,
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42,
-                },
-                "normalization": {
-                    "feature_method": "standard",
-                    "target_method": "standard",
-                },
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "standard", "target_method": "standard"},
                 "max_cpu_threads": 8,
                 "gpr_params": {
                     "kernel": "RBF",
@@ -1452,18 +1380,11 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
                 },
             }
         },
-
         "LGBM": {
             "model_config": {
                 "model_name": model_name,
-                "normalization": {
-                    "feature_method": "none",
-                    "target_method": "none"
-                },
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42
-                },
+                "normalization": {"feature_method": "none", "target_method": "none"},
+                "data_split": {"test_size": 0.2, "random_state": 42},
                 "lgb_params": {
                     "n_estimators": 500,
                     "learning_rate": 0.05,
@@ -1477,51 +1398,27 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
                 },
             }
         },
-
         "PCE": {
             "model_config": {
                 "model_name": model_name,
                 "degree": 3,
-                "normalization": {
-                    "feature_method": "none",
-                    "target_method": "none"
-                },
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42
-                }
+                "normalization": {"feature_method": "none", "target_method": "none"},
+                "data_split": {"test_size": 0.2, "random_state": 42},
             }
         },
-
         "PR": {
             "model_config": {
                 "model_name": model_name,
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42
-                },
-                "normalization": {
-                    "feature_method": "none",
-                    "target_method": "none"
-                },
-                "pr_params": {
-                    "degree": 2,
-                    "include_bias": False,
-                },
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "none", "target_method": "none"},
+                "pr_params": {"degree": 2, "include_bias": False},
             }
         },
-
         "RF": {
             "model_config": {
                 "model_name": model_name,
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42
-                },
-                "normalization": {
-                    "feature_method": "none",
-                    "target_method": "none"
-                },                
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "none", "target_method": "none"},
                 "rf_params": {
                     "n_estimators": 200,
                     "max_depth": 20,
@@ -1534,30 +1431,19 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
                 },
             }
         },
-
         "SVR": {
             "model_config": {
                 "model_name": model_name,
-                "data_split": {
-                    "test_size": 0.2,
-                    "random_state": 42,
-                },
-                "normalization": {
-                    "feature_method": "standard",
-                    "target_method": "standard",
-                },
-                "svr_params": {
-                    "kernel": "rbf",
-                    "C": 100.0,
-                    "epsilon": 0.001,
-                    "gamma": "scale",
-                },
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "standard", "target_method": "standard"},
+                "svr_params": {"kernel": "rbf", "C": 100.0, "epsilon": 0.001, "gamma": "scale"},
             }
         },
-
         "XGB": {
             "model_config": {
                 "model_name": model_name,
+                "data_split": {"test_size": 0.2, "random_state": 42},
+                "normalization": {"feature_method": "none", "target_method": "none"},
                 "xgb_params": {
                     "n_estimators": 1,
                     "max_depth": 1,
@@ -1577,11 +1463,7 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
     }
 
     selected = MODEL_DEFAULTS.get(model_type, MODEL_DEFAULTS["ANN"])
-
-    return {
-        **base,
-        **selected,
-    }
+    return {**base, **selected}
 
 
 def _set_project_model_ui(active_model=None, running=None, draft_config=None) -> None:
@@ -1600,12 +1482,7 @@ def _set_project_model_ui(active_model=None, running=None, draft_config=None) ->
 
 
 def _push_model_line(stream: str, line: str, model_name: Optional[str] = None) -> None:
-    item = {
-        "t": time.time(),
-        "stream": stream,
-        "line": line,
-        "model_name": model_name,
-    }
+    item = {"t": time.time(), "stream": stream, "line": line, "model_name": model_name}
     with MODEL_RING_LOCK:
         MODEL_RING.append(item)
         if len(MODEL_RING) > MODEL_RING_MAX:
@@ -1627,12 +1504,21 @@ def _model_reader_thread(pipe, stream_name: str, model_name: Optional[str] = Non
             pass
 
 
+def _normalize_model_type(model_type: str) -> str:
+    mt = str(model_type or "").strip().upper()
+    if mt == "CATBOOST":
+        return "CAT"
+    if mt == "RANDOMFOREST":
+        return "RF"
+    return mt
+
+
 def _validate_model_ui_config(config: Dict[str, Any], model_name: str = "") -> Dict[str, Any]:
     if not isinstance(config, dict):
         raise HTTPException(status_code=400, detail="config must be an object.")
 
-    model_type = str(config.get("model_type", "")).strip().upper()
-    if model_type not in {"ANN", "GPR", "PCE", "CAT", "CATBOOST", "XGB", "RF", "RANDOMFOREST", "PR", "SVR"}:
+    model_type = _normalize_model_type(config.get("model_type", ""))
+    if model_type not in {"ANN", "GPR", "PCE", "CAT", "XGB", "RF", "PR", "SVR", "LGBM"}:
         raise HTTPException(status_code=400, detail="Unsupported model_type.")
 
     translate_config = config.get("translate_config")
@@ -1661,7 +1547,11 @@ def _validate_model_ui_config(config: Dict[str, Any], model_name: str = "") -> D
 
 
 def _load_model_saved_config(model_name: str) -> Dict[str, Any]:
-    translate_config = _read_json(_model_translate_config_path(model_name), {"translation_type": "FFD", "translation_params": {}}, strict=False)
+    translate_config = _read_json(
+        _model_translate_config_path(model_name),
+        {"translation_type": "FFD", "translation_params": {}},
+        strict=False,
+    )
     model_config = _read_json(_model_config_path(model_name), {"model_name": model_name}, strict=False)
 
     state = _read_project_state()
@@ -1670,12 +1560,15 @@ def _load_model_saved_config(model_name: str) -> Dict[str, Any]:
 
     draft = {
         "sweep_name": str(model_config.get("sweep_name") or prev_draft.get("sweep_name") or "").strip(),
-        "model_type": str(model_config.get("model_type") or prev_draft.get("model_type") or "ANN").upper(),
+        "model_type": _normalize_model_type(model_config.get("model_type") or prev_draft.get("model_type") or "ANN"),
         "translate_config": translate_config,
         "model_config": model_config,
     }
     draft["model_config"]["model_name"] = model_name
+    draft["model_type"] = _normalize_model_type(draft["model_type"])
     return _validate_model_ui_config(draft, model_name=model_name)
+
+
 @app.get("/api/models/sweep-options")
 def list_model_sweep_options():
     root = _sweeps_root_for_active_project()
@@ -1689,12 +1582,7 @@ def list_model_sweep_options():
         if not npz_files:
             continue
 
-        items.append(
-            {
-                "sweep_name": p.name,
-                "npz_files": npz_files,
-            }
-        )
+        items.append({"sweep_name": p.name, "npz_files": npz_files})
 
     items.sort(key=lambda x: x["sweep_name"])
     return {"sweeps": items}
@@ -1711,6 +1599,7 @@ def list_models():
 
     items.sort()
     return {"models": items}
+
 
 @app.post("/api/models/default-config")
 def get_default_model_config(payload: Dict[str, Any] = Body(...)):
@@ -1729,7 +1618,7 @@ def create_model(payload: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=400, detail="Model already exists.")
 
     mdir.mkdir(parents=True, exist_ok=False)
-    
+
     model_type = payload.get("model_type", "ANN")
     draft = _default_model_draft(model_name, model_type)
 
@@ -1755,7 +1644,7 @@ def open_model(payload: Dict[str, Any] = Body(...)):
     running = False
     proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
     if proc and proc.poll() is None:
-        running_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+        running_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
         running = running_name == model_name
 
     report = _load_model_report(model_name)
@@ -1802,7 +1691,7 @@ def delete_model(model_name: str):
 
     proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
     if proc and proc.poll() is None:
-        running_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+        running_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
         if running_name == model_name:
             raise HTTPException(status_code=400, detail="Cannot delete a running model training job.")
 
@@ -1842,10 +1731,7 @@ def start_model_training(payload: Dict[str, Any] = Body(...)):
         actual_sweep_name, sweep_dir = _resolve_existing_sweep_dir(sweep_name)
         npz_matches = sorted([p for p in sweep_dir.glob("*.npz") if p.is_file()])
         if not npz_matches:
-            raise HTTPException(
-                status_code=400,
-                detail=f"No .npz file found inside sweep '{actual_sweep_name}'."
-            )
+            raise HTTPException(status_code=400, detail=f"No .npz file found inside sweep '{actual_sweep_name}'.")
         npz_path = npz_matches[0]
         sweep_name = actual_sweep_name
     else:
@@ -1888,11 +1774,13 @@ def start_model_training(payload: Dict[str, Any] = Body(...)):
         proc = subprocess.Popen(
             command,
             cwd=str(project_dir),
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             start_new_session=True,
+            close_fds=True,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start model training: {e}")
@@ -1922,25 +1810,19 @@ def stop_model_training(payload: Dict[str, Any] = Body(default={})):
         return {"ok": True, "stopped": False, "message": "No active model training."}
 
     if proc.poll() is not None:
-        MODEL_RUNS.pop(MODEL_ACTIVE_RUN_KEY, None)
-        finished_model_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
-        MODEL_RUN_META.pop(MODEL_ACTIVE_RUN_KEY, None)
+        finished_model_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
+        _cleanup_run_dicts(MODEL_RUNS, MODEL_RUN_META, MODEL_ACTIVE_RUN_KEY)
         _set_project_model_ui(running=False)
         _push_model_line("system", "Model training already finished.", model_name=finished_model_name)
         return {"ok": True, "stopped": False, "message": "Model training already finished."}
 
-    stopping_model_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+    stopping_model_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
     _push_model_line("system", "Stopping model training…", model_name=stopping_model_name)
 
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
-        try:
-            proc.wait(timeout=5)
-        except Exception:
-            os.killpg(proc.pid, signal.SIGKILL)
+        _terminate_process_group(proc, "model training")
     finally:
-        MODEL_RUNS.pop(MODEL_ACTIVE_RUN_KEY, None)
-        MODEL_RUN_META.pop(MODEL_ACTIVE_RUN_KEY, None)
+        _cleanup_run_dicts(MODEL_RUNS, MODEL_RUN_META, MODEL_ACTIVE_RUN_KEY)
         _set_project_model_ui(running=False)
 
     _push_model_line("system", "Model training stopped by user.", model_name=stopping_model_name)
@@ -1957,11 +1839,11 @@ def model_status():
 
     rc = proc.poll()
     if rc is None:
-        model_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+        model_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
         return {"running": True, "returncode": None, "model_name": model_name}
 
-    MODEL_RUNS.pop(MODEL_ACTIVE_RUN_KEY, None)
-    finished_name = MODEL_RUN_META.pop(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+    finished_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
+    _cleanup_run_dicts(MODEL_RUNS, MODEL_RUN_META, MODEL_ACTIVE_RUN_KEY)
     _set_project_model_ui(running=False)
     _push_model_line("system", f"Model training finished. returncode={rc}", model_name=finished_name)
     return {"running": False, "returncode": rc, "model_name": finished_name}
@@ -1996,7 +1878,7 @@ def model_stream(request: Request, model_name: str):
                     yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
                 proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
-                active_name = MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY, {}).get("model_name")
+                active_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
                 if proc and active_name == model_name:
                     rc = proc.poll()
                     if rc is not None:
@@ -2020,10 +1902,7 @@ def model_stream(request: Request, model_name: str):
     return StreamingResponse(
         event_gen(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
@@ -2035,7 +1914,7 @@ def model_predict(payload: Dict[str, Any] = Body(...)):
         raise HTTPException(status_code=404, detail="Model artifacts not found.")
 
     config = _load_model_saved_config(model_name)
-    model_type = str(payload.get("model_type") or config.get("model_type") or "ANN").upper()
+    model_type = _normalize_model_type(payload.get("model_type") or config.get("model_type") or "ANN")
     x_input = payload.get("x_input")
     if x_input is None:
         raise HTTPException(status_code=400, detail="x_input is required.")
@@ -2088,6 +1967,7 @@ def model_predict(payload: Dict[str, Any] = Body(...)):
         "stdout": (res.stdout or "").strip(),
         "stderr": (res.stderr or "").strip(),
     }
+
 
 # ------------------------------------------------------------
 # Simulation (EMX) API
@@ -2154,14 +2034,12 @@ def sim_start(payload: Dict[str, Any] = Body(default={})):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write simConfig.json: {e}")
 
-    simulate_script = os.path.abspath(os.path.join(str(root), "../../../simulator/simulator.py"))
-
     gds_path = os.path.join(str(root), "artwork.gds")
     artwork_path = os.path.join(str(root), "artwork.json")
 
     command = [
         sys.executable,
-        simulate_script,
+        str(SIMULATOR_PY),
         "-f",
         gds_path,
         "--sim",
@@ -2186,11 +2064,13 @@ def sim_start(payload: Dict[str, Any] = Body(default={})):
         proc = subprocess.Popen(
             command,
             cwd=str(root),
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
             start_new_session=True,
+            close_fds=True,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start simulation: {e}")
@@ -2218,20 +2098,16 @@ def sim_stop(payload: Dict[str, Any] = Body(default={})):
         return {"ok": True, "stopped": False, "message": "No active simulation."}
 
     if proc.poll() is not None:
-        SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+        _cleanup_run_dicts(SIM_RUNS, SIM_RUN_META, ACTIVE_RUN_KEY)
         _push_sim_line("system", "Simulation already finished.")
         return {"ok": True, "stopped": False, "message": "Simulation already finished."}
 
     _push_sim_line("system", "Stopping simulation…")
 
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
-        try:
-            proc.wait(timeout=5)
-        except Exception:
-            os.killpg(proc.pid, signal.SIGKILL)
+        _terminate_process_group(proc, "simulation")
     finally:
-        SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+        _cleanup_run_dicts(SIM_RUNS, SIM_RUN_META, ACTIVE_RUN_KEY)
 
     _push_sim_line("system", "Simulation stopped by user.")
     return {"ok": True, "stopped": True}
@@ -2248,7 +2124,7 @@ def sim_status():
     if rc is None:
         return {"running": True, "returncode": None}
 
-    SIM_RUNS.pop(ACTIVE_RUN_KEY, None)
+    _cleanup_run_dicts(SIM_RUNS, SIM_RUN_META, ACTIVE_RUN_KEY)
     _push_sim_line("system", f"Simulation finished. returncode={rc}")
     return {"running": False, "returncode": rc}
 
@@ -2299,10 +2175,30 @@ def sim_stream(request: Request):
     return StreamingResponse(
         event_gen(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
+# ------------------------------------------------------------
+# App shutdown cleanup
+# ------------------------------------------------------------
+@app.on_event("shutdown")
+def _shutdown_cleanup():
+    sweep_proc = SWEEP_RUNS.get(SWEEP_ACTIVE_RUN_KEY)
+    if sweep_proc and sweep_proc.poll() is None:
+        _push_sweep_line("system", "Backend shutdown: stopping active sweep process.")
+        _terminate_process_group(sweep_proc, "sweep")
+    _cleanup_run_dicts(SWEEP_RUNS, SWEEP_RUN_META, SWEEP_ACTIVE_RUN_KEY)
+
+    model_proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
+    if model_proc and model_proc.poll() is None:
+        model_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
+        _push_model_line("system", "Backend shutdown: stopping active model training process.", model_name=model_name)
+        _terminate_process_group(model_proc, "model training")
+    _cleanup_run_dicts(MODEL_RUNS, MODEL_RUN_META, MODEL_ACTIVE_RUN_KEY)
+
+    sim_proc = SIM_RUNS.get(ACTIVE_RUN_KEY)
+    if sim_proc and sim_proc.poll() is None:
+        _push_sim_line("system", "Backend shutdown: stopping active simulation process.")
+        _terminate_process_group(sim_proc, "simulation")
+    _cleanup_run_dicts(SIM_RUNS, SIM_RUN_META, ACTIVE_RUN_KEY)
