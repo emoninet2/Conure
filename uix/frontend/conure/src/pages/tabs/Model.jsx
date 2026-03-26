@@ -542,6 +542,18 @@ export default function Model() {
   }
 
 
+  useEffect(() => {
+    if (!draft.sweep_name) {
+      setTranslatePreview(null);
+      return;
+    }
+
+    const handle = setTimeout(() => {
+      refreshTranslatePreview().catch(() => {});
+    }, 250);
+
+    return () => clearTimeout(handle);
+  }, [draft.sweep_name, translateForm, activeModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -667,12 +679,6 @@ export default function Model() {
   }
 
   function clearTranslatedFieldSelection() {
-    if (previewAbortRef.current) {
-      previewAbortRef.current.abort();
-      previewAbortRef.current = null;
-    }
-    previewRequestIdRef.current += 1;
-    setPreviewLoading(false);
     setTranslatePreview(null);
     setTranslateSelection({ x_names: [], y_names: [] });
   }
@@ -698,14 +704,6 @@ export default function Model() {
       previewAbortRef.current.abort();
     }
 
-    const previewDraft = {
-      ...sourceDraft,
-      translate_config: {
-        ...(sourceDraft.translate_config || {}),
-        selection: { x_names: [], y_names: [] },
-      },
-    };
-
     const controller = new AbortController();
     previewAbortRef.current = controller;
     const requestId = ++previewRequestIdRef.current;
@@ -717,8 +715,8 @@ export default function Model() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sweep_name: previewDraft.sweep_name,
-          config: previewDraft,
+          sweep_name: sourceDraft.sweep_name,
+          config: sourceDraft,
         }),
         signal: controller.signal,
       });
@@ -734,7 +732,6 @@ export default function Model() {
       if (err?.name === "AbortError") return;
       if (requestId !== previewRequestIdRef.current) return;
       setTranslatePreview(null);
-      setTranslateSelection({ x_names: [], y_names: [] });
       setApiError(err?.message || String(err));
     } finally {
       if (requestId === previewRequestIdRef.current) {
@@ -1078,45 +1075,109 @@ export default function Model() {
       ) : null}
 
       <div
-        style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}
+        style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}
       >
-        <div style={{ border: "1px solid #ccc", padding: 12 }}>
-          <h4 style={{ marginTop: 0 }}>Models</h4>
+        <div
+          style={{
+            border: "1px solid #d9dee7",
+            padding: 12,
+            background: "#fbfcfe",
+            borderRadius: 10,
+          }}
+        >
+          <h4 style={{ marginTop: 0, marginBottom: 12 }}>Models</h4>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              display: "flex",
+              gap: 8,
+              marginBottom: 14,
+              alignItems: "center",
+            }}
+          >
             <input
               value={newModelName}
               onChange={(e) => setNewModelName(e.target.value)}
               placeholder="New model name"
-              style={{ flex: 1 }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "9px 10px",
+                border: "1px solid #d0d7de",
+                borderRadius: 8,
+                background: "#fff",
+              }}
             />
-            <button onClick={createModel}>Create</button>
+            <button
+              onClick={createModel}
+              style={{
+                padding: "9px 14px",
+                borderRadius: 8,
+                border: "1px solid #cfd6e4",
+                background: "#fff",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Create
+            </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {models.length === 0 ? (
               <div style={{ opacity: 0.7 }}>No models yet.</div>
             ) : (
-              models.map((name) => (
-                <div key={name} style={{ display: "flex", gap: 6 }}>
-                  <button
-                    onClick={() => openModel(name)}
+              models.map((name) => {
+                const isActive = name === activeModel;
+                return (
+                  <div
+                    key={name}
                     style={{
-                      flex: 1,
-                      textAlign: "left",
-                      fontWeight: name === activeModel ? "bold" : "normal",
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto",
+                      gap: 8,
+                      alignItems: "center",
                     }}
                   >
-                    {name}
-                  </button>
-                  <button
-                    onClick={() => deleteModel(name)}
-                    disabled={running && activeModel === name}
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))
+                    <button
+                      onClick={() => openModel(name)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        textAlign: "left",
+                        fontWeight: isActive ? 700 : 500,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: isActive ? "1px solid #b9c9ef" : "1px solid #e2e8f0",
+                        background: isActive ? "#eef4ff" : "#fff",
+                        color: "#1f2937",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={name}
+                    >
+                      {name}
+                    </button>
+                    <button
+                      onClick={() => deleteModel(name)}
+                      disabled={running && activeModel === name}
+                      style={{
+                        minWidth: 72,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        color: "#7f1d1d",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -1294,7 +1355,7 @@ export default function Model() {
                 </div>
               ) : (
                 <div style={{ border: "1px dashed #ccc", padding: 12, background: "#fafafa", fontSize: 13, opacity: 0.8 }}>
-                  Select a sweep and click “Refresh translated fields” to load translated X/Y fields.
+                  Select a sweep to preview translated X/Y fields.
                 </div>
               )}
             </div>
@@ -1308,7 +1369,7 @@ export default function Model() {
                 onChange={(e) => setModelConfigText(e.target.value)}
                 disabled={running}
                 style={{
-                  width: "100%",
+                  flex: 1,
                   minHeight: 280,
                   fontFamily: "monospace",
                   fontSize: 12,
@@ -1625,7 +1686,7 @@ export default function Model() {
                     value={predictionInput}
                     onChange={(e) => setPredictionInput(e.target.value)}
                     style={{
-                      width: "100%",
+                      flex: 1,
                       minHeight: 140,
                       fontFamily: "monospace",
                       fontSize: 12,
@@ -1645,7 +1706,7 @@ export default function Model() {
                     value={predictionOutput}
                     readOnly
                     style={{
-                      width: "100%",
+                      flex: 1,
                       minHeight: 180,
                       fontFamily: "monospace",
                       fontSize: 12,

@@ -575,39 +575,100 @@ export default function Sweep() {
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
-        <div style={{ border: "1px solid #ccc", padding: 12 }}>
-          <h4 style={{ marginTop: 0 }}>Sweeps</h4>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}>
+        <div
+          style={{
+            border: "1px solid #d9dee7",
+            padding: 12,
+            background: "#fbfcfe",
+            borderRadius: 10,
+          }}
+        >
+          <h4 style={{ marginTop: 0, marginBottom: 12 }}>Sweeps</h4>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginBottom: 14,
+              alignItems: "center",
+            }}
+          >
             <input
               value={newSweepName}
               onChange={(e) => setNewSweepName(e.target.value)}
               placeholder="New sweep name"
-              style={{ flex: 1 }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: "9px 10px",
+                border: "1px solid #d0d7de",
+                borderRadius: 8,
+                background: "#fff",
+              }}
             />
-            <button onClick={createSweep}>Create</button>
+            <button
+              onClick={createSweep}
+              style={{
+                padding: "9px 14px",
+                borderRadius: 8,
+                border: "1px solid #cfd6e4",
+                background: "#fff",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Create
+            </button>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sweeps.length === 0 ? (
               <div style={{ opacity: 0.7 }}>No sweeps yet.</div>
             ) : (
               sweeps.map((name) => (
-                <div key={name} style={{ display: "flex", gap: 6 }}>
+                <div
+                  key={name}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
                   <button
                     onClick={() => openSweep(name)}
                     style={{
                       flex: 1,
+                      minWidth: 0,
                       textAlign: "left",
-                      fontWeight: name === activeSweep ? "bold" : "normal",
+                      fontWeight: name === activeSweep ? 700 : 500,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: name === activeSweep ? "1px solid #b9c9ef" : "1px solid #e2e8f0",
+                      background: name === activeSweep ? "#eef4ff" : "#fff",
+                      color: "#1f2937",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
                     }}
+                    title={name}
                   >
                     {name}
                   </button>
                   <button
                     onClick={() => deleteSweep(name)}
                     disabled={running && activeSweep === name}
+                    style={{
+                      minWidth: 72,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #e2e8f0",
+                      background: "#fff",
+                      color: "#b42318",
+                      fontWeight: 600,
+                      opacity: running && activeSweep === name ? 0.6 : 1,
+                    }}
                   >
                     Delete
                   </button>
@@ -617,7 +678,7 @@ export default function Sweep() {
           </div>
         </div>
 
-        <div style={{ border: "1px solid #ccc", padding: 12 }}>
+        <div style={{ border: "1px solid #d9dee7", padding: 12, borderRadius: 10, background: "#fff" }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
             <div>
               Active sweep: <strong>{activeSweep || "None"}</strong>
