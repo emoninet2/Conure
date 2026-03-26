@@ -17,6 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+from model import train
+
+
 app = FastAPI()
 
 load_dotenv()
@@ -68,6 +72,7 @@ DEFAULT_PROJECT: Dict[str, Any] = {
                         "translate_config": {
                             "translation_type": "FFD",
                             "translation_params": {},
+                            "selection": {"x_names": [], "y_names": []},
                         },
                         "model_config": {
                             "model_name": "",
@@ -1331,6 +1336,7 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "translate_config": {
             "translation_type": "FFI",
             "translation_params": {},
+            "selection": {"x_names": [], "y_names": []},
         },
     }
 
@@ -1533,6 +1539,15 @@ def _validate_model_ui_config(config: Dict[str, Any], model_name: str = "") -> D
         raise HTTPException(status_code=400, detail="translate_config.translation_type is required.")
     if "translation_params" in translate_config and not isinstance(translate_config.get("translation_params"), dict):
         raise HTTPException(status_code=400, detail="translate_config.translation_params must be an object.")
+    if "selection" in translate_config and not isinstance(translate_config.get("selection"), dict):
+        raise HTTPException(status_code=400, detail="translate_config.selection must be an object.")
+    selection = translate_config.get("selection") or {}
+    for key in ("x_names", "y_names"):
+        value = selection.get(key, [])
+        if value is None:
+            value = []
+        if not isinstance(value, list) or any(not str(item).strip() for item in value):
+            raise HTTPException(status_code=400, detail=f"translate_config.selection.{key} must be a list of non-empty strings.")
 
     model_config = config.get("model_config")
     if not isinstance(model_config, dict):
@@ -1542,6 +1557,7 @@ def _validate_model_ui_config(config: Dict[str, Any], model_name: str = "") -> D
     next_config["model_type"] = model_type
     next_config["sweep_name"] = str(next_config.get("sweep_name") or "").strip()
     next_config.setdefault("translate_config", {}).setdefault("translation_params", {})
+    next_config.setdefault("translate_config", {}).setdefault("selection", {"x_names": [], "y_names": []})
     next_config.setdefault("model_config", {})
     if model_name:
         next_config["model_config"]["model_name"] = model_name
@@ -1554,7 +1570,7 @@ def _validate_model_ui_config(config: Dict[str, Any], model_name: str = "") -> D
 def _load_model_saved_config(model_name: str) -> Dict[str, Any]:
     translate_config = _read_json(
         _model_translate_config_path(model_name),
-        {"translation_type": "FFD", "translation_params": {}},
+        {"translation_type": "FFD", "translation_params": {}, "selection": {"x_names": [], "y_names": []}},
         strict=False,
     )
     model_config = _read_json(_model_config_path(model_name), {"model_name": model_name}, strict=False)
@@ -1714,8 +1730,39 @@ def delete_model(model_name: str):
     return {"ok": True, "deleted": True, "model_name": model_name}
 
 
+@app.post("/api/models/translate-preview")
+def preview_model_translation(payload: Dict[str, Any] = Body(...)):
+    preview_model_name = str(payload.get("model_name") or "__preview__").strip() or "__preview__"
+    config = _validate_model_ui_config(payload.get("config"), model_name=preview_model_name)
+
+    npz_file = payload.get("npz_file")
+    sweep_name = str(payload.get("sweep_name") or config.get("sweep_name") or "").strip()
+
+    if npz_file:
+        npz_path = Path(npz_file)
+    elif sweep_name:
+        actual_sweep_name, sweep_dir = _resolve_existing_sweep_dir(sweep_name)
+        npz_matches = sorted([p for p in sweep_dir.glob("*.npz") if p.is_file()])
+        if not npz_matches:
+            raise HTTPException(status_code=400, detail=f"No .npz file found inside sweep '{actual_sweep_name}'.")
+        npz_path = npz_matches[0]
+    else:
+        raise HTTPException(status_code=400, detail="Select a sweep containing an .npz file.")
+
+    if not npz_path.exists():
+        raise HTTPException(status_code=400, detail=f"NPZ file not found: {npz_path}")
+
+    try:
+        preview = train.build_translation_preview(str(npz_path), config["translate_config"])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to preview translated data: {e}")
+
+    return {"ok": True, "npz_file": str(npz_path), "preview": preview}
+
+
 @app.post("/api/models/start")
 def start_model_training(payload: Dict[str, Any] = Body(...)):
+    print("OOOOOOOOOOOOOOLLLLLLLLAALALALLALALLALALLALLLALLALALLALLALALLALALLALAL")
     proc_existing = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
     if proc_existing and proc_existing.poll() is None:
         raise HTTPException(status_code=400, detail="A model training process is already running.")

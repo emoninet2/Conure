@@ -36,6 +36,7 @@ const TRANSLATION_BASE_TYPES = [
 const DEFAULT_TRANSLATE_CONFIG = {
   translation_type: "FFD",
   translation_params: {},
+  selection: { x_names: [], y_names: [] },
 };
 
 const DEFAULT_DRAFT = {
@@ -44,6 +45,7 @@ const DEFAULT_DRAFT = {
   translate_config: {
     translation_type: "FFD",
     translation_params: {},
+    selection: { x_names: [], y_names: [] },
   },
   model_config: {
     model_name: "",
@@ -210,6 +212,37 @@ function buildTranslateConfigFromForm(form) {
   return {
     translation_type,
     translation_params,
+  };
+}
+
+function normalizeSelection(selection) {
+  const src =
+    selection && typeof selection === "object" && !Array.isArray(selection)
+      ? selection
+      : {};
+
+  const normalizeList = (value) =>
+    Array.isArray(value)
+      ? value.map((x) => String(x).trim()).filter(Boolean)
+      : [];
+
+  return {
+    x_names: normalizeList(src.x_names),
+    y_names: normalizeList(src.y_names),
+  };
+}
+
+function reconcileSelectionWithPreview(selection, preview) {
+  const next = normalizeSelection(selection);
+  const xAvailable = new Set(preview?.selection?.x?.selectable_names || []);
+  const yAvailable = new Set(preview?.selection?.y?.selectable_names || []);
+
+  const x_names = next.x_names.filter((name) => xAvailable.has(name));
+  const y_names = next.y_names.filter((name) => yAvailable.has(name));
+
+  return {
+    x_names: x_names.length ? x_names : preview?.selection?.x?.selected_names || [],
+    y_names: y_names.length ? y_names : preview?.selection?.y?.selected_names || [],
   };
 }
 
@@ -382,6 +415,67 @@ function TranslationConfigForm({ value, onChange, disabled }) {
   );
 }
 
+function SelectionList({ title, info, value, onChange, disabled }) {
+  const names = info?.selectable_names || [];
+  const selected = Array.isArray(value) ? value : [];
+  const selectedSet = new Set(selected);
+
+  if (!names.length) {
+    return (
+      <div style={{ border: "1px solid #ddd", padding: 12, background: "#fafafa" }}>
+        <div style={{ fontWeight: "bold", marginBottom: 8 }}>{title}</div>
+        <div style={{ opacity: 0.7 }}>No translated fields available yet.</div>
+      </div>
+    );
+  }
+
+  const toggle = (name) => {
+    const next = selectedSet.has(name)
+      ? selected.filter((x) => x !== name)
+      : [...selected, name];
+    onChange(next);
+  };
+
+  return (
+    <div style={{ border: "1px solid #ddd", padding: 12, background: "#fafafa" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontWeight: "bold" }}>{title}</div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
+            {info?.mode === "grouped"
+              ? `Grouped selection • each item maps to ${info?.group_size || 1} translated columns`
+              : "Direct translated columns"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={() => onChange([...names])} disabled={disabled}>All</button>
+          <button type="button" onClick={() => onChange([])} disabled={disabled}>None</button>
+        </div>
+      </div>
+
+      <div style={{ maxHeight: 220, overflow: "auto", border: "1px solid #e5e5e5", background: "#fff", padding: 8 }}>
+        <div style={{ display: "grid", gap: 6 }}>
+          {names.map((name) => (
+            <label key={name} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={selectedSet.has(name)}
+                onChange={() => toggle(name)}
+                disabled={disabled}
+              />
+              <span>{name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
+        Selected: {selected.length} / {names.length}
+      </div>
+    </div>
+  );
+}
+
 export default function Model() {
   const setValue = useUiStore((s) => s.setValue);
 
@@ -400,6 +494,11 @@ export default function Model() {
   const [modelConfigText, setModelConfigText] = useState(
     safePretty(DEFAULT_DRAFT.model_config)
   );
+  const [translateSelection, setTranslateSelection] = useState(
+    normalizeSelection(DEFAULT_DRAFT.translate_config?.selection)
+  );
+  const [translatePreview, setTranslatePreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const [sweepOptions, setSweepOptions] = useState([]);
   const [report, setReport] = useState(DEFAULT_REPORT);
@@ -411,9 +510,19 @@ export default function Model() {
 
   const esRef = useRef(null);
   const scrollerRef = useRef(null);
+  const previewAbortRef = useRef(null);
+  const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
     refreshSweepOptions();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+      }
+    };
   }, []);
 
   async function refreshSweepOptions() {
@@ -431,6 +540,8 @@ export default function Model() {
       setApiError(err?.message || String(err));
     }
   }
+
+
 
   useEffect(() => {
     let cancelled = false;
@@ -539,10 +650,12 @@ export default function Model() {
   function syncEditorsFromDraft(nextDraft) {
     setTranslateForm(normalizeTranslateConfig(nextDraft.translate_config));
     setModelConfigText(safePretty(nextDraft.model_config));
+    setTranslateSelection(normalizeSelection(nextDraft.translate_config?.selection));
   }
 
   function buildDraftFromEditors() {
     const translate_config = buildTranslateConfigFromForm(translateForm);
+    translate_config.selection = normalizeSelection(translateSelection);
     const model_config = parseJsonText(modelConfigText, "Model config");
 
     return {
@@ -551,6 +664,86 @@ export default function Model() {
       translate_config,
       model_config,
     };
+  }
+
+  function clearTranslatedFieldSelection() {
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+      previewAbortRef.current = null;
+    }
+    previewRequestIdRef.current += 1;
+    setPreviewLoading(false);
+    setTranslatePreview(null);
+    setTranslateSelection({ x_names: [], y_names: [] });
+  }
+
+  function handleTranslateFormChange(updater) {
+    clearTranslatedFieldSelection();
+    setTranslateForm(updater);
+  }
+
+  async function refreshTranslatePreview(customDraft = null) {
+    const sourceDraft = customDraft || buildDraftFromEditors();
+    if (!sourceDraft.sweep_name) {
+      if (previewAbortRef.current) {
+        previewAbortRef.current.abort();
+        previewAbortRef.current = null;
+      }
+      setTranslatePreview(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort();
+    }
+
+    const previewDraft = {
+      ...sourceDraft,
+      translate_config: {
+        ...(sourceDraft.translate_config || {}),
+        selection: { x_names: [], y_names: [] },
+      },
+    };
+
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    const requestId = ++previewRequestIdRef.current;
+
+    try {
+      setPreviewLoading(true);
+      setApiError("");
+      const res = await fetch(`${API_BASE}/api/models/translate-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sweep_name: previewDraft.sweep_name,
+          config: previewDraft,
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      if (requestId !== previewRequestIdRef.current) return;
+
+      const preview = data.preview || null;
+      setTranslatePreview(preview);
+      setTranslateSelection((prev) => reconcileSelectionWithPreview(prev, preview));
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      if (requestId !== previewRequestIdRef.current) return;
+      setTranslatePreview(null);
+      setTranslateSelection({ x_names: [], y_names: [] });
+      setApiError(err?.message || String(err));
+    } finally {
+      if (requestId === previewRequestIdRef.current) {
+        setPreviewLoading(false);
+      }
+      if (previewAbortRef.current === controller) {
+        previewAbortRef.current = null;
+      }
+    }
   }
 
   async function hydrateFromProjectState() {
@@ -1024,6 +1217,7 @@ export default function Model() {
                     setDraft(newDraft);
                     setSavedSnapshot(cloneJson(newDraft));
                     syncEditorsFromDraft(newDraft);
+                    setTranslatePreview(null);
                   } catch (err) {
                     setApiError(err?.message || String(err));
                   }
@@ -1044,6 +1238,7 @@ export default function Model() {
                 value={draft.sweep_name || ""}
                 onChange={(e) => {
                   const nextSweepName = e.target.value;
+                  clearTranslatedFieldSelection();
                   setDraft((prev) => ({ ...prev, sweep_name: nextSweepName }));
                 }}
                 disabled={running}
@@ -1062,9 +1257,47 @@ export default function Model() {
           <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
             <TranslationConfigForm
               value={translateForm}
-              onChange={setTranslateForm}
+              onChange={handleTranslateFormChange}
               disabled={running}
             />
+
+
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div>
+                  <div style={{ fontWeight: "bold" }}>Translated training fields</div>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    Names are derived from the translated data. For flattened translations, each item selects the full translated block for that field.
+                  </div>
+                </div>
+                <button type="button" onClick={() => refreshTranslatePreview()} disabled={running || !draft.sweep_name || previewLoading}>
+                  {previewLoading ? "Loading…" : "Refresh translated fields"}
+                </button>
+              </div>
+
+              {translatePreview ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <SelectionList
+                    title="Include X fields"
+                    info={translatePreview.selection?.x}
+                    value={translateSelection.x_names}
+                    onChange={(next) => setTranslateSelection((prev) => ({ ...prev, x_names: next }))}
+                    disabled={running || previewLoading}
+                  />
+                  <SelectionList
+                    title="Include Y fields"
+                    info={translatePreview.selection?.y}
+                    value={translateSelection.y_names}
+                    onChange={(next) => setTranslateSelection((prev) => ({ ...prev, y_names: next }))}
+                    disabled={running || previewLoading}
+                  />
+                </div>
+              ) : (
+                <div style={{ border: "1px dashed #ccc", padding: 12, background: "#fafafa", fontSize: 13, opacity: 0.8 }}>
+                  Select a sweep and click “Refresh translated fields” to load translated X/Y fields.
+                </div>
+              )}
+            </div>
 
             <div>
               <div style={{ marginBottom: 6, fontWeight: "bold" }}>

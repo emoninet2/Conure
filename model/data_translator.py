@@ -962,8 +962,15 @@ def _targets_sparams_to_lq(targets, target_names, freqs, z0=50.0):
         out_channels.append(Q[:, np.newaxis, :].astype(np.float32))
 
         L_suffix = TRANSLATION_CONFIG["inductor_L_name_suffix"]
-        out_names.append(f"L_{L_suffix}_{base}")
-        out_names.append(f"Q_{base}")
+        
+        is_single_port = len(pairs) == 1
+
+        if is_single_port:
+            out_names.append("L_nH")
+            out_names.append("Q")
+        else:
+            out_names.append(f"L_{base}_nH")
+            out_names.append(f"Q_{base}")
 
         pair_info.append(
             {
