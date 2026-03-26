@@ -410,11 +410,16 @@ def patch_state(partial: Dict[str, Any]):
         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
 
     project_path = _project_json_path(pid)
+    artwork_path = _project_dir(pid) / "artwork.json"
 
     with PROJECT_STATE_LOCK:
         current = _read_json(project_path, _deepcopy_jsonish(DEFAULT_PROJECT), strict=True)
         deep_merge(current, partial)
         _write_json(project_path, current)
+
+        # also write standalone artwork.json whenever artwork exists
+        if "artwork" in current and isinstance(current["artwork"], dict):
+            _write_json(artwork_path, current["artwork"])
 
     return {"ok": True}
 
@@ -431,7 +436,7 @@ def _preview_root_for_active_project() -> Path:
     if not pid:
         raise HTTPException(status_code=400, detail="No project open. Open a project first.")
 
-    root = _project_dir(pid).resolve()
+    root = (_project_dir(pid) / "previews").resolve()
     root.mkdir(parents=True, exist_ok=True)
     return root
 

@@ -69,9 +69,13 @@ export default function Artgen() {
     }
   }, [savedArtworkJson]); // stable dependency
 
-  function saveAll() {
-    setValue(ARTWORK_PATH, draftArtwork);
-    setDirty(false);
+  async function saveAll() {
+    try {
+      await setValue(ARTWORK_PATH, draftArtwork);
+      setDirty(false);
+    } catch (err) {
+      alert(`Save failed: ${err?.message || String(err)}`);
+    }
   }
 
   function resetAll() {

@@ -81,14 +81,14 @@ export const useUiStore = create((set, get) => ({
   setValue: async (path, value) => {
     const patch = makePatch(path, value);
 
-    try {
-      await fetch(`${API_BASE}/api/state`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-    } catch {
-      // ignore backend failure for now
+    const res = await fetch(`${API_BASE}/api/state`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+
+    if (!res.ok) {
+      throw new Error(await res.text());
     }
 
     set((prev) => {
