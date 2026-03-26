@@ -252,11 +252,49 @@ def train_model(npz_file, model_type, translate_config, model_config, output_dir
         return_metadata=True,
     )
 
+
+
     if len(translated) == 6:
         X, y, _, _, _, translation_metadata = translated
     else:
         X, y, _, _, _ = translated
         translation_metadata = None
+
+
+
+    print("X shape:", X.shape)
+    print("y shape:", y.shape)
+    print("X dtype:", X.dtype)
+    print("y dtype:", y.dtype)
+
+    import numpy as np
+    print("X nan count:", np.isnan(X).sum())
+    print("y nan count:", np.isnan(y).sum())
+    print("X inf count:", np.isinf(X).sum())
+    print("y inf count:", np.isinf(y).sum())
+
+    if y.ndim == 2:
+        y_var = np.var(y, axis=0)
+        print("y variance min:", y_var.min())
+        print("y variance max:", y_var.max())
+        print("near-zero variance outputs:", np.sum(y_var < 1e-12))
+
+    import numpy as np
+
+    n_freq = 2000
+
+    Lp = y[:, 0*n_freq:1*n_freq]
+    Ls = y[:, 1*n_freq:2*n_freq]
+    Qp = y[:, 2*n_freq:3*n_freq]
+    Qs = y[:, 3*n_freq:4*n_freq]
+    k  = y[:, 4*n_freq:5*n_freq]
+
+    for name, arr in [("Lp", Lp), ("Ls", Ls), ("Qp", Qp), ("Qs", Qs), ("k", k)]:
+        v = np.var(arr, axis=0)
+        print(name)
+        print("  min:", np.min(arr), "max:", np.max(arr))
+        print("  variance min:", v.min(), "variance max:", v.max())
+        print("  finite:", np.isfinite(arr).all())
 
     if str(effective_config["model_type"]).strip().upper() == "PCE":
         model_module.train_model_pipeline(npz_file, output_dir, effective_config)

@@ -4,6 +4,55 @@ import re
 import numpy as np
 
 
+# =============================================================
+# ---------------- Tunable numeric settings -------------------
+# =============================================================
+# Keep all dataset / physics translation tuning here so it is easy
+# to experiment without hunting through the file.
+TRANSLATION_CONFIG = {
+    # ---------------- Unit scaling ----------------
+    "inductor_L_unit_scale": 1e9,      # H -> nH
+    "transformer_L_unit_scale": 1e9,   # H -> nH
+    "inductor_L_name_suffix": "nH",
+    "transformer_L_name_suffix": "nH",
+
+    # ---------------- Small-number guards ----------------
+    "omega_eps": 1e-12,
+    "s_to_z_eps_1port": 1e-12,
+    "twoport_det_eps": 1e-9,
+    "twoport_regularization": 1e-6,
+    "twoport_cond_threshold": 1e8,
+
+    # ---------------- Q stabilization ----------------
+    # Q = imag(Z) / real(Z). If real(Z) is near zero, Q explodes.
+    "q_den_floor": 1e-3,
+    "clip_q": True,
+    "q_clip_min": -500.0,
+    "q_clip_max": 500.0,
+
+    # ---------------- k stabilization ----------------
+    # k = imag(Zm) / sqrt(imag(Z11)*imag(Z22)). Denominator can become tiny.
+    "k_den_floor": 1e-3,
+    "clip_k": True,
+    "k_clip_min": -1.5,
+    "k_clip_max": 1.5,
+
+    # ---------------- L stabilization ----------------
+    # Optional clipping for pathological outliers in transformer Lp/Ls.
+    "clip_transformer_L": True,
+    "transformer_L_clip_min": -1.0e4,
+    "transformer_L_clip_max": 1.0e4,
+
+    # Optional clipping for inductor L if needed later.
+    "clip_inductor_L": False,
+    "inductor_L_clip_min": -1.0e4,
+    "inductor_L_clip_max": 1.0e4,
+
+    # ---------------- Diagnostics ----------------
+    "debug_print_stats": False,
+}
+
+
 # -------------------------------------------------------------
 # Utility function to add Gaussian noise to data
 # -------------------------------------------------------------
@@ -321,7 +370,6 @@ def _prepare_forward_frequency_dependent_augmented(
     t_min, t_max = np.min(targets, axis=(0, 2)), np.max(targets, axis=(0, 2))
 
     X_list, y_list, freq_list = [], [], []
-
     row_targets = targets.transpose(0, 2, 1).reshape(-1, num_targets)
 
     for _ in range(n_augment):
@@ -854,7 +902,7 @@ def _detect_complex_target_pairs(target_names):
 
 def _s_to_z(s_complex, z0=50.0):
     denom = 1.0 - s_complex
-    eps = 1e-12
+    eps = TRANSLATION_CONFIG["s_to_z_eps_1port"]
     denom = np.where(np.abs(denom) < eps, eps + 0j, denom)
     return z0 * (1.0 + s_complex) / denom
 
@@ -878,8 +926,9 @@ def _targets_sparams_to_lq(targets, target_names, freqs, z0=50.0):
 
     pairs = _detect_complex_target_pairs(target_names)
     omega = 2.0 * np.pi * freqs.reshape(1, -1)
-    eps = 1e-12
-    omega_safe = np.where(np.abs(omega) < eps, eps, omega)
+    omega_eps = TRANSLATION_CONFIG["omega_eps"]
+    q_den_floor = TRANSLATION_CONFIG["q_den_floor"]
+    omega_safe = np.where(np.abs(omega) < omega_eps, omega_eps, omega)
 
     out_channels = []
     out_names = []
@@ -894,14 +943,26 @@ def _targets_sparams_to_lq(targets, target_names, freqs, z0=50.0):
         z_real = np.real(z_complex)
         z_imag = np.imag(z_complex)
 
-        L = (z_imag / omega_safe).astype(np.float32)
-        z_real_safe = np.where(np.abs(z_real) < eps, eps, z_real)
-        Q = (z_imag / z_real_safe).astype(np.float32)
+        L = (z_imag / omega_safe) * TRANSLATION_CONFIG["inductor_L_unit_scale"]
+        if TRANSLATION_CONFIG["clip_inductor_L"]:
+            L = np.clip(
+                L,
+                TRANSLATION_CONFIG["inductor_L_clip_min"],
+                TRANSLATION_CONFIG["inductor_L_clip_max"],
+            )
 
-        out_channels.append(L[:, np.newaxis, :])
-        out_channels.append(Q[:, np.newaxis, :])
+        z_real_safe = np.where(np.abs(z_real) < q_den_floor, np.sign(z_real) * q_den_floor, z_real)
+        z_real_safe = np.where(z_real_safe == 0, q_den_floor, z_real_safe)
+        Q = z_imag / z_real_safe
 
-        out_names.append(f"L_{base}")
+        if TRANSLATION_CONFIG["clip_q"]:
+            Q = np.clip(Q, TRANSLATION_CONFIG["q_clip_min"], TRANSLATION_CONFIG["q_clip_max"])
+
+        out_channels.append(L[:, np.newaxis, :].astype(np.float32))
+        out_channels.append(Q[:, np.newaxis, :].astype(np.float32))
+
+        L_suffix = TRANSLATION_CONFIG["inductor_L_name_suffix"]
+        out_names.append(f"L_{L_suffix}_{base}")
         out_names.append(f"Q_{base}")
 
         pair_info.append(
@@ -909,7 +970,7 @@ def _targets_sparams_to_lq(targets, target_names, freqs, z0=50.0):
                 "source_base": base,
                 "source_real_name": target_names[real_idx],
                 "source_imag_name": target_names[imag_idx],
-                "derived_names": [f"L_{base}", f"Q_{base}"],
+                "derived_names": [f"L_{L_suffix}_{base}", f"Q_{base}"],
             }
         )
 
@@ -928,6 +989,7 @@ def _load_inductor_npz(npz_file_path, z0=50.0):
         "source_target_names": raw_target_names,
         "sparam_to_lq_pairs": pair_info,
         "z0": float(z0),
+        "translation_config": TRANSLATION_CONFIG,
     }
 
     return features, lq_targets, feature_names, lq_target_names, freqs, extra_metadata
@@ -1173,7 +1235,9 @@ def _twoport_s_to_z(s11, s12, s21, s22, z0=50.0):
     z22 = np.zeros((n_samples, n_freqs), dtype=np.complex128)
 
     I = np.eye(2, dtype=np.complex128)
-    eps = 1e-12
+    det_eps = TRANSLATION_CONFIG["twoport_det_eps"]
+    reg = TRANSLATION_CONFIG["twoport_regularization"]
+    cond_threshold = TRANSLATION_CONFIG["twoport_cond_threshold"]
 
     for i in range(n_samples):
         for f in range(n_freqs):
@@ -1185,8 +1249,12 @@ def _twoport_s_to_z(s11, s12, s21, s22, z0=50.0):
                 dtype=np.complex128,
             )
             A = I - S
-            if abs(np.linalg.det(A)) < eps:
-                A = A + eps * I
+
+            detA = np.linalg.det(A)
+            condA = np.linalg.cond(A)
+            if abs(detA) < det_eps or condA > cond_threshold:
+                A = A + reg * I
+
             Z = z0 * (I + S) @ np.linalg.inv(A)
 
             z11[i, f] = Z[0, 0]
@@ -1213,8 +1281,10 @@ def _derive_transformer_metrics_from_z(z11, z12, z21, z22, freqs):
     freqs = np.asarray(freqs, dtype=np.float64)
     omega = 2.0 * np.pi * freqs.reshape(1, -1)
 
-    eps = 1e-12
-    omega_safe = np.where(np.abs(omega) < eps, eps, omega)
+    omega_eps = TRANSLATION_CONFIG["omega_eps"]
+    q_den_floor = TRANSLATION_CONFIG["q_den_floor"]
+    k_den_floor = TRANSLATION_CONFIG["k_den_floor"]
+    omega_safe = np.where(np.abs(omega) < omega_eps, omega_eps, omega)
 
     z11_real = np.real(z11)
     z11_imag = np.imag(z11)
@@ -1225,17 +1295,103 @@ def _derive_transformer_metrics_from_z(z11, z12, z21, z22, freqs):
     zm = 0.5 * (z12 + z21)
     zm_imag = np.imag(zm)
 
-    lp = z11_imag / omega_safe
-    ls = z22_imag / omega_safe
+    # ---------------------------------------------------------
+    # Safe denominators first
+    # ---------------------------------------------------------
+    z11_real_safe = np.where(np.abs(z11_real) < q_den_floor, np.sign(z11_real) * q_den_floor, z11_real)
+    z22_real_safe = np.where(np.abs(z22_real) < q_den_floor, np.sign(z22_real) * q_den_floor, z22_real)
+    z11_real_safe = np.where(z11_real_safe == 0, q_den_floor, z11_real_safe)
+    z22_real_safe = np.where(z22_real_safe == 0, q_den_floor, z22_real_safe)
 
-    z11_real_safe = np.where(np.abs(z11_real) < eps, eps, z11_real)
-    z22_real_safe = np.where(np.abs(z22_real) < eps, eps, z22_real)
+    coupling_term = z11_imag * z22_imag
+    coupling_denom = np.sqrt(np.maximum(np.abs(coupling_term), k_den_floor))
 
-    qp = z11_imag / z11_real_safe
-    qs = z22_imag / z22_real_safe
+    # ---------------------------------------------------------
+    # Raw metrics before clipping
+    # ---------------------------------------------------------
+    lp_raw = (z11_imag / omega_safe) * TRANSLATION_CONFIG["transformer_L_unit_scale"]
+    ls_raw = (z22_imag / omega_safe) * TRANSLATION_CONFIG["transformer_L_unit_scale"]
 
-    coupling_denom = np.sqrt(np.maximum(z11_imag * z22_imag, eps))
-    k = zm_imag / coupling_denom
+    qp_raw = z11_imag / z11_real_safe
+    qs_raw = z22_imag / z22_real_safe
+
+    k_raw = zm_imag / coupling_denom
+
+    # ---------------------------------------------------------
+    # Optional diagnostics: how much clipping is happening
+    # ---------------------------------------------------------
+    if TRANSLATION_CONFIG["debug_print_stats"]:
+        if TRANSLATION_CONFIG["clip_transformer_L"]:
+            lp_clip_frac = np.mean(
+                (lp_raw < TRANSLATION_CONFIG["transformer_L_clip_min"]) |
+                (lp_raw > TRANSLATION_CONFIG["transformer_L_clip_max"])
+            )
+            ls_clip_frac = np.mean(
+                (ls_raw < TRANSLATION_CONFIG["transformer_L_clip_min"]) |
+                (ls_raw > TRANSLATION_CONFIG["transformer_L_clip_max"])
+            )
+            print("Lp clipped fraction:", float(lp_clip_frac))
+            print("Ls clipped fraction:", float(ls_clip_frac))
+
+        if TRANSLATION_CONFIG["clip_q"]:
+            qp_clip_frac = np.mean(
+                (qp_raw < TRANSLATION_CONFIG["q_clip_min"]) |
+                (qp_raw > TRANSLATION_CONFIG["q_clip_max"])
+            )
+            qs_clip_frac = np.mean(
+                (qs_raw < TRANSLATION_CONFIG["q_clip_min"]) |
+                (qs_raw > TRANSLATION_CONFIG["q_clip_max"])
+            )
+            print("Qp clipped fraction:", float(qp_clip_frac))
+            print("Qs clipped fraction:", float(qs_clip_frac))
+
+        if TRANSLATION_CONFIG["clip_k"]:
+            k_clip_frac = np.mean(
+                (k_raw < TRANSLATION_CONFIG["k_clip_min"]) |
+                (k_raw > TRANSLATION_CONFIG["k_clip_max"])
+            )
+            print("k clipped fraction:", float(k_clip_frac))
+
+        print("Raw Lp min/max:", float(np.min(lp_raw)), float(np.max(lp_raw)))
+        print("Raw Ls min/max:", float(np.min(ls_raw)), float(np.max(ls_raw)))
+        print("Raw Qp min/max:", float(np.min(qp_raw)), float(np.max(qp_raw)))
+        print("Raw Qs min/max:", float(np.min(qs_raw)), float(np.max(qs_raw)))
+        print("Raw k  min/max:", float(np.min(k_raw)), float(np.max(k_raw)))
+
+    # ---------------------------------------------------------
+    # Final metrics after clipping
+    # ---------------------------------------------------------
+    lp = lp_raw
+    ls = ls_raw
+    qp = qp_raw
+    qs = qs_raw
+    k = k_raw
+
+    if TRANSLATION_CONFIG["clip_transformer_L"]:
+        lp = np.clip(
+            lp,
+            TRANSLATION_CONFIG["transformer_L_clip_min"],
+            TRANSLATION_CONFIG["transformer_L_clip_max"],
+        )
+        ls = np.clip(
+            ls,
+            TRANSLATION_CONFIG["transformer_L_clip_min"],
+            TRANSLATION_CONFIG["transformer_L_clip_max"],
+        )
+
+    if TRANSLATION_CONFIG["clip_q"]:
+        qp = np.clip(qp, TRANSLATION_CONFIG["q_clip_min"], TRANSLATION_CONFIG["q_clip_max"])
+        qs = np.clip(qs, TRANSLATION_CONFIG["q_clip_min"], TRANSLATION_CONFIG["q_clip_max"])
+
+    if TRANSLATION_CONFIG["clip_k"]:
+        k = np.clip(k, TRANSLATION_CONFIG["k_clip_min"], TRANSLATION_CONFIG["k_clip_max"])
+
+    #if TRANSLATION_CONFIG["debug_print_stats"]:
+    print("Final Lp min/max:", float(np.min(lp)), float(np.max(lp)))
+    print("Final Ls min/max:", float(np.min(ls)), float(np.max(ls)))
+    print("Final Qp min/max:", float(np.min(qp)), float(np.max(qp)))
+    print("Final Qs min/max:", float(np.min(qs)), float(np.max(qs)))
+    print("Final k  min/max:", float(np.min(k)), float(np.max(k)))
 
     transformer_targets = np.stack(
         [
@@ -1248,7 +1404,8 @@ def _derive_transformer_metrics_from_z(z11, z12, z21, z22, freqs):
         axis=1,
     )
 
-    transformer_target_names = ["Lp", "Ls", "Qp", "Qs", "k"]
+    L_suffix = TRANSLATION_CONFIG["transformer_L_name_suffix"]
+    transformer_target_names = [f"Lp_{L_suffix}", f"Ls_{L_suffix}", "Qp", "Qs", "k"]
     return transformer_targets, transformer_target_names
 
 
@@ -1343,6 +1500,7 @@ def _load_transformer_npz(npz_file_path, z0=50.0):
     extra_metadata = {
         "source_target_names": raw_target_names,
         "transformer_derivation": transform_info,
+        "translation_config": TRANSLATION_CONFIG,
     }
 
     return features, transformer_targets, feature_names, transformer_target_names, freqs, extra_metadata

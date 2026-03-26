@@ -1329,7 +1329,7 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
         "sweep_name": "",
         "model_type": model_type,
         "translate_config": {
-            "translation_type": "FFD",
+            "translation_type": "FFI",
             "translation_params": {},
         },
     }

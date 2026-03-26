@@ -44,14 +44,24 @@ def get_system_info():
 # PERFORMANCE METRICS
 # ------------------------------------------------------------
 def calculate_metrics(y_true, y_pred):
-    y_true, y_pred = np.array(y_true), np.array(y_pred)
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
 
-    r2 = r2_score(y_true, y_pred)
     mae = mean_absolute_error(y_true, y_pred)
     rmse = np.sqrt(mean_squared_error(y_true, y_pred))
 
     per_out_rmse = np.sqrt(np.mean((y_true - y_pred) ** 2, axis=0))
     per_sample_rmse = np.sqrt(np.mean((y_true - y_pred) ** 2, axis=1))
+
+    # Important diagnostics
+    per_out_var = np.var(y_true, axis=0)
+    per_out_r2 = r2_score(y_true, y_pred, multioutput="raw_values")
+
+    bad_var_mask = per_out_var < 1e-12
+    finite_r2 = per_out_r2[np.isfinite(per_out_r2)]
+
+    # Aggregate R2 from sklearn default
+    r2 = r2_score(y_true, y_pred)
 
     return {
         "Aggregate": {
@@ -63,6 +73,11 @@ def calculate_metrics(y_true, y_pred):
             "RMSE_Mean": float(np.mean(per_out_rmse)),
             "RMSE_Max": float(np.max(per_out_rmse)),
             "RMSE_Min": float(np.min(per_out_rmse)),
+            "R2_Mean_Finite": float(np.mean(finite_r2)) if finite_r2.size else None,
+            "R2_Min_Finite": float(np.min(finite_r2)) if finite_r2.size else None,
+            "Variance_Min": float(np.min(per_out_var)),
+            "Variance_Max": float(np.max(per_out_var)),
+            "Near_Zero_Variance_Count": int(np.sum(bad_var_mask)),
         },
         "Per-Sample": {
             "RMSE_Mean": float(np.mean(per_sample_rmse)),
