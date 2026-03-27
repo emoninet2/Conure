@@ -1369,10 +1369,16 @@ export default function Model() {
                 onChange={(e) => setModelConfigText(e.target.value)}
                 disabled={running}
                 style={{
-                  flex: 1,
-                  minHeight: 280,
+                  width: "100%",
+                  maxWidth: "100%",
+                  height: "400px",
                   fontFamily: "monospace",
-                  fontSize: 12,
+                  fontSize: "13px",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  border: "1px solid #d0d7de",
+                  background: "#fff",
+                  boxSizing: "border-box",   // ⭐ IMPORTANT
                 }}
               />
             </div>
