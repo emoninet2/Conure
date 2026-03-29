@@ -982,6 +982,70 @@ def delete_sweep(sweep_name: str):
     return {"ok": True, "deleted": True, "sweep_name": actual_name}
 
 
+def _patch_sweep_name_in_tree(sweep_root: Path, from_name: str, to_name: str) -> None:
+    """Update sweep_name fields in JSON files after a sweep folder rename."""
+    if not sweep_root.is_dir():
+        return
+    for p in sweep_root.rglob("*.json"):
+        if not p.is_file():
+            continue
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        if raw.get("sweep_name") == from_name:
+            raw["sweep_name"] = to_name
+            _write_json(p, raw)
+
+
+@app.post("/api/sweeps/rename")
+def rename_sweep(payload: Dict[str, Any] = Body(...)):
+    raw_from = str(payload.get("from_name") or payload.get("sweep_name") or "").strip()
+    raw_to = str(payload.get("to_name") or payload.get("new_name") or "").strip()
+
+    actual_from, old_dir = _resolve_existing_sweep_dir(raw_from)
+    new_dir = _sweep_dir_for_create(raw_to)
+    to_name = new_dir.name
+
+    if actual_from == to_name:
+        raise HTTPException(status_code=400, detail="New name must differ from the current name.")
+
+    if new_dir.exists():
+        raise HTTPException(status_code=400, detail="A sweep with that name already exists.")
+
+    proc = SWEEP_RUNS.get(SWEEP_ACTIVE_RUN_KEY)
+    if proc and proc.poll() is None:
+        running_name = SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY, {}).get("sweep_name")
+        if running_name == actual_from:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot rename while this sweep's job is running.",
+            )
+
+    try:
+        old_dir.rename(new_dir)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Rename failed: {e}") from e
+
+    _patch_sweep_name_in_tree(new_dir, actual_from, to_name)
+
+    with PROJECT_STATE_LOCK:
+        current = _read_project_state()
+        sweep_ui = (
+            current.setdefault("ui", {})
+            .setdefault("home", {})
+            .setdefault("tabs", {})
+            .setdefault("sweep", {})
+        )
+        if sweep_ui.get("activeSweep") == actual_from:
+            sweep_ui["activeSweep"] = to_name
+            _write_project_state(current)
+
+    return {"ok": True, "from_name": actual_from, "sweep_name": to_name}
+
+
 @app.post("/api/sweeps/start")
 def start_sweep(payload: Dict[str, Any] = Body(...)):
     proc_existing = SWEEP_RUNS.get(SWEEP_ACTIVE_RUN_KEY)
@@ -1730,6 +1794,112 @@ def delete_model(model_name: str):
     return {"ok": True, "deleted": True, "model_name": model_name}
 
 
+def _patch_model_name_in_tree(model_root: Path, from_name: str, to_name: str) -> None:
+    """Update stored model_name fields after a on-disk rename (configs + reports)."""
+    if not model_root.is_dir():
+        return
+    for p in model_root.rglob("*.json"):
+        if not p.is_file():
+            continue
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        changed = False
+        if raw.get("model_name") == from_name:
+            raw["model_name"] = to_name
+            changed = True
+        mi = raw.get("model_info")
+        if isinstance(mi, dict) and mi.get("model_name") == from_name:
+            mi["model_name"] = to_name
+            changed = True
+        cfg = raw.get("configuration")
+        if isinstance(cfg, dict):
+            mc = cfg.get("model_config")
+            if isinstance(mc, dict) and mc.get("model_name") == from_name:
+                mc["model_name"] = to_name
+                changed = True
+        if changed:
+            _write_json(p, raw)
+
+
+@app.post("/api/models/rename")
+def rename_model(payload: Dict[str, Any] = Body(...)):
+    from_name = normalize_model_name(
+        str(payload.get("from_name") or payload.get("model_name") or "").strip()
+    )
+    to_name = normalize_model_name(str(payload.get("to_name") or payload.get("new_name") or "").strip())
+
+    if from_name == to_name:
+        raise HTTPException(status_code=400, detail="New name must differ from the current name.")
+
+    old_dir = _model_dir(from_name)
+    new_dir = _model_dir(to_name)
+
+    if not old_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Model not found.")
+    if new_dir.exists():
+        raise HTTPException(status_code=400, detail="A model with that name already exists.")
+
+    proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
+    if proc and proc.poll() is None:
+        running_name = (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
+        if running_name == from_name:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot rename while this model's training job is running.",
+            )
+
+    try:
+        old_dir.rename(new_dir)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Rename failed: {e}") from e
+
+    nested_old = new_dir / from_name
+    nested_new = new_dir / to_name
+    if nested_old.is_dir():
+        if nested_new.exists():
+            try:
+                new_dir.rename(old_dir)
+            except OSError:
+                pass
+            raise HTTPException(
+                status_code=500,
+                detail=f"Rename blocked: '{nested_new}' already exists.",
+            )
+        try:
+            nested_old.rename(nested_new)
+        except OSError as e:
+            try:
+                new_dir.rename(old_dir)
+            except OSError:
+                pass
+            raise HTTPException(status_code=500, detail=f"Could not rename artifact folder: {e}") from e
+
+    _patch_model_name_in_tree(new_dir, from_name, to_name)
+
+    with PROJECT_STATE_LOCK:
+        current = _read_project_state()
+        model_ui = (
+            current.setdefault("ui", {})
+            .setdefault("home", {})
+            .setdefault("tabs", {})
+            .setdefault("model", {})
+        )
+        if model_ui.get("activeModel") == from_name:
+            model_ui["activeModel"] = to_name
+            draft = model_ui.get("draftConfig")
+            if isinstance(draft, dict):
+                mc = draft.get("model_config")
+                if isinstance(mc, dict):
+                    mc["model_name"] = to_name
+            _write_project_state(current)
+
+    return {"ok": True, "from_name": from_name, "model_name": to_name}
+
+
 @app.post("/api/models/translate-preview")
 def preview_model_translation(payload: Dict[str, Any] = Body(...)):
     preview_model_name = str(payload.get("model_name") or "__preview__").strip() or "__preview__"
@@ -2043,7 +2213,12 @@ def preview_ann_architecture(payload: Dict[str, Any] = Body(...)):
         model = ANN._build_sequential_model(input_dim=input_dim, output_dim=output_dim, config=config)
 
     buf = io.StringIO()
-    model.summary(print_fn=lambda line: buf.write(line + "\n"), line_length=140, expand_nested=True)
+    # Do not pass line_length — same as interactive terminal: Keras sizes the Rich table from
+    # shutil.get_terminal_size() (see keras.utils.summary_utils.print_summary).
+    model.summary(
+        print_fn=lambda line: buf.write(line + "\n"),
+        expand_nested=True,
+    )
 
     return {
         "ok": True,

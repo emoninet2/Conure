@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconPencil, IconTrash } from "../../icons/actionIcons";
 import { useUiStore } from "../../state/uiStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
@@ -696,10 +697,10 @@ function SelectionList({ title, info, value, onChange, disabled }) {
 
 function SectionCard({ title, subtitle, children }) {
   return (
-    <div style={{ border: "1px solid #ddd", padding: 12, background: "#fafafa" }}>
+    <div style={{ border: "1px solid #ddd", padding: 12, background: "#fafafa", minWidth: 0 }}>
       <div style={{ fontWeight: "bold", marginBottom: 6 }}>{title}</div>
       {subtitle ? <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>{subtitle}</div> : null}
-      <div style={{ display: "grid", gap: 10 }}>{children}</div>
+      <div style={{ display: "grid", gap: 10, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -826,9 +827,19 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
   const translatedTargetOptions = buildTranslatedFieldOptions(translatePreview, selectedYNames, "y");
   const [showGraphBuildTable, setShowGraphBuildTable] = useState(false);
   const [showKerasArchitecture, setShowKerasArchitecture] = useState(false);
+  const [kerasArchitectureOverlay, setKerasArchitectureOverlay] = useState(false);
   const [kerasArchitectureLoading, setKerasArchitectureLoading] = useState(false);
   const [kerasArchitectureError, setKerasArchitectureError] = useState("");
   const [kerasArchitectureText, setKerasArchitectureText] = useState("");
+  useEffect(() => {
+    if (!kerasArchitectureOverlay) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setKerasArchitectureOverlay(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [kerasArchitectureOverlay]);
+
   const graphBuildPreviewRows = useMemo(() => buildGraphBuildPreviewRows(cfg.graph), [cfg.graph]);
   const previewInputDim = useMemo(
     () => getTranslatedAxisFlatWidth(translatePreview, selectedXNames, "x"),
@@ -908,6 +919,7 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
     try {
       setKerasArchitectureLoading(true);
       setKerasArchitectureError("");
+      setShowKerasArchitecture(true);
       const res = await fetch(`${API_BASE}/api/models/ann/preview-architecture`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -920,17 +932,15 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setKerasArchitectureText(String(data?.summary_text || ""));
-      setShowKerasArchitecture(true);
     } catch (err) {
       setKerasArchitectureError(err?.message || String(err));
-      setShowKerasArchitecture(true);
     } finally {
       setKerasArchitectureLoading(false);
     }
   }
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
+    <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
       <SectionCard title="ANN model_config" subtitle="Interactive editor for ANN settings and architecture.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           <label style={{ display: "grid", gap: 6 }}>
@@ -1216,17 +1226,39 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
               Build the current ANN config on the backend and show the real Keras model.summary() output.
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setShowKerasArchitecture((v) => !v)} disabled={disabled && !kerasArchitectureText && !kerasArchitectureError}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (showKerasArchitecture) {
+                    setShowKerasArchitecture(false);
+                  } else {
+                    void fetchKerasArchitecturePreview();
+                  }
+                }}
+                disabled={disabled || kerasArchitectureLoading}
+              >
                 {showKerasArchitecture ? "Hide Keras architecture" : "View Keras architecture"}
               </button>
               <button type="button" onClick={fetchKerasArchitecturePreview} disabled={disabled || kerasArchitectureLoading}>
                 {kerasArchitectureLoading ? "Loading…" : "Refresh Keras architecture"}
               </button>
+              <button
+                type="button"
+                onClick={() => setKerasArchitectureOverlay(true)}
+                disabled={
+                  disabled ||
+                  kerasArchitectureLoading ||
+                  (!kerasArchitectureText && !kerasArchitectureError)
+                }
+                title="Open summary in a large scrollable window (avoids side-panel clipping)"
+              >
+                Full window
+              </button>
             </div>
           </div>
 
           {showKerasArchitecture ? (
-            <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ display: "grid", gap: 8, minWidth: 0, width: "100%" }}>
               <div style={{ fontSize: 12, opacity: 0.75 }}>
                 Preview dimensions sent to backend: input_dim={previewInputDim}, output_dim={previewOutputDim}
               </div>
@@ -1235,27 +1267,131 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
                   {kerasArchitectureError}
                 </div>
               ) : null}
-              <pre
+              <div
                 style={{
-                  margin: 0,
-                  padding: 12,
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  overflowX: "auto",
+                  width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  overflowX: "scroll",
                   overflowY: "auto",
-                  maxHeight: 500,
-                  fontSize: 12,
-                  lineHeight: 1.4,
-                  whiteSpace: "pre",
-                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                  maxHeight: 560,
+                  border: "1px solid #ddd",
+                  borderRadius: 6,
+                  background: "#fff",
+                  boxSizing: "border-box",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
-                {kerasArchitectureText || "No Keras architecture loaded yet."}
-              </pre>
+                <pre
+                  style={{
+                    margin: 0,
+                    padding: 12,
+                    display: "block",
+                    minWidth: "max-content",
+                    width: "max-content",
+                    maxWidth: "none",
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre",
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                  }}
+                >
+                  {kerasArchitectureLoading
+                    ? "Loading…"
+                    : kerasArchitectureText || "No Keras architecture loaded yet."}
+                </pre>
+              </div>
+              <div style={{ fontSize: 11, opacity: 0.65 }}>
+                Use horizontal scroll, or <strong>Full window</strong> for the whole table.
+              </div>
             </div>
           ) : null}
         </div>
       </SectionCard>
+
+      {kerasArchitectureOverlay ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keras model summary"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(15, 23, 42, 0.48)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            boxSizing: "border-box",
+          }}
+          onClick={() => setKerasArchitectureOverlay(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(96vw, 1600px)",
+              maxWidth: "96vw",
+              maxHeight: "min(90vh, 900px)",
+              display: "flex",
+              flexDirection: "column",
+              background: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 25px 80px rgba(0, 0, 0, 0.35)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                flexShrink: 0,
+                padding: "12px 16px",
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <strong style={{ fontSize: 15 }}>Keras model summary</strong>
+              <button type="button" onClick={() => setKerasArchitectureOverlay(false)}>
+                Close
+              </button>
+            </div>
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflow: "auto",
+                padding: 16,
+                background: "#fafafa",
+              }}
+            >
+              {kerasArchitectureError ? (
+                <div style={{ color: "#b00020", whiteSpace: "pre-wrap", fontSize: 13 }}>
+                  {kerasArchitectureError}
+                </div>
+              ) : (
+                <pre
+                  style={{
+                    margin: 0,
+                    display: "block",
+                    minWidth: "max-content",
+                    width: "max-content",
+                    fontSize: 12,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre",
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                  }}
+                >
+                  {kerasArchitectureLoading
+                    ? "Loading…"
+                    : kerasArchitectureText || "No summary loaded — use Refresh first."}
+                </pre>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1835,6 +1971,34 @@ export default function Model() {
     }
   }
 
+  async function renameModel(name) {
+    const next = window.prompt(`Rename model "${name}" to:`, name);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === name) return;
+
+    try {
+      setApiError("");
+      const res = await fetch(`${API_BASE}/api/models/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_name: name, to_name: trimmed }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      const data = await res.json();
+      const newName = data.model_name || trimmed;
+
+      if (name === activeModel) {
+        await openModel(newName);
+      }
+      await refreshModels();
+    } catch (err) {
+      setApiError(err?.message || String(err));
+      alert(err?.message || String(err));
+    }
+  }
+
   async function runPrediction() {
     if (!activeModel) {
       alert("Open a model first.");
@@ -1872,7 +2036,7 @@ export default function Model() {
   }
 
   return (
-    <div>
+    <div style={{ minWidth: 0, width: "100%" }}>
       <h3>Model</h3>
 
       {apiError ? (
@@ -1884,7 +2048,14 @@ export default function Model() {
       ) : null}
 
       <div
-        style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, alignItems: "start" }}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "280px minmax(0, 1fr)",
+          gap: 16,
+          alignItems: "start",
+          width: "100%",
+          minWidth: 0,
+        }}
       >
         <div
           style={{
@@ -1944,8 +2115,8 @@ export default function Model() {
                     key={name}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr auto",
-                      gap: 8,
+                      gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                      gap: 6,
                       alignItems: "center",
                     }}
                   >
@@ -1970,19 +2141,48 @@ export default function Model() {
                       {name}
                     </button>
                     <button
+                      type="button"
+                      onClick={() => renameModel(name)}
+                      disabled={running && activeModel === name}
+                      aria-label={`Rename model ${name}`}
+                      title="Rename this model"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 36,
+                        height: 36,
+                        padding: 0,
+                        borderRadius: 8,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        color: "#334155",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => deleteModel(name)}
                       disabled={running && activeModel === name}
+                      aria-label={`Delete model ${name}`}
+                      title="Delete this model"
                       style={{
-                        minWidth: 72,
-                        padding: "10px 12px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 36,
+                        height: 36,
+                        padding: 0,
                         borderRadius: 8,
                         border: "1px solid #e2e8f0",
                         background: "#fff",
                         color: "#7f1d1d",
-                        whiteSpace: "nowrap",
+                        flexShrink: 0,
                       }}
                     >
-                      Delete
+                      <IconTrash />
                     </button>
                   </div>
                 );
@@ -1991,7 +2191,7 @@ export default function Model() {
           </div>
         </div>
 
-        <div style={{ border: "1px solid #ccc", padding: 12 }}>
+        <div style={{ border: "1px solid #ccc", padding: 12, minWidth: 0 }}>
           <div
             style={{
               display: "flex",
@@ -2124,7 +2324,7 @@ export default function Model() {
             </label>
           </div>
 
-          <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gap: 12, marginBottom: 16, minWidth: 0 }}>
             <TranslationConfigForm
               value={translateForm}
               onChange={handleTranslateFormChange}

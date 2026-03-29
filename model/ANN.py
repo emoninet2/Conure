@@ -28,7 +28,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # ---------------- KERAS CUSTOM LAYERS ----------------
 @tf.keras.utils.register_keras_serializable(package="ConureANN")
 class SliceLayer(tf.keras.layers.Layer):
@@ -180,29 +179,7 @@ def _build_optimizer(config: Dict[str, Any]):
     raise ValueError(f"Unsupported optimizer type: {opt_type}")
 
 
-def _normalize_metrics_for_multi_output(metrics_cfg: Any, output_names: Sequence[str]):
-    """
-    Keras accepts:
-      - list of metrics for single output
-      - dict(name -> metrics) for multi-output
-
-    We normalize to:
-      - list for single-output
-      - dict for multi-output
-    """
-    if len(output_names) <= 1:
-        if metrics_cfg is None:
-            return ["mae"]
-        return metrics_cfg
-
-    if metrics_cfg is None:
-        return {name: ["mae"] for name in output_names}
-
-    if isinstance(metrics_cfg, dict):
-        return metrics_cfg
-
-    return {name: metrics_cfg for name in output_names}
-
+# ================== FIXED NORMALIZATION FUNCTIONS ==================
 
 def _normalize_loss_for_multi_output(loss_cfg: Any, output_names: Sequence[str]):
     if len(output_names) <= 1:
@@ -211,10 +188,43 @@ def _normalize_loss_for_multi_output(loss_cfg: Any, output_names: Sequence[str])
     if loss_cfg is None:
         return {name: "mse" for name in output_names}
 
-    if isinstance(loss_cfg, dict):
-        return loss_cfg
+    # If scalar (str or other), apply to all outputs
+    if not isinstance(loss_cfg, dict):
+        return {name: loss_cfg for name in output_names}
 
-    return {name: loss_cfg for name in output_names}
+    # If dict, ensure every output has a loss (fallback to mse)
+    return {name: loss_cfg.get(name, "mse") for name in output_names}
+
+
+def _normalize_metrics_for_multi_output(metrics_cfg: Any, output_names: Sequence[str]):
+    if len(output_names) <= 1:
+        return metrics_cfg if metrics_cfg is not None else ["mae"]
+
+    if metrics_cfg is None:
+        return {name: ["mae"] for name in output_names}
+
+    if isinstance(metrics_cfg, (str, list)):
+        return {name: metrics_cfg if isinstance(metrics_cfg, list) else [metrics_cfg]
+                for name in output_names}
+
+    if isinstance(metrics_cfg, dict):
+        return {name: metrics_cfg.get(name, ["mae"]) for name in output_names}
+
+    return {name: ["mae"] for name in output_names}
+
+
+def _keras_output_names(model: tf.keras.Model) -> List[str]:
+    """
+    Output identifiers used by Keras for compile(loss=...) and fit(y=...) dicts.
+    These are layer names, not symbolic tensor names (which often look like keras_tensor_*).
+    """
+    names = getattr(model, "output_names", None)
+    if names is not None:
+        return list(names)
+    layers = getattr(model, "output_layers", None)
+    if layers is not None:
+        return [layer.name for layer in layers]
+    return [tensor.name.split(":")[0].split("/")[-1] for tensor in model.outputs]
 
 
 def _split_targets_for_model(
@@ -226,7 +236,7 @@ def _split_targets_for_model(
       - a single ndarray for single-output models
       - a dict(name -> ndarray slice) for multi-output models
     """
-    output_names = [tensor.name.split(":")[0].split("/")[-1] for tensor in model.outputs]
+    output_names = _keras_output_names(model)
 
     if len(output_names) == 1:
         return y
@@ -260,7 +270,7 @@ def _merge_predictions(
             return y_pred.reshape(-1, 1)
         return y_pred
 
-    output_names = [tensor.name.split(":")[0].split("/")[-1] for tensor in model.outputs]
+    output_names = _keras_output_names(model)
 
     if isinstance(y_pred, dict):
         parts = []
@@ -282,11 +292,13 @@ def _merge_predictions(
 
     raise TypeError(f"Unsupported prediction type: {type(y_pred)}")
 
+
 def print_model_structure(model):
     """
     Print a readable text summary to the terminal.
     """
-    model.summary(line_length=140, expand_nested=True)
+    # line_length omitted — Keras 3 picks width from the environment (like a real terminal).
+    model.summary(expand_nested=True)
 
 
 def save_model_structure_image(model, save_path="architecture.png", rankdir="TB"):
@@ -310,7 +322,7 @@ def save_model_structure_image(model, save_path="architecture.png", rankdir="TB"
             show_layer_names=True,
             expand_nested=True,
             show_trainable=True,
-            rankdir=rankdir,   # "LR" = left-to-right, "TB" = top-to-bottom
+            rankdir=rankdir,
         )
         logger.info(f"Architecture diagram saved to: {save_path}")
     except Exception as e:
@@ -511,7 +523,7 @@ def generate_model(train_features, train_targets, config):
 
     optimizer = _build_optimizer(config)
 
-    output_names = [tensor.name.split(":")[0].split("/")[-1] for tensor in model.outputs]
+    output_names = _keras_output_names(model)
     loss_cfg = _normalize_loss_for_multi_output(config["training"].get("loss", "mse"), output_names)
     metrics_cfg = _normalize_metrics_for_multi_output(config["training"].get("metrics", ["mae"]), output_names)
 
@@ -711,7 +723,7 @@ def generate_report(
 # ---------------- TRAINING PIPELINE ----------------
 def _prepare_config_for_training(X, y, config):
     """
-    Make a safe copy and resolve AUTO units.
+    Make a safe copy and resolve AUTO units + auto-fix loss/metrics for multi-output graph models.
     """
     config = _deepcopy_jsonish(config)
     arch_type = _architecture_type(config)
@@ -731,6 +743,28 @@ def _prepare_config_for_training(X, y, config):
             node = _require_dict(node, "graph.nodes[]")
             if str(node.get("op", "")).strip() == "Dense" and _is_auto_units(node.get("units")):
                 node["units"] = int(y.shape[1])
+
+        # CRITICAL FIX: Auto-configure loss and metrics when there are multiple outputs
+        output_names = _as_list(graph.get("outputs", []), "graph.outputs")
+        if len(output_names) > 1:
+            training = config.setdefault("training", {})
+
+            # Fix loss
+            loss = training.get("loss")
+            if loss is None or not isinstance(loss, dict):
+                training["loss"] = {name: "mse" for name in output_names}
+            elif isinstance(loss, dict):
+                training["loss"] = {name: loss.get(name, "mse") for name in output_names}
+
+            # Fix metrics
+            metrics = training.get("metrics")
+            if metrics is None or not isinstance(metrics, dict):
+                training["metrics"] = {name: ["mae"] for name in output_names}
+            elif isinstance(metrics, (str, list)):
+                training["metrics"] = {name: metrics if isinstance(metrics, list) else [metrics]
+                                       for name in output_names}
+            elif isinstance(metrics, dict):
+                training["metrics"] = {name: metrics.get(name, ["mae"]) for name in output_names}
 
     else:
         raise ValueError(
@@ -788,7 +822,6 @@ def train_model_pipeline(X, y, config, model_base_dir):
     with open(summary_file, "w", encoding="utf-8") as f:
         model.summary(
             print_fn=lambda line: f.write(line + "\n"),
-            line_length=140,
             expand_nested=True,
         )
     logger.info(f"Model summary saved to: {summary_file}")
@@ -832,7 +865,6 @@ def train_model_pipeline(X, y, config, model_base_dir):
     logger.info("Report successfully generated.")
 
 
-
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     FILE_PATH = "/mnt/storage/emon/projects/Conure/data/workspace/IND2/sweep/Inductor_Coplanar_2/simulation_data.npz"
@@ -870,52 +902,23 @@ if __name__ == "__main__":
         "graph": {
             "input_name": "features",
             "nodes": [
-                # -------------------------------------------------
-                # Slice flat input into 3 logical inputs
-                # features[:, 0] = apothem
-                # features[:, 1] = width
-                # features[:, 2] = spacing
-                # -------------------------------------------------
                 {"name": "apothem", "op": "Slice", "inputs": ["features"], "indices": [0]},
                 {"name": "width",   "op": "Slice", "inputs": ["features"], "indices": [1]},
                 {"name": "spacing", "op": "Slice", "inputs": ["features"], "indices": [2]},
 
-                # -------------------------------------------------
-                # Hidden layer 1
-                # apothem -> 100
-                # width   -> 50
-                # spacing -> 20
-                # -------------------------------------------------
                 {"name": "apothem_h1", "op": "Dense", "inputs": ["apothem"], "units": 100, "activation": "relu"},
                 {"name": "width_h1",   "op": "Dense", "inputs": ["width"],   "units": 50,  "activation": "relu"},
                 {"name": "spacing_h1", "op": "Dense", "inputs": ["spacing"], "units": 20,  "activation": "relu"},
 
-                # -------------------------------------------------
-                # Hidden layer 2
-                # 100 -> 500
-                # 50  -> 200
-                # 20  -> 120
-                # -------------------------------------------------
                 {"name": "apothem_h2", "op": "Dense", "inputs": ["apothem_h1"], "units": 500, "activation": "relu"},
                 {"name": "width_h2",   "op": "Dense", "inputs": ["width_h1"],   "units": 200, "activation": "relu"},
                 {"name": "spacing_h2", "op": "Dense", "inputs": ["spacing_h1"], "units": 120, "activation": "relu"},
 
-                # -------------------------------------------------
-                # Hidden layer 3
-                # apothem path: 500 -> 1000
-                # width+spacing path: (200 + 120) -> 400
-                # -------------------------------------------------
                 {"name": "apothem_h3", "op": "Dense", "inputs": ["apothem_h2"], "units": 1000, "activation": "relu"},
 
                 {"name": "merge_width_spacing", "op": "Concatenate", "inputs": ["width_h2", "spacing_h2"]},
                 {"name": "ws_h3", "op": "Dense", "inputs": ["merge_width_spacing"], "units": 400, "activation": "relu"},
 
-                # -------------------------------------------------
-                # Outputs
-                # 1000 branch -> Lp, Ls
-                # 400 branch  -> Qp, Qs
-                # spacing_h2  -> k directly
-                # -------------------------------------------------
                 {"name": "Lp", "op": "Dense", "inputs": ["apothem_h3"], "units": 1, "activation": "linear"},
                 {"name": "Ls", "op": "Dense", "inputs": ["apothem_h3"], "units": 1, "activation": "linear"},
                 {"name": "Qp", "op": "Dense", "inputs": ["ws_h3"],      "units": 1, "activation": "linear"},
@@ -926,91 +929,16 @@ if __name__ == "__main__":
         },
     }
 
-
-
-
-    simple_config_sequential = {
-        "model_name": "Simple_ANN_Example",
-        "model_type": "ANN",
-        "architecture_type": "sequential", # Changed from 'graph'
-        "data_split": {
-            "test_size": 0.2,
-            "random_state": 42,
-        },
-        "normalization": {
-            "feature_method": "standard",
-            "target_method": "standard",
-        },
-        "training": {
-            "epochs": 50,          # Reduced for a quick test
-            "batch_size": 16,
-            "loss": "mse",
-            "metrics": ["mae"],
-            "validation_split": 0.2,
-            "optimizer": {
-                "type": "Adam",
-                "learning_rate": 0.001,
-            },
-        },
-        "architecture": [
-            {"type": "Dense", "units": 64, "activation": "relu"},
-            {"type": "Dropout", "rate": 0.1},
-            {"type": "Dense", "units": 32, "activation": "relu"},
-            # "AUTO" tells the script to match the number of output columns in 'y'
-            {"type": "Dense", "units": "AUTO", "activation": "linear"}, 
-        ],
-        "early_stopping": {
-            "monitor": "val_loss",
-            "patience": 5,
-            "restore_best_weights": True,
-        }
-    }
-
-
-    simple_config = {
-        "model_name": "Simple_Graph_Subnets",
-        "model_type": "ANN",
-        "architecture_type": "graph",
-        "data_split": {"test_size": 0.2, "random_state": 42},
-        "normalization": {"feature_method": "standard", "target_method": "standard"},
-        "training": {
-            "epochs": 50,
-            "batch_size": 32,
-            "loss": "mse",
-            "metrics": ["mae"],
-            "validation_split": 0.2,
-            "optimizer": {"type": "Adam", "learning_rate": 0.001},
-        },
-        "graph": {
-            "input_name": "features",
-            "nodes": [
-
-                {"name": "geometry_slice", "op": "Slice", "inputs": ["features"], "indices": [0, 1]},
-                {"name": "spacing_slice", "op": "Slice", "inputs": ["features"], "indices": [2]},
-                {"name": "geo_dense", "op": "Dense", "inputs": ["geometry_slice"], "units": 32, "activation": "relu"},
-                {"name": "space_dense", "op": "Dense", "inputs": ["spacing_slice"], "units": 16, "activation": "relu"},
-                {"name": "merged", "op": "Concatenate", "inputs": ["geo_dense", "space_dense"]},
-                {"name": "dense_final", "op": "Dense", "inputs": ["merged"], "units": 64, "activation": "relu"},
-                {"name": "output_layer", "op": "Dense", "inputs": ["dense_final"], "units": "AUTO", "activation": "linear"},
-            ],
-            "outputs": ["output_layer"],
-        },
-    }
-
-
-    # -------------------------------------------------
-    # Build only, so you can inspect the architecture
-    # without starting training.
-    # -------------------------------------------------
+    # Build only for inspection
     config_for_build = _prepare_config_for_training(
-        X=np.zeros((4, 3), dtype=np.float32),   # dummy X with 3 features
-        y=np.zeros((4, 2), dtype=np.float32),   # dummy y with 2 outputs
-        config=simple_config,
+        X=np.zeros((4, 3), dtype=np.float32),
+        y=np.zeros((4, 5), dtype=np.float32),
+        config=train_config,
     )
 
     model = _build_graph_model(
         input_dim=3,
-        output_dim=2,
+        output_dim=5,
         config=config_for_build,
     )
 
@@ -1020,28 +948,5 @@ if __name__ == "__main__":
         save_path=os.path.join(MODEL_BASE_DIR, "architecture.png"),
         rankdir="TB",
     )
-
-
-
-    # 2. Generate Synthetic Data
-    # Let's assume 3 input features (apothem, width, spacing) 
-    # and 5 target outputs (Lp, Ls, Qp, Qs, k)
-    n_samples = 1000
-    X_dummy = np.random.rand(n_samples, 3).astype(np.float32)
-    # Create a simple relationship: y = sum(X) + noise
-    y_dummy = (np.sum(X_dummy, axis=1, keepdims=True) * np.random.rand(1, 5)).astype(np.float32)
-
-    # 3. Setup Directory and Start Training
-    MODEL_BASE_DIR = "./model_library/"
-    if not os.path.exists(MODEL_BASE_DIR):
-        os.makedirs(MODEL_BASE_DIR)
-
-    print("--- Starting Simplified Training Pipeline ---")
-    train_model_pipeline(X_dummy, y_dummy, simple_config, MODEL_BASE_DIR)
-    print("--- Training Complete ---")
-
-
-
-
 
     logger.info("Subnet ANN model structure built successfully.")

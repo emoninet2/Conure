@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconPencil, IconTrash } from "../../icons/actionIcons";
 import { useUiStore } from "../../state/uiStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
@@ -565,6 +566,36 @@ export default function Sweep() {
     }
   }
 
+  async function renameSweep(name) {
+    if (!name) return;
+
+    const next = window.prompt(`Rename sweep "${name}" to:`, name);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === name) return;
+
+    try {
+      setApiError("");
+      const res = await fetch(`${API_BASE}/api/sweeps/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_name: name, to_name: trimmed }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+
+      const data = await res.json();
+      const newName = data.sweep_name || trimmed;
+
+      if (name === activeSweep) {
+        await openSweep(newName);
+      }
+      await refreshSweeps();
+    } catch (err) {
+      setApiError(err?.message || String(err));
+      alert(err?.message || String(err));
+    }
+  }
+
   return (
     <div>
       <h3>Sweep</h3>
@@ -631,12 +662,13 @@ export default function Sweep() {
                   key={name}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr auto",
-                    gap: 8,
+                    gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                    gap: 6,
                     alignItems: "center",
                   }}
                 >
                   <button
+                    type="button"
                     onClick={() => openSweep(name)}
                     style={{
                       flex: 1,
@@ -657,20 +689,50 @@ export default function Sweep() {
                     {name}
                   </button>
                   <button
+                    type="button"
+                    onClick={() => renameSweep(name)}
+                    disabled={running && activeSweep === name}
+                    aria-label={`Rename sweep ${name}`}
+                    title="Rename this sweep"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 36,
+                      padding: 0,
+                      borderRadius: 8,
+                      border: "1px solid #e2e8f0",
+                      background: "#fff",
+                      color: "#334155",
+                      flexShrink: 0,
+                      opacity: running && activeSweep === name ? 0.6 : 1,
+                    }}
+                  >
+                    <IconPencil />
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => deleteSweep(name)}
                     disabled={running && activeSweep === name}
+                    aria-label={`Delete sweep ${name}`}
+                    title="Delete this sweep"
                     style={{
-                      minWidth: 72,
-                      padding: "10px 12px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 36,
+                      height: 36,
+                      padding: 0,
                       borderRadius: 8,
                       border: "1px solid #e2e8f0",
                       background: "#fff",
                       color: "#b42318",
-                      fontWeight: 600,
+                      flexShrink: 0,
                       opacity: running && activeSweep === name ? 0.6 : 1,
                     }}
                   >
-                    Delete
+                    <IconTrash />
                   </button>
                 </div>
               ))
