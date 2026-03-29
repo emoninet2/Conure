@@ -18,8 +18,6 @@
       "guardRingDistance": 50,
       "partialCutSegments": 0,
       "partialCutSpacing": 10,
-      "x": 25,
-      "y": "x + 5",
       "precisionDiagonal": 0.0025
     },
     "layer": {

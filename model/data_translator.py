@@ -1,6 +1,8 @@
 import json
 import os
 import re
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 
@@ -985,12 +987,61 @@ def _targets_sparams_to_lq(targets, target_names, freqs, z0=50.0):
     return lq_targets, out_names, pair_info
 
 
-def _load_inductor_npz(npz_file_path, z0=50.0):
+def _targets_sparams_to_lq_schema_only(targets, target_names, freqs, z0=50.0):
+    """
+    Same output names/shapes as ``_targets_sparams_to_lq`` without S→Z or L/Q math.
+    Used for fast translation preview / field lists only.
+    """
+    targets = np.asarray(targets, dtype=np.float32)
+    freqs = np.asarray(freqs, dtype=np.float32)
+    if targets.ndim != 3:
+        raise ValueError(f"targets must have shape (N, C, F). Got {targets.shape}")
+    if freqs.ndim != 1:
+        raise ValueError(f"freqs must be 1D. Got {freqs.shape}")
+    if targets.shape[2] != len(freqs):
+        raise ValueError(
+            f"targets frequency dimension ({targets.shape[2]}) does not match len(freqs) ({len(freqs)})"
+        )
+
+    pairs = _detect_complex_target_pairs(target_names)
+    n_samples, n_freqs = targets.shape[0], targets.shape[2]
+    out_names = []
+    pair_info = []
+    L_suffix = TRANSLATION_CONFIG["inductor_L_name_suffix"]
+    is_single_port = len(pairs) == 1
+
+    for base, real_idx, imag_idx in pairs:
+        if is_single_port:
+            out_names.append("L_nH")
+            out_names.append("Q")
+        else:
+            out_names.append(f"L_{base}_nH")
+            out_names.append(f"Q_{base}")
+        pair_info.append(
+            {
+                "source_base": base,
+                "source_real_name": target_names[real_idx],
+                "source_imag_name": target_names[imag_idx],
+                "derived_names": [f"L_{L_suffix}_{base}", f"Q_{base}"],
+            }
+        )
+
+    n_ch = len(out_names)
+    lq_targets = np.zeros((n_samples, n_ch, n_freqs), dtype=np.float32)
+    return lq_targets, out_names, pair_info
+
+
+def _load_inductor_npz(npz_file_path, z0=50.0, schema_only=False):
     features, raw_targets, feature_names, raw_target_names, freqs = _load_npz_core(npz_file_path)
 
-    lq_targets, lq_target_names, pair_info = _targets_sparams_to_lq(
-        raw_targets, raw_target_names, freqs, z0=z0
-    )
+    if schema_only:
+        lq_targets, lq_target_names, pair_info = _targets_sparams_to_lq_schema_only(
+            raw_targets, raw_target_names, freqs, z0=z0
+        )
+    else:
+        lq_targets, lq_target_names, pair_info = _targets_sparams_to_lq(
+            raw_targets, raw_target_names, freqs, z0=z0
+        )
 
     extra_metadata = {
         "source_target_names": raw_target_names,
@@ -1005,8 +1056,8 @@ def _load_inductor_npz(npz_file_path, z0=50.0):
 # =============================================================
 # ---------------- Inductor translators ----------------------
 # =============================================================
-def prepare_ffi_inductor_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+def prepare_ffi_inductor_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_independent(
         features,
         targets,
@@ -1028,8 +1079,9 @@ def prepare_ffi_inductor_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_independent_augmented(
         features,
         targets,
@@ -1047,8 +1099,8 @@ def prepare_ffi_inductor_augmented(
     )
 
 
-def prepare_ffd_inductor_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+def prepare_ffd_inductor_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_dependent(
         features,
         targets,
@@ -1071,8 +1123,9 @@ def prepare_ffd_inductor_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_dependent_augmented(
         features,
         targets,
@@ -1091,8 +1144,8 @@ def prepare_ffd_inductor_augmented(
     )
 
 
-def prepare_ifi_inductor_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+def prepare_ifi_inductor_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_independent(
         features,
         targets,
@@ -1115,8 +1168,9 @@ def prepare_ifi_inductor_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_independent_augmented(
         features,
         targets,
@@ -1135,8 +1189,8 @@ def prepare_ifi_inductor_augmented(
     )
 
 
-def prepare_ifd_inductor_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+def prepare_ifd_inductor_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_dependent(
         features,
         targets,
@@ -1159,8 +1213,9 @@ def prepare_ifd_inductor_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_inductor_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_dependent_augmented(
         features,
         targets,
@@ -1393,12 +1448,12 @@ def _derive_transformer_metrics_from_z(z11, z12, z21, z22, freqs):
     if TRANSLATION_CONFIG["clip_k"]:
         k = np.clip(k, TRANSLATION_CONFIG["k_clip_min"], TRANSLATION_CONFIG["k_clip_max"])
 
-    #if TRANSLATION_CONFIG["debug_print_stats"]:
-    print("Final Lp min/max:", float(np.min(lp)), float(np.max(lp)))
-    print("Final Ls min/max:", float(np.min(ls)), float(np.max(ls)))
-    print("Final Qp min/max:", float(np.min(qp)), float(np.max(qp)))
-    print("Final Qs min/max:", float(np.min(qs)), float(np.max(qs)))
-    print("Final k  min/max:", float(np.min(k)), float(np.max(k)))
+    if TRANSLATION_CONFIG["debug_print_stats"]:
+        print("Final Lp min/max:", float(np.min(lp)), float(np.max(lp)))
+        print("Final Ls min/max:", float(np.min(ls)), float(np.max(ls)))
+        print("Final Qp min/max:", float(np.min(qp)), float(np.max(qp)))
+        print("Final Qs min/max:", float(np.min(qs)), float(np.max(qs)))
+        print("Final k  min/max:", float(np.min(k)), float(np.max(k)))
 
     transformer_targets = np.stack(
         [
@@ -1414,6 +1469,71 @@ def _derive_transformer_metrics_from_z(z11, z12, z21, z22, freqs):
     L_suffix = TRANSLATION_CONFIG["transformer_L_name_suffix"]
     transformer_target_names = [f"Lp_{L_suffix}", f"Ls_{L_suffix}", "Qp", "Qs", "k"]
     return transformer_targets, transformer_target_names
+
+
+def _targets_to_transformer_metrics_schema_only(targets, target_names, freqs, z0=50.0):
+    """
+    Same channel names/shapes as ``_targets_to_transformer_metrics`` without S→Z or Z-metric math.
+    Used for fast translation preview / field lists only.
+    """
+    targets = np.asarray(targets, dtype=np.float32)
+    freqs = np.asarray(freqs, dtype=np.float32)
+
+    if targets.ndim != 3:
+        raise ValueError(f"targets must have shape (N, C, F). Got {targets.shape}")
+    if freqs.ndim != 1:
+        raise ValueError(f"freqs must be 1D. Got {freqs.shape}")
+    if targets.shape[2] != len(freqs):
+        raise ValueError(
+            f"targets frequency dimension ({targets.shape[2]}) does not match len(freqs) ({len(freqs)})"
+        )
+
+    n_samples, _, n_freqs = targets.shape
+    pair_map = _detect_complex_network_pairs(target_names)
+
+    has_z = all(name in pair_map for name in ["Z11", "Z12", "Z21", "Z22"])
+    has_s = all(name in pair_map for name in ["S11", "S12", "S21", "S22"])
+
+    L_suffix = TRANSLATION_CONFIG["transformer_L_name_suffix"]
+    transformer_target_names = [f"Lp_{L_suffix}", f"Ls_{L_suffix}", "Qp", "Qs", "k"]
+    transformer_targets = np.zeros((n_samples, 5, n_freqs), dtype=np.float32)
+
+    if has_z:
+        transform_info = {
+            "source_type": "Z",
+            "required_channels": {
+                "Z11": [target_names[pair_map["Z11"][0]], target_names[pair_map["Z11"][1]]],
+                "Z12": [target_names[pair_map["Z12"][0]], target_names[pair_map["Z12"][1]]],
+                "Z21": [target_names[pair_map["Z21"][0]], target_names[pair_map["Z21"][1]]],
+                "Z22": [target_names[pair_map["Z22"][0]], target_names[pair_map["Z22"][1]]],
+            },
+            "derived_names": transformer_target_names,
+            "z0": float(z0),
+        }
+        return transformer_targets, transformer_target_names, transform_info
+
+    if has_s:
+        transform_info = {
+            "source_type": "S",
+            "required_channels": {
+                "S11": [target_names[pair_map["S11"][0]], target_names[pair_map["S11"][1]]],
+                "S12": [target_names[pair_map["S12"][0]], target_names[pair_map["S12"][1]]],
+                "S21": [target_names[pair_map["S21"][0]], target_names[pair_map["S21"][1]]],
+                "S22": [target_names[pair_map["S22"][0]], target_names[pair_map["S22"][1]]],
+            },
+            "conversion": "2-port S->Z using Z = Z0 * (I + S) @ inv(I - S)",
+            "derived_names": transformer_target_names,
+            "z0": float(z0),
+        }
+        return transformer_targets, transformer_target_names, transform_info
+
+    raise ValueError(
+        "Transformer translation requires either:\n"
+        "  Z11/Z12/Z21/Z22 real-imag channels\n"
+        "or\n"
+        "  S11/S12/S21/S22 real-imag channels.\n"
+        "Examples: S11_real, S11_imag, ..., or Z11_real, Z11_imag, ..."
+    )
 
 
 def _targets_to_transformer_metrics(targets, target_names, freqs, z0=50.0):
@@ -1497,12 +1617,17 @@ def _targets_to_transformer_metrics(targets, target_names, freqs, z0=50.0):
     )
 
 
-def _load_transformer_npz(npz_file_path, z0=50.0):
+def _load_transformer_npz(npz_file_path, z0=50.0, schema_only=False):
     features, raw_targets, feature_names, raw_target_names, freqs = _load_npz_core(npz_file_path)
 
-    transformer_targets, transformer_target_names, transform_info = _targets_to_transformer_metrics(
-        raw_targets, raw_target_names, freqs, z0=z0
-    )
+    if schema_only:
+        transformer_targets, transformer_target_names, transform_info = _targets_to_transformer_metrics_schema_only(
+            raw_targets, raw_target_names, freqs, z0=z0
+        )
+    else:
+        transformer_targets, transformer_target_names, transform_info = _targets_to_transformer_metrics(
+            raw_targets, raw_target_names, freqs, z0=z0
+        )
 
     extra_metadata = {
         "source_target_names": raw_target_names,
@@ -1516,8 +1641,8 @@ def _load_transformer_npz(npz_file_path, z0=50.0):
 # =============================================================
 # ---------------- Transformer translators -------------------
 # =============================================================
-def prepare_ffi_transformer_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+def prepare_ffi_transformer_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_independent(
         features,
         targets,
@@ -1539,8 +1664,9 @@ def prepare_ffi_transformer_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_independent_augmented(
         features,
         targets,
@@ -1558,8 +1684,8 @@ def prepare_ffi_transformer_augmented(
     )
 
 
-def prepare_ffd_transformer_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+def prepare_ffd_transformer_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_dependent(
         features,
         targets,
@@ -1582,8 +1708,9 @@ def prepare_ffd_transformer_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_forward_frequency_dependent_augmented(
         features,
         targets,
@@ -1602,8 +1729,8 @@ def prepare_ffd_transformer_augmented(
     )
 
 
-def prepare_ifi_transformer_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+def prepare_ifi_transformer_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_independent(
         features,
         targets,
@@ -1626,8 +1753,9 @@ def prepare_ifi_transformer_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_independent_augmented(
         features,
         targets,
@@ -1646,8 +1774,8 @@ def prepare_ifi_transformer_augmented(
     )
 
 
-def prepare_ifd_transformer_data(npz_file_path, z0=50.0, return_metadata=False):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+def prepare_ifd_transformer_data(npz_file_path, z0=50.0, return_metadata=False, schema_only=False):
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_dependent(
         features,
         targets,
@@ -1670,8 +1798,9 @@ def prepare_ifd_transformer_augmented(
     clip=True,
     z0=50.0,
     return_metadata=False,
+    schema_only=False,
 ):
-    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0)
+    features, targets, feature_names, target_names, freqs, extra = _load_transformer_npz(npz_file_path, z0=z0, schema_only=schema_only)
     return _prepare_inverse_frequency_dependent_augmented(
         features,
         targets,
@@ -1688,6 +1817,216 @@ def prepare_ifd_transformer_augmented(
         input_semantics="transformer_metrics_row_plus_frequency",
         extra_metadata=extra,
     )
+
+
+# =============================================================
+# ---------------- Translation preview (names only, no math) ---
+# =============================================================
+def _inductor_derived_channel_names(target_names):
+    pairs = _detect_complex_target_pairs(target_names)
+    out = []
+    is_single = len(pairs) == 1
+    for base, real_idx, imag_idx in pairs:
+        if is_single:
+            out.extend(["L_nH", "Q"])
+        else:
+            out.extend([f"L_{base}_nH", f"Q_{base}"])
+    return out
+
+
+def _transformer_derived_channel_names():
+    L_suffix = TRANSLATION_CONFIG["transformer_L_name_suffix"]
+    return [f"Lp_{L_suffix}", f"Ls_{L_suffix}", "Qp", "Qs", "k"]
+
+
+def _validate_transformer_raw_target_names(target_names):
+    pair_map = _detect_complex_network_pairs(target_names)
+    has_z = all(name in pair_map for name in ["Z11", "Z12", "Z21", "Z22"])
+    has_s = all(name in pair_map for name in ["S11", "S12", "S21", "S22"])
+    if has_z or has_s:
+        return
+    raise ValueError(
+        "Transformer translation requires either:\n"
+        "  Z11/Z12/Z21/Z22 real-imag channels\n"
+        "or\n"
+        "  S11/S12/S21/S22 real-imag channels.\n"
+        "Examples: S11_real, S11_imag, ..., or Z11_real, Z11_imag, ..."
+    )
+
+
+def preview_translation_field_schema(
+    feature_names: List[str],
+    target_names: List[str],
+    features_shape: Tuple[int, ...],
+    targets_shape: Tuple[int, ...],
+    n_frequency_points: int,
+    translation_type: str,
+    translation_params: Optional[dict] = None,
+) -> Dict[str, Any]:
+    """
+    Compute post-translation field names and matrix widths **without** loading full NPZ arrays
+    or running S→Z, row expansion, or augmentation. Used only for Model UI field selection.
+
+    ``features_shape`` / ``targets_shape`` are the raw ``simulation_data.npz`` tensor shapes.
+    """
+    translation_params = translation_params or {}
+    tkey = str(translation_type).strip().lower()
+    is_aug = tkey.endswith("_augmented")
+    base = tkey[: -len("_augmented")] if is_aug else tkey
+
+    if len(features_shape) < 2:
+        raise ValueError("features must be at least 2D (N, …).")
+    n_feat = int(features_shape[1])
+
+    if len(targets_shape) < 3:
+        raise ValueError("targets must be 3D (N, C, F) for translation preview.")
+    n_ch_raw = int(targets_shape[1])
+    n_freq = int(targets_shape[2])
+    if int(n_frequency_points) != n_freq:
+        raise ValueError(
+            f"frequency_points length ({n_frequency_points}) does not match targets frequency axis ({n_freq})."
+        )
+
+    fn = _normalize_names(feature_names)
+    tn = _normalize_names(target_names)
+
+    if base in ("ffi", "ffd", "ifi", "ifd"):
+        family = "standard"
+        direction = base
+    elif base.endswith("_inductor"):
+        family = "inductor"
+        direction = base[: -len("_inductor")]
+    elif base.endswith("_transformer"):
+        family = "transformer"
+        direction = base[: -len("_transformer")]
+    else:
+        raise ValueError(f"Unsupported translation_type for preview: {translation_type!r}")
+
+    if direction not in ("ffi", "ffd", "ifi", "ifd"):
+        raise ValueError(f"Unsupported translation direction in preview: {direction!r}")
+
+    if family == "transformer":
+        _validate_transformer_raw_target_names(tn)
+        derived = _transformer_derived_channel_names()
+        n_der = len(derived)
+    elif family == "inductor":
+        derived = _inductor_derived_channel_names(tn)
+        n_der = len(derived)
+    else:
+        derived = None
+        n_der = n_ch_raw
+
+    # --- build model input/output names and widths (matches prepare_* layouts) ---
+    if family == "standard":
+        if direction == "ffi":
+            x_names, y_names = list(fn), list(tn)
+            w_in, w_out = n_feat, n_ch_raw * n_freq
+            meta = {
+                "original_input_shape_per_sample": list(features_shape[1:]),
+                "original_output_shape_per_sample": list(targets_shape[1:]),
+            }
+        elif direction == "ffd":
+            x_names, y_names = list(fn) + ["frequency"], list(tn)
+            w_in, w_out = n_feat + 1, n_ch_raw
+            meta = {
+                "original_input_shape_per_sample": [n_feat + 1],
+                "original_output_shape_per_sample": [n_ch_raw],
+                "grouped_input_shape_per_original_sample": [n_freq, n_feat + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_ch_raw],
+            }
+        elif direction == "ifi":
+            x_names, y_names = list(tn), list(fn)
+            w_in, w_out = n_ch_raw * n_freq, n_feat
+            meta = {
+                "original_input_shape_per_sample": list(targets_shape[1:]),
+                "original_output_shape_per_sample": list(features_shape[1:]),
+            }
+        else:  # ifd
+            x_names, y_names = list(tn) + ["frequency"], list(fn)
+            w_in, w_out = n_ch_raw + 1, n_feat
+            meta = {
+                "original_input_shape_per_sample": [n_ch_raw + 1],
+                "original_output_shape_per_sample": list(features_shape[1:]),
+                "grouped_input_shape_per_original_sample": [n_freq, n_ch_raw + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_feat],
+            }
+    elif family == "inductor":
+        if direction == "ffi":
+            x_names, y_names = list(fn), derived
+            w_in, w_out = n_feat, n_der * n_freq
+            meta = {
+                "original_input_shape_per_sample": list(features_shape[1:]),
+                "original_output_shape_per_sample": [n_der, n_freq],
+            }
+        elif direction == "ffd":
+            x_names, y_names = list(fn) + ["frequency"], derived
+            w_in, w_out = n_feat + 1, n_der
+            meta = {
+                "original_input_shape_per_sample": [n_feat + 1],
+                "original_output_shape_per_sample": [n_der],
+                "grouped_input_shape_per_original_sample": [n_freq, n_feat + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_der],
+            }
+        elif direction == "ifi":
+            x_names, y_names = derived, list(fn)
+            w_in, w_out = n_der * n_freq, n_feat
+            meta = {
+                "original_input_shape_per_sample": [n_der, n_freq],
+                "original_output_shape_per_sample": list(features_shape[1:]),
+            }
+        else:  # ifd
+            x_names, y_names = derived + ["frequency"], list(fn)
+            w_in, w_out = n_der + 1, n_feat
+            meta = {
+                "original_input_shape_per_sample": [n_der + 1],
+                "original_output_shape_per_sample": list(features_shape[1:]),
+                "grouped_input_shape_per_original_sample": [n_freq, n_der + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_feat],
+            }
+    else:  # transformer
+        if direction == "ffi":
+            x_names, y_names = list(fn), derived
+            w_in, w_out = n_feat, n_der * n_freq
+            meta = {
+                "original_input_shape_per_sample": list(features_shape[1:]),
+                "original_output_shape_per_sample": [n_der, n_freq],
+            }
+        elif direction == "ffd":
+            x_names, y_names = list(fn) + ["frequency"], derived
+            w_in, w_out = n_feat + 1, n_der
+            meta = {
+                "original_input_shape_per_sample": [n_feat + 1],
+                "original_output_shape_per_sample": [n_der],
+                "grouped_input_shape_per_original_sample": [n_freq, n_feat + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_der],
+            }
+        elif direction == "ifi":
+            x_names, y_names = derived, list(fn)
+            w_in, w_out = n_der * n_freq, n_feat
+            meta = {
+                "original_input_shape_per_sample": [n_der, n_freq],
+                "original_output_shape_per_sample": list(features_shape[1:]),
+            }
+        else:  # ifd
+            x_names, y_names = derived + ["frequency"], list(fn)
+            w_in, w_out = n_der + 1, n_feat
+            meta = {
+                "original_input_shape_per_sample": [n_der + 1],
+                "original_output_shape_per_sample": list(features_shape[1:]),
+                "grouped_input_shape_per_original_sample": [n_freq, n_der + 1],
+                "grouped_output_shape_per_original_sample": [n_freq, n_feat],
+            }
+
+    meta["translation_type"] = tkey
+    meta["preview_only"] = True
+
+    return {
+        "feature_names": [str(x) for x in x_names],
+        "target_names": [str(x) for x in y_names],
+        "translation_metadata": meta,
+        "model_input_width": int(w_in),
+        "model_output_width": int(w_out),
+    }
 
 
 # =============================================================

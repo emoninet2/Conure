@@ -1,5 +1,6 @@
 
 import json
+import math
 import os
 import re
 import shutil
@@ -1659,6 +1660,52 @@ def _load_model_saved_config(model_name: str) -> Dict[str, Any]:
     return _validate_model_ui_config(draft, model_name=model_name)
 
 
+def _infer_num_ports_from_simulation_npz(npz_path: Path) -> Optional[int]:
+    """
+    Infer port count from packed simulation_data.npz ``target_names``
+    (S-parameter real/imag columns like S11_real, S12_imag, ...).
+    """
+    try:
+        import numpy as np
+
+        if not npz_path.is_file():
+            return None
+        with np.load(npz_path, allow_pickle=True) as data:
+            # NpzFile does not implement dict.get() in many NumPy versions; use files + [].
+            if "target_names" not in data.files:
+                return None
+            raw_names = data["target_names"]
+        if isinstance(raw_names, np.ndarray):
+            lst = [str(x) for x in raw_names.tolist()]
+        else:
+            lst = [str(x) for x in raw_names]
+        if not lst:
+            return None
+        max_idx = 0
+        found = False
+        for n in lst:
+            m = re.match(r"^S(\d)(\d)_", n, flags=re.IGNORECASE)
+            if m:
+                found = True
+                a = int(m.group(1))
+                b = int(m.group(2))
+                if a > max_idx:
+                    max_idx = a
+                if b > max_idx:
+                    max_idx = b
+        if found:
+            return int(max_idx)
+        if len(lst) % 2 != 0:
+            return None
+        m = len(lst) // 2
+        r = int(round(math.sqrt(m)))
+        if r * r == m:
+            return r
+        return None
+    except Exception:
+        return None
+
+
 @app.get("/api/models/sweep-options")
 def list_model_sweep_options():
     root = _sweeps_root_for_active_project()
@@ -1672,7 +1719,10 @@ def list_model_sweep_options():
         if not npz_files:
             continue
 
-        items.append({"sweep_name": p.name, "npz_files": npz_files})
+        sim_npz = p / "simulation_data.npz"
+        num_ports = _infer_num_ports_from_simulation_npz(sim_npz)
+
+        items.append({"sweep_name": p.name, "npz_files": npz_files, "num_ports": num_ports})
 
     items.sort(key=lambda x: x["sweep_name"])
     return {"sweeps": items}
