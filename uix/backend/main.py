@@ -1409,7 +1409,12 @@ def _default_model_draft(model_name: str = "", model_type: str = "ANN") -> Dict[
             "model_config": {
                 "model_name": model_name,
                 "data_split": {"test_size": 0.2, "random_state": 42},
-                "normalization": {"feature_method": "standard", "target_method": "standard"},
+                "normalization": {
+                    "feature_method": "standard",
+                    "target_method": "standard",
+                    "feature_methods": {},
+                    "target_methods": {},
+                },
                 "training": {
                     "epochs": 100,
                     "batch_size": 32,

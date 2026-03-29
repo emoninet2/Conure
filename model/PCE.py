@@ -10,9 +10,9 @@ import logging
 
 from numpy.polynomial.legendre import legval
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
 from sklearn.linear_model import LinearRegression
 
+import normalization
 import report
 
 
@@ -40,54 +40,6 @@ def get_data_split_config(config):
         raise ValueError(f"data_split.test_size must be between 0 and 1, got {test_size}")
 
     return test_size, random_state
-
-
-# ============================================================
-# NORMALIZATION
-# ============================================================
-def normalize_data_sets(
-    feature_train,
-    feature_test,
-    target_train,
-    target_test,
-    feature_method="standard",
-    target_method="standard",
-):
-    scalers = {
-        "standard": StandardScaler,
-        "minmax": MinMaxScaler,
-        "robust": RobustScaler,
-        "maxabs": MaxAbsScaler,
-        "none": None,
-    }
-
-    feature_method = str(feature_method).strip().lower()
-    target_method = str(target_method).strip().lower()
-
-    if feature_method not in scalers:
-        raise ValueError(f"Unsupported feature normalization method: {feature_method}")
-    if target_method not in scalers:
-        raise ValueError(f"Unsupported target normalization method: {target_method}")
-
-    if scalers[feature_method] is None:
-        f_scaler = None
-        f_train_n = np.asarray(feature_train, dtype=np.float64)
-        f_test_n = np.asarray(feature_test, dtype=np.float64)
-    else:
-        f_scaler = scalers[feature_method]()
-        f_train_n = f_scaler.fit_transform(feature_train)
-        f_test_n = f_scaler.transform(feature_test)
-
-    if scalers[target_method] is None:
-        t_scaler = None
-        t_train_n = np.asarray(target_train, dtype=np.float64)
-        t_test_n = np.asarray(target_test, dtype=np.float64)
-    else:
-        t_scaler = scalers[target_method]()
-        t_train_n = t_scaler.fit_transform(target_train)
-        t_test_n = t_scaler.transform(target_test)
-
-    return f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler
 
 
 # ============================================================
@@ -165,13 +117,6 @@ def _get_degree(train_config):
     return degree
 
 
-def _get_normalization_config(config):
-    normalization_cfg = config.get("normalization", {}) or {}
-    feature_method = normalization_cfg.get("feature_method", "standard")
-    target_method = normalization_cfg.get("target_method", "standard")
-    return feature_method, target_method
-
-
 def _save_training_artifacts(save_path, models, f_scaler, t_scaler, train_config):
     os.makedirs(save_path, exist_ok=True)
 
@@ -221,7 +166,13 @@ def generate_pce_report(
 ):
     degree = _get_degree(params)
     test_size, random_state = get_data_split_config(params)
-    feature_method, target_method = _get_normalization_config(params)
+    feature_norm_used, target_norm_used = normalization.normalization_usage_flags(
+        params,
+        n_features=int(X_train.shape[1]),
+        n_targets=int(y_train.shape[1]),
+        feature_default="standard",
+        target_default="standard",
+    )
 
     if f_scaler is not None:
         X_test_eval = f_scaler.transform(X_test)
@@ -246,9 +197,6 @@ def generate_pce_report(
     test_samples = X_test.shape[0]
 
     total_model_size_mb = _compute_model_size_mb(save_path)
-
-    feature_norm_used = str(feature_method).lower() != "none"
-    target_norm_used = str(target_method).lower() != "none"
 
     full_report = {
         "model_info": {
@@ -315,7 +263,6 @@ def train_model_pipeline(X, y, train_config, model_base_dir):
 
     degree = _get_degree(train_config)
     test_size, random_state = get_data_split_config(train_config)
-    feature_method, target_method = _get_normalization_config(train_config)
 
     # 1. Split
     f_train, f_test, t_train, t_test = train_test_split(
@@ -326,13 +273,14 @@ def train_model_pipeline(X, y, train_config, model_base_dir):
     )
 
     # 2. Normalize
-    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
+    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalization.normalize_train_test_split(
+        train_config,
         f_train,
         f_test,
         t_train,
         t_test,
-        feature_method=feature_method,
-        target_method=target_method,
+        feature_default="standard",
+        target_default="standard",
     )
 
     # 3. Train

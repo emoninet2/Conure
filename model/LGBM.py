@@ -10,14 +10,9 @@ import joblib
 import lightgbm as lgb
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    RobustScaler,
-    MaxAbsScaler,
-)
 
 import data_translator
+import normalization
 import report
 
 
@@ -30,54 +25,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
-
-
-# ============================================================
-# NORMALIZATION
-# ============================================================
-def normalize_data_sets(
-    feature_train,
-    feature_test,
-    target_train,
-    target_test,
-    feature_method="none",
-    target_method="none",
-):
-    scalers = {
-        "standard": StandardScaler,
-        "minmax": MinMaxScaler,
-        "robust": RobustScaler,
-        "maxabs": MaxAbsScaler,
-        "none": None,
-    }
-
-    feature_method = str(feature_method).strip().lower()
-    target_method = str(target_method).strip().lower()
-
-    if feature_method not in scalers:
-        raise ValueError(f"Unsupported feature normalization method: {feature_method}")
-    if target_method not in scalers:
-        raise ValueError(f"Unsupported target normalization method: {target_method}")
-
-    if scalers[feature_method] is None:
-        f_scaler = None
-        f_train_norm = np.asarray(feature_train, dtype=np.float64)
-        f_test_norm = np.asarray(feature_test, dtype=np.float64)
-    else:
-        f_scaler = scalers[feature_method]()
-        f_train_norm = f_scaler.fit_transform(feature_train)
-        f_test_norm = f_scaler.transform(feature_test)
-
-    if scalers[target_method] is None:
-        t_scaler = None
-        t_train_norm = np.asarray(target_train, dtype=np.float64)
-        t_test_norm = np.asarray(target_test, dtype=np.float64)
-    else:
-        t_scaler = scalers[target_method]()
-        t_train_norm = t_scaler.fit_transform(target_train)
-        t_test_norm = t_scaler.transform(target_test)
-
-    return f_train_norm, f_test_norm, t_train_norm, t_test_norm, f_scaler, t_scaler
 
 
 # ============================================================
@@ -230,10 +177,13 @@ def generate_report(
     model_size_mb = round(model_size_bytes / (1024**2), 2)
 
     test_size, random_state = get_data_split_config(config)
-    normalization_cfg = config.get("normalization", {}) or {}
-
-    feature_norm_used = str(normalization_cfg.get("feature_method", "none")).lower() != "none"
-    target_norm_used = str(normalization_cfg.get("target_method", "none")).lower() != "none"
+    feature_norm_used, target_norm_used = normalization.normalization_usage_flags(
+        config,
+        n_features=int(f_train.shape[1]),
+        n_targets=int(t_train.shape[1]),
+        feature_default="none",
+        target_default="none",
+    )
 
     device_type = str(config.get("lgb_params", {}).get("device_type", "cpu")).lower()
     device = str(config.get("lgb_params", {}).get("device", device_type)).lower()
@@ -303,14 +253,14 @@ def train_model_pipeline(X, y, config, model_base_dir):
     )
 
     # 2. Normalize
-    normalization_cfg = config.get("normalization", {}) or {}
-    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalize_data_sets(
+    f_train_n, f_test_n, t_train_n, t_test_n, f_scaler, t_scaler = normalization.normalize_train_test_split(
+        config,
         f_train,
         f_test,
         t_train,
         t_test,
-        feature_method=normalization_cfg.get("feature_method", "none"),
-        target_method=normalization_cfg.get("target_method", "none"),
+        feature_default="none",
+        target_default="none",
     )
 
     # 3. Train LightGBM models

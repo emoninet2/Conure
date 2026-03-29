@@ -253,12 +253,29 @@ def _selection_info(X, y, feature_names, target_names, translation_metadata=None
     }
 
 
-def _resolve_selected_indices(selected_names: Sequence[str], selectable_names: Sequence[str], mode: str, group_size: int, flat_width: int, axis_label: str) -> Tuple[List[int], List[str]]:
+def _resolve_selected_indices(selected_names: Sequence[str], selectable_names: Sequence[str], mode: str, group_size: int, flat_width: int, axis_label: str) -> Tuple[List[int], List[str], List[str]]:
+    """
+    Returns ``(indices, ordered_group_names, column_labels)`` where ``column_labels`` has one
+    logical name per *output* column (length == len(indices)), for per-feature normalization maps.
+    """
     selectable_names = _normalize_names(selectable_names)
     selected_names = _normalize_names(selected_names)
 
     if not selected_names:
-        return list(range(flat_width)), list(selectable_names)
+        indices = list(range(flat_width))
+        column_labels: List[str] = []
+        if mode == "grouped" and group_size > 0:
+            for j in range(flat_width):
+                gi = j // group_size
+                column_labels.append(
+                    selectable_names[gi] if gi < len(selectable_names) else f"col_{j}"
+                )
+        else:
+            for j in range(flat_width):
+                column_labels.append(
+                    selectable_names[j] if j < len(selectable_names) else f"col_{j}"
+                )
+        return indices, list(selectable_names), column_labels
 
     name_to_idx = {name: idx for idx, name in enumerate(selectable_names)}
     missing = [name for name in selected_names if name not in name_to_idx]
@@ -266,7 +283,8 @@ def _resolve_selected_indices(selected_names: Sequence[str], selectable_names: S
         raise ValueError(f"Unknown selected {axis_label} name(s): {missing}. Available: {selectable_names}")
 
     ordered_names = []
-    indices: List[int] = []
+    indices = []
+    column_labels = []
     for name in selected_names:
         if name in ordered_names:
             continue
@@ -275,21 +293,24 @@ def _resolve_selected_indices(selected_names: Sequence[str], selectable_names: S
         if mode == "grouped":
             start = idx * group_size
             stop = min(start + group_size, flat_width)
-            indices.extend(range(start, stop))
+            for i in range(start, stop):
+                indices.append(i)
+                column_labels.append(name)
         else:
             indices.append(idx)
+            column_labels.append(name)
 
     if not indices:
         raise ValueError(f"Selection for axis '{axis_label}' removed all columns.")
 
-    return indices, ordered_names
+    return indices, ordered_names, column_labels
 
 
 def apply_translated_selection(X, y, feature_names, target_names, selection=None, translation_metadata=None):
     selection = selection or {}
     info = _selection_info(X, y, feature_names, target_names, translation_metadata)
 
-    x_indices, resolved_x_names = _resolve_selected_indices(
+    x_indices, resolved_x_names, x_column_labels = _resolve_selected_indices(
         selection.get("x_names", []),
         info["x"]["selectable_names"],
         info["x"]["mode"],
@@ -297,7 +318,7 @@ def apply_translated_selection(X, y, feature_names, target_names, selection=None
         info["x"]["flat_width"],
         "X",
     )
-    y_indices, resolved_y_names = _resolve_selected_indices(
+    y_indices, resolved_y_names, y_column_labels = _resolve_selected_indices(
         selection.get("y_names", []),
         info["y"]["selectable_names"],
         info["y"]["mode"],
@@ -330,6 +351,8 @@ def apply_translated_selection(X, y, feature_names, target_names, selection=None
     updated_meta["model_output_shape"] = [int(y_sel.shape[0]), int(y_sel.shape[1])]
     updated_meta["model_input_shape_per_sample"] = [int(X_sel.shape[1])]
     updated_meta["model_output_shape_per_sample"] = [int(y_sel.shape[1])]
+    updated_meta["feature_column_names"] = list(x_column_labels)
+    updated_meta["target_column_names"] = list(y_column_labels)
 
     return X_sel, y_sel, resolved_x_names, resolved_y_names, updated_meta, info
 
@@ -438,10 +461,14 @@ def train_model(npz_file, model_type, translate_config, model_config, output_dir
         translation_metadata=translation_metadata,
     )
 
-    if str(effective_config["model_type"]).strip().upper() == "PCE":
-        model_module.train_model_pipeline(npz_file, output_dir, effective_config)
-    else:
-        model_module.train_model_pipeline(X, y, effective_config, output_dir)
+    norm_cfg = effective_config.setdefault("normalization", {})
+    if not isinstance(norm_cfg, dict):
+        norm_cfg = {}
+        effective_config["normalization"] = norm_cfg
+    norm_cfg["feature_column_names"] = translation_metadata.get("feature_column_names")
+    norm_cfg["target_column_names"] = translation_metadata.get("target_column_names")
+
+    model_module.train_model_pipeline(X, y, effective_config, output_dir)
 
     model_artifact_dir = get_model_artifact_dir(output_dir, effective_config)
     artifact_metadata = build_artifact_metadata(
