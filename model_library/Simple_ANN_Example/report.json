@@ -1,0 +1,136 @@
+{
+    "model_info": {
+        "model_name": "Simple_ANN_Example",
+        "model_type": "ANN",
+        "framework": "TensorFlow",
+        "framework_version": "2.20.0",
+        "architecture_type": "sequential",
+        "trainable_parameters": 2501,
+        "model_size_mb": 0.06,
+        "training_duration_sec": 6.761400461196899,
+        "completion_timestamp": "2026-03-29 19:43:36"
+    },
+    "data_info": {
+        "input_dim": 3,
+        "output_dim": 5,
+        "total_samples": 1000,
+        "train_samples": 640,
+        "validation_samples": 160,
+        "test_samples": 200,
+        "split_strategy": "train_test_split",
+        "test_size": 0.2,
+        "validation_split": 0.2,
+        "random_state": 42
+    },
+    "training_summary": {
+        "epochs_completed": 31,
+        "final_train_loss": 0.006346444133669138,
+        "final_val_loss": 0.000689755950588733,
+        "best_val_loss": 0.0005664683994837105
+    },
+    "performance": {
+        "metrics": {
+            "Aggregate": {
+                "R2": 0.9993270039558411,
+                "RMSE": 0.008703805084041198,
+                "MAE": 0.006290373392403126
+            },
+            "Per-Output": {
+                "RMSE_Mean": 0.008040699176490307,
+                "RMSE_Max": 0.011840162798762321,
+                "RMSE_Min": 0.0038931118324398994,
+                "R2_Mean_Finite": 0.9993270039558411,
+                "R2_Min_Finite": 0.9991324543952942,
+                "Variance_Min": 0.02617879956960678,
+                "Variance_Max": 0.17232553660869598,
+                "Near_Zero_Variance_Count": 0
+            },
+            "Per-Sample": {
+                "RMSE_Mean": 0.007571657188236713,
+                "RMSE_Max": 0.027825050055980682
+            }
+        },
+        "evaluation_protocol": {
+            "evaluation_dataset": "held-out test set",
+            "predictions_inverse_transformed": true,
+            "normalization_used": true,
+            "feature_normalization_used": true,
+            "target_normalization_used": true
+        }
+    },
+    "system_info": {
+        "os": "Linux",
+        "os_release": "6.8.0-90-generic",
+        "processor": "x86_64",
+        "physical_cores": 8,
+        "total_cores": 8,
+        "ram_total_gb": 31.34,
+        "python_version": "3.12.3"
+    },
+    "hardware_info": {
+        "gpu_utilized": true,
+        "gpu_count": 1,
+        "gpu_details": [
+            {
+                "name": "GRID V100-8Q",
+                "compute_capability": [
+                    7,
+                    0
+                ]
+            }
+        ],
+        "peak_process_ram_gb": 1.28
+    },
+    "configuration": {
+        "model_name": "Simple_ANN_Example",
+        "model_type": "ANN",
+        "architecture_type": "sequential",
+        "data_split": {
+            "test_size": 0.2,
+            "random_state": 42
+        },
+        "normalization": {
+            "feature_method": "standard",
+            "target_method": "standard"
+        },
+        "training": {
+            "epochs": 50,
+            "batch_size": 16,
+            "loss": "mse",
+            "metrics": [
+                "mae"
+            ],
+            "validation_split": 0.2,
+            "optimizer": {
+                "type": "Adam",
+                "learning_rate": 0.001
+            }
+        },
+        "architecture": [
+            {
+                "type": "Dense",
+                "units": 64,
+                "activation": "relu"
+            },
+            {
+                "type": "Dropout",
+                "rate": 0.1
+            },
+            {
+                "type": "Dense",
+                "units": 32,
+                "activation": "relu"
+            },
+            {
+                "type": "Dense",
+                "units": 5,
+                "activation": "linear"
+            }
+        ],
+        "early_stopping": {
+            "monitor": "val_loss",
+            "patience": 5,
+            "restore_best_weights": true
+        }
+    }
+}

@@ -16,3 +16,5 @@ lightgbm
 catboost
 uvicorn
 fastapi
+pydot
+graphviz

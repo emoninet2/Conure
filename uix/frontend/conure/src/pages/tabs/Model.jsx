@@ -79,6 +79,224 @@ const DEFAULT_DRAFT = {
 
 const DEFAULT_REPORT = null;
 const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
+const DEFAULT_ANN_MODEL_CONFIG = {
+  model_name: "",
+  architecture_type: "sequential",
+  normalization: {
+    feature_method: "standard",
+    target_method: "standard",
+  },
+  training: {
+    epochs: 100,
+    batch_size: 32,
+    loss: "mse",
+    metrics: ["mae"],
+    validation_split: 0.2,
+    optimizer: {
+      type: "Adam",
+      learning_rate: 0.001,
+      momentum: 0.9,
+    },
+  },
+  early_stopping: {
+    monitor: "val_loss",
+    patience: 15,
+    restore_best_weights: true,
+  },
+  architecture: [
+    { type: "Dense", units: 128, activation: "relu" },
+    { type: "Dense", units: "AUTO", activation: "linear" },
+  ],
+  graph: {
+    input_name: "features",
+    nodes: [],
+    outputs: [],
+  },
+};
+
+const NORMALIZATION_METHOD_OPTIONS = ["standard", "minmax", "robust", "maxabs", "none"];
+const OPTIMIZER_TYPE_OPTIONS = ["Adam", "SGD", "RMSprop", "Adagrad"];
+const GRAPH_OP_OPTIONS = ["Dense", "Dropout", "Slice", "Concatenate", "Identity"];
+const REGULARIZER_TYPE_OPTIONS = ["none", "l1", "l2", "l1_l2"];
+const ACTIVATION_OPTIONS = [
+  "relu",
+  "linear",
+  "sigmoid",
+  "tanh",
+  "softplus",
+  "selu",
+  "elu",
+  "swish",
+  "gelu",
+];
+
+function normalizeMetricsList(value) {
+  if (Array.isArray(value)) return value.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((x) => x.trim()).filter(Boolean);
+  return ["mae"];
+}
+
+function csvToList(text) {
+  return String(text || "").split(",").map((x) => x.trim()).filter(Boolean);
+}
+
+function listToCsv(list) {
+  return Array.isArray(list) ? list.join(", ") : "";
+}
+
+
+
+function CsvTextInput({ value, onCommit, disabled, placeholder = "" }) {
+  const [text, setText] = useState(listToCsv(value));
+
+  useEffect(() => {
+    setText(listToCsv(value));
+  }, [value]);
+
+  return (
+    <input
+      value={text}
+      placeholder={placeholder}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => onCommit(csvToList(text))}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(csvToList(text));
+          e.currentTarget.blur();
+        }
+      }}
+      disabled={disabled}
+    />
+  );
+}
+
+function NumberCsvTextInput({ value, onCommit, disabled, placeholder = "" }) {
+  const [text, setText] = useState(listToCsv(value));
+
+  useEffect(() => {
+    setText(listToCsv(value));
+  }, [value]);
+
+  return (
+    <input
+      value={text}
+      placeholder={placeholder}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => onCommit(csvToList(text).map((x) => Number(x)).filter((x) => !Number.isNaN(x)))}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onCommit(csvToList(text).map((x) => Number(x)).filter((x) => !Number.isNaN(x)));
+          e.currentTarget.blur();
+        }
+      }}
+      disabled={disabled}
+    />
+  );
+}
+
+function nodeNamePlaceholder(op, index) {
+  const base = String(op || "node").toLowerCase();
+  return `e.g. ${base}_${Number(index) + 1}`;
+}
+
+function buildGraphBuildPreviewRows(graph) {
+  const safeGraph = graph && typeof graph === "object" ? graph : {};
+  const inputName = String(safeGraph.input_name || "features").trim() || "features";
+  const nodes = Array.isArray(safeGraph.nodes) ? safeGraph.nodes : [];
+  const outputs = Array.isArray(safeGraph.outputs) ? safeGraph.outputs : [];
+
+  const rows = [
+    {
+      step: 0,
+      ref: inputName,
+      kind: "Input",
+      inputs: "—",
+      details: "Flat translated feature matrix",
+      status: "ok",
+    },
+  ];
+
+  const seen = new Set([inputName]);
+
+  nodes.forEach((node, index) => {
+    const op = String(node?.op || "").trim() || "Dense";
+    const rawName = String(node?.name || "").trim();
+    const ref = rawName || `(unnamed node ${index + 1})`;
+    const inputs = Array.isArray(node?.inputs) ? node.inputs.map((x) => String(x).trim()).filter(Boolean) : [];
+
+    let details = "";
+    if (op === "Dense") details = `units=${node?.units ?? ""}, activation=${node?.activation || "linear"}`;
+    else if (op === "Dropout") details = `rate=${node?.rate ?? 0.1}`;
+    else if (op === "Slice") details = `indices=[${Array.isArray(node?.indices) ? node.indices.join(", ") : ""}]`;
+    else if (op === "Concatenate") details = `axis=${node?.axis ?? -1}`;
+    else if (op === "Identity") details = "pass-through";
+    else details = "";
+
+    let status = "ok";
+    if (!rawName) status = "missing name";
+    else if (seen.has(rawName)) status = "duplicate name";
+    else if (inputs.some((name) => !seen.has(name))) status = "unknown / future ref";
+
+    rows.push({
+      step: index + 1,
+      ref,
+      kind: op,
+      inputs: inputs.length ? inputs.join(", ") : "—",
+      details,
+      status,
+    });
+
+    if (rawName && !seen.has(rawName)) seen.add(rawName);
+  });
+
+  outputs.forEach((name, idx) => {
+    const ref = String(name || "").trim();
+    rows.push({
+      step: nodes.length + idx + 1,
+      ref: ref || `(blank output ${idx + 1})`,
+      kind: "Output",
+      inputs: ref || "—",
+      details: "Final model output ref",
+      status: ref && seen.has(ref) ? "ok" : "unknown ref",
+    });
+  });
+
+  return rows;
+}
+
+function normalizeAnnModelConfig(config) {
+  const src = config && typeof config === "object" && !Array.isArray(config) ? cloneJson(config) : {};
+  return {
+    ...cloneJson(DEFAULT_ANN_MODEL_CONFIG),
+    ...src,
+    normalization: {
+      ...DEFAULT_ANN_MODEL_CONFIG.normalization,
+      ...(src.normalization || {}),
+    },
+    training: {
+      ...DEFAULT_ANN_MODEL_CONFIG.training,
+      ...(src.training || {}),
+      metrics: normalizeMetricsList((src.training || {}).metrics),
+      optimizer: {
+        ...DEFAULT_ANN_MODEL_CONFIG.training.optimizer,
+        ...((src.training || {}).optimizer || {}),
+      },
+    },
+    early_stopping: {
+      ...DEFAULT_ANN_MODEL_CONFIG.early_stopping,
+      ...(src.early_stopping || {}),
+    },
+    architecture: Array.isArray(src.architecture) ? src.architecture : cloneJson(DEFAULT_ANN_MODEL_CONFIG.architecture),
+    graph: {
+      ...DEFAULT_ANN_MODEL_CONFIG.graph,
+      ...(src.graph || {}),
+      nodes: Array.isArray(src?.graph?.nodes) ? src.graph.nodes : [],
+      outputs: Array.isArray(src?.graph?.outputs) ? src.graph.outputs : [],
+    },
+  };
+}
 
 async function fetchDefaultModelDraft(model_type, model_name = "") {
   const res = await fetch(`${API_BASE}/api/models/default-config`, {
@@ -476,6 +694,573 @@ function SelectionList({ title, info, value, onChange, disabled }) {
   );
 }
 
+function SectionCard({ title, subtitle, children }) {
+  return (
+    <div style={{ border: "1px solid #ddd", padding: 12, background: "#fafafa" }}>
+      <div style={{ fontWeight: "bold", marginBottom: 6 }}>{title}</div>
+      {subtitle ? <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>{subtitle}</div> : null}
+      <div style={{ display: "grid", gap: 10 }}>{children}</div>
+    </div>
+  );
+}
+
+
+function buildTranslatedFieldOptions(preview, selectedNames, axis) {
+  const info = preview?.selection?.[axis];
+  const selectableNames = Array.isArray(info?.selectable_names) ? info.selectable_names : [];
+  const selectedFromPreview = Array.isArray(info?.selected_names) ? info.selected_names : [];
+  const chosenNames = Array.isArray(selectedNames) && selectedNames.length
+    ? selectedNames.filter((name) => selectableNames.includes(name))
+    : (selectedFromPreview.length ? selectedFromPreview : selectableNames);
+
+  const mode = info?.mode || "direct";
+  const groupSize = Number(info?.group_size || 1);
+
+  let offset = 0;
+  return chosenNames.map((name) => {
+    const width = mode === "grouped" ? Math.max(1, groupSize) : 1;
+    const indices = Array.from({ length: width }, (_, i) => offset + i);
+    offset += width;
+    return { name, indices, width };
+  });
+}
+
+
+function getTranslatedAxisFlatWidth(preview, selectedNames, axis) {
+  const options = buildTranslatedFieldOptions(preview, selectedNames, axis);
+  const total = options.reduce((sum, item) => sum + Number(item.width || 0), 0);
+  if (total > 0) return total;
+  const flatWidth = Number(preview?.selection?.[axis]?.flat_width || 0);
+  return flatWidth > 0 ? flatWidth : 1;
+}
+
+function sanitizeNodeBaseName(name) {
+  return String(name || "node")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase() || "node";
+}
+
+function buildUniqueNodeName(existingNames, baseName) {
+  const used = new Set((existingNames || []).filter(Boolean));
+  const base = sanitizeNodeBaseName(baseName);
+  if (!used.has(base)) return base;
+  let idx = 2;
+  while (used.has(`${base}_${idx}`)) idx += 1;
+  return `${base}_${idx}`;
+}
+
+function renderRegularizerEditor({ regularizer, onChange, disabled }) {
+  const type = regularizer?.type || "none";
+  return (
+    <>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span>Regularizer</span>
+        <select
+          value={type}
+          onChange={(e) => {
+            const nextType = e.target.value;
+            if (nextType === "none") {
+              onChange(undefined);
+            } else if (nextType === "l1_l2") {
+              onChange({ type: "l1_l2", l1: regularizer?.l1 ?? 0.001, l2: regularizer?.l2 ?? 0.001 });
+            } else {
+              onChange({ type: nextType, value: regularizer?.value ?? 0.001 });
+            }
+          }}
+          disabled={disabled}
+        >
+          {REGULARIZER_TYPE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </label>
+      {type === "l1" || type === "l2" ? (
+        <label style={{ display: "grid", gap: 6 }}>
+          <span>Regularizer value</span>
+          <input
+            type="number"
+            step="any"
+            value={regularizer?.value ?? 0.001}
+            onChange={(e) => onChange({ ...regularizer, type, value: Number(e.target.value || 0) })}
+            disabled={disabled}
+          />
+        </label>
+      ) : null}
+      {type === "l1_l2" ? (
+        <>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>L1</span>
+            <input
+              type="number"
+              step="any"
+              value={regularizer?.l1 ?? 0.001}
+              onChange={(e) => onChange({ ...regularizer, type: "l1_l2", l1: Number(e.target.value || 0) })}
+              disabled={disabled}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>L2</span>
+            <input
+              type="number"
+              step="any"
+              value={regularizer?.l2 ?? 0.001}
+              onChange={(e) => onChange({ ...regularizer, type: "l1_l2", l2: Number(e.target.value || 0) })}
+              disabled={disabled}
+            />
+          </label>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+
+function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, translateSelection }) {
+  const cfg = normalizeAnnModelConfig(value);
+  const architectureType = cfg.architecture_type || "sequential";
+  const selectedXNames = translateSelection?.x_names || [];
+  const selectedYNames = translateSelection?.y_names || [];
+  const translatedInputOptions = buildTranslatedFieldOptions(translatePreview, selectedXNames, "x");
+  const translatedTargetOptions = buildTranslatedFieldOptions(translatePreview, selectedYNames, "y");
+  const [showGraphBuildTable, setShowGraphBuildTable] = useState(false);
+  const [showKerasArchitecture, setShowKerasArchitecture] = useState(false);
+  const [kerasArchitectureLoading, setKerasArchitectureLoading] = useState(false);
+  const [kerasArchitectureError, setKerasArchitectureError] = useState("");
+  const [kerasArchitectureText, setKerasArchitectureText] = useState("");
+  const graphBuildPreviewRows = useMemo(() => buildGraphBuildPreviewRows(cfg.graph), [cfg.graph]);
+  const previewInputDim = useMemo(
+    () => getTranslatedAxisFlatWidth(translatePreview, selectedXNames, "x"),
+    [translatePreview, selectedXNames]
+  );
+  const previewOutputDim = useMemo(
+    () => getTranslatedAxisFlatWidth(translatePreview, selectedYNames, "y"),
+    [translatePreview, selectedYNames]
+  );
+
+  const commit = (updater) => {
+    const next = typeof updater === "function" ? updater(cloneJson(cfg)) : cloneJson(updater);
+    onChange(normalizeAnnModelConfig(next));
+  };
+
+  const setTop = (path, nextValue) => {
+    commit((prev) => {
+      let cur = prev;
+      for (let i = 0; i < path.length - 1; i++) cur = cur[path[i]];
+      cur[path[path.length - 1]] = nextValue;
+      return prev;
+    });
+  };
+
+  const addSeqLayer = (type = "Dense") => {
+    commit((prev) => {
+      prev.architecture.push(
+        type === "Dropout"
+          ? { type: "Dropout", rate: 0.1 }
+          : { type: "Dense", units: 64, activation: "relu" }
+      );
+      return prev;
+    });
+  };
+
+  const moveSequentialLayer = (index, direction) => {
+    commit((prev) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= prev.architecture.length) return prev;
+      const tmp = prev.architecture[index];
+      prev.architecture[index] = prev.architecture[nextIndex];
+      prev.architecture[nextIndex] = tmp;
+      return prev;
+    });
+  };
+
+  const addGraphNode = (op = "Dense") => {
+    const base =
+      op === "Slice"
+        ? { name: "", op: "Slice", inputs: [cfg.graph.input_name || "features"], indices: [0] }
+        : op === "Concatenate"
+        ? { name: "", op: "Concatenate", inputs: [] }
+        : op === "Dropout"
+        ? { name: "", op: "Dropout", inputs: [], rate: 0.1 }
+        : op === "Identity"
+        ? { name: "", op: "Identity", inputs: [] }
+        : { name: "", op: "Dense", inputs: [], units: 64, activation: "relu" };
+    commit((prev) => {
+      prev.graph.nodes.push(base);
+      return prev;
+    });
+  };
+
+  const moveGraphNode = (index, direction) => {
+    commit((prev) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= prev.graph.nodes.length) return prev;
+      const tmp = prev.graph.nodes[index];
+      prev.graph.nodes[index] = prev.graph.nodes[nextIndex];
+      prev.graph.nodes[nextIndex] = tmp;
+      return prev;
+    });
+  };
+
+
+  async function fetchKerasArchitecturePreview() {
+    try {
+      setKerasArchitectureLoading(true);
+      setKerasArchitectureError("");
+      const res = await fetch(`${API_BASE}/api/models/ann/preview-architecture`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model_config: cloneJson(cfg),
+          input_dim: previewInputDim,
+          output_dim: previewOutputDim,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setKerasArchitectureText(String(data?.summary_text || ""));
+      setShowKerasArchitecture(true);
+    } catch (err) {
+      setKerasArchitectureError(err?.message || String(err));
+      setShowKerasArchitecture(true);
+    } finally {
+      setKerasArchitectureLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      <SectionCard title="ANN model_config" subtitle="Interactive editor for ANN settings and architecture.">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Model name</span>
+            <input value={cfg.model_name || ""} onChange={(e) => setTop(["model_name"], e.target.value)} disabled={disabled} />
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Feature normalization</span>
+            <select value={cfg.normalization.feature_method} onChange={(e) => setTop(["normalization", "feature_method"], e.target.value)} disabled={disabled}>
+              {NORMALIZATION_METHOD_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </label>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Target normalization</span>
+            <select value={cfg.normalization.target_method} onChange={(e) => setTop(["normalization", "target_method"], e.target.value)} disabled={disabled}>
+              {NORMALIZATION_METHOD_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </label>
+        </div>
+
+      </SectionCard>
+
+      <SectionCard title="Training">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+          <label style={{ display: "grid", gap: 6 }}><span>Epochs</span><input type="number" value={cfg.training.epochs} onChange={(e) => setTop(["training", "epochs"], Number(e.target.value || 0))} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Batch size</span><input type="number" value={cfg.training.batch_size} onChange={(e) => setTop(["training", "batch_size"], Number(e.target.value || 0))} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Loss</span><input value={cfg.training.loss || ""} onChange={(e) => setTop(["training", "loss"], e.target.value)} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Metrics (csv)</span><CsvTextInput value={cfg.training.metrics} onCommit={(next) => setTop(["training", "metrics"], next)} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Validation split</span><input type="number" step="any" value={cfg.training.validation_split} onChange={(e) => setTop(["training", "validation_split"], Number(e.target.value || 0))} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Optimizer</span><select value={cfg.training.optimizer.type} onChange={(e) => setTop(["training", "optimizer", "type"], e.target.value)} disabled={disabled}>{OPTIMIZER_TYPE_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Learning rate</span><input type="number" step="any" value={cfg.training.optimizer.learning_rate} onChange={(e) => setTop(["training", "optimizer", "learning_rate"], Number(e.target.value || 0))} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Momentum</span><input type="number" step="any" value={cfg.training.optimizer.momentum} onChange={(e) => setTop(["training", "optimizer", "momentum"], Number(e.target.value || 0))} disabled={disabled} /></label>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Early stopping">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <label style={{ display: "grid", gap: 6 }}><span>Monitor</span><input value={cfg.early_stopping.monitor || ""} onChange={(e) => setTop(["early_stopping", "monitor"], e.target.value)} disabled={disabled} /></label>
+          <label style={{ display: "grid", gap: 6 }}><span>Patience</span><input type="number" value={cfg.early_stopping.patience} onChange={(e) => setTop(["early_stopping", "patience"], Number(e.target.value || 0))} disabled={disabled} /></label>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 24 }}>
+            <input type="checkbox" checked={!!cfg.early_stopping.restore_best_weights} onChange={(e) => setTop(["early_stopping", "restore_best_weights"], e.target.checked)} disabled={disabled} />
+            Restore best weights
+          </label>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Architecture builder">
+        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span>Architecture type</span>
+          <select value={architectureType} onChange={(e) => setTop(["architecture_type"], e.target.value)} disabled={disabled}>
+            <option value="sequential">sequential</option>
+            <option value="graph">graph</option>
+          </select>
+        </label>
+
+        {architectureType === "sequential" ? (
+          <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => addSeqLayer("Dense")} disabled={disabled}>Add Dense</button>
+              <button type="button" onClick={() => addSeqLayer("Dropout")} disabled={disabled}>Add Dropout</button>
+            </div>
+            {(cfg.architecture || []).map((layer, index) => (
+              <div key={index} style={{ border: "1px solid #e0e0e0", background: "#fff", padding: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                  <strong>Layer {index + 1}</strong>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => moveSequentialLayer(index, -1)} disabled={disabled || index === 0}>Up</button>
+                    <button type="button" onClick={() => moveSequentialLayer(index, 1)} disabled={disabled || index === (cfg.architecture || []).length - 1}>Down</button>
+                    <button type="button" onClick={() => commit((prev) => { prev.architecture.splice(index, 1); return prev; })} disabled={disabled}>Remove</button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                  <label style={{ display: "grid", gap: 6 }}><span>Type</span><select value={layer.type || "Dense"} onChange={(e) => commit((prev) => { const nextType = e.target.value; prev.architecture[index] = nextType === "Dropout" ? { type: "Dropout", rate: prev.architecture[index]?.rate ?? 0.1 } : { type: "Dense", units: prev.architecture[index]?.units ?? 64, activation: prev.architecture[index]?.activation || "relu", regularizer: prev.architecture[index]?.regularizer }; return prev; })} disabled={disabled}><option value="Dense">Dense</option><option value="Dropout">Dropout</option></select></label>
+                  {layer.type === "Dense" ? (
+                    <>
+                      <label style={{ display: "grid", gap: 6 }}><span>Units</span><input value={layer.units ?? ""} onChange={(e) => commit((prev) => { prev.architecture[index] = { ...prev.architecture[index], units: e.target.value }; return prev; })} disabled={disabled} /></label>
+                      <label style={{ display: "grid", gap: 6 }}><span>Activation</span><select value={layer.activation || "relu"} onChange={(e) => commit((prev) => { prev.architecture[index] = { ...prev.architecture[index], activation: e.target.value }; return prev; })} disabled={disabled}>{ACTIVATION_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>
+                      {renderRegularizerEditor({
+                        regularizer: layer.regularizer,
+                        disabled,
+                        onChange: (nextRegularizer) => commit((prev) => {
+                          const nextLayer = { ...prev.architecture[index] };
+                          if (nextRegularizer) nextLayer.regularizer = nextRegularizer;
+                          else delete nextLayer.regularizer;
+                          prev.architecture[index] = nextLayer;
+                          return prev;
+                        }),
+                      })}
+                    </>
+                  ) : null}
+                  {layer.type === "Dropout" ? (
+                    <label style={{ display: "grid", gap: 6 }}><span>Rate</span><input type="number" step="any" value={layer.rate ?? 0.1} onChange={(e) => commit((prev) => { prev.architecture[index] = { ...prev.architecture[index], rate: Number(e.target.value || 0) }; return prev; })} disabled={disabled} /></label>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+              <label style={{ display: "grid", gap: 6 }}><span>Input name</span><input value={cfg.graph.input_name || "features"} onChange={(e) => setTop(["graph", "input_name"], e.target.value)} disabled={disabled} /></label>
+              <label style={{ display: "grid", gap: 6 }}><span>Outputs (csv node names)</span><CsvTextInput value={cfg.graph.outputs} onCommit={(next) => setTop(["graph", "outputs"], next)} disabled={disabled} /></label>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ border: "1px solid #e0e0e0", background: "#fff", padding: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Translated input fields</div>
+                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+                  These are available after translation preview and X selection. Use them as guides for Slice-node indices.
+                </div>
+                {translatedInputOptions.length ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {translatedInputOptions.map((field) => (
+                      <div key={field.name} style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 4, background: "#fafafa", fontSize: 12 }}>
+                        <strong>{field.name}</strong> — indices [{field.indices.join(", ")}]
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>Refresh translated fields and choose X fields to see available input references.</div>
+                )}
+              </div>
+              <div style={{ border: "1px solid #e0e0e0", background: "#fff", padding: 10 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6 }}>Translated target fields</div>
+                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+                  These are available after translation preview and Y selection. Use them as guides when naming final Dense heads and graph outputs.
+                </div>
+                {translatedTargetOptions.length ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {translatedTargetOptions.map((field) => (
+                      <div key={field.name} style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 4, background: "#fafafa", fontSize: 12 }}>
+                        <strong>{field.name}</strong> — width {field.width}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>Refresh translated fields and choose Y fields to see available target references.</div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {GRAPH_OP_OPTIONS.map((op) => (
+                <button key={op} type="button" onClick={() => addGraphNode(op)} disabled={disabled}>Add {op}</button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Show the build order that the backend graph builder will follow.
+              </div>
+              <button type="button" onClick={() => setShowGraphBuildTable((v) => !v)} disabled={disabled === true && !graphBuildPreviewRows.length}>
+                {showGraphBuildTable ? "Hide build_graph_model table" : "Show build_graph_model table"}
+              </button>
+            </div>
+
+            {showGraphBuildTable ? (
+              <div style={{ overflowX: "auto", border: "1px solid #e0e0e0", background: "#fff" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#f5f5f5" }}>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Step</th>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Ref</th>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Kind</th>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Inputs</th>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Details</th>
+                      <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #ddd" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {graphBuildPreviewRows.map((row) => (
+                      <tr key={`${row.kind}-${row.step}-${row.ref}`}>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top" }}>{row.step}</td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top", fontFamily: "monospace" }}>{row.ref}</td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top" }}>{row.kind}</td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top", fontFamily: "monospace" }}>{row.inputs}</td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top" }}>{row.details || "—"}</td>
+                        <td style={{ padding: 8, borderBottom: "1px solid #eee", verticalAlign: "top" }}>{row.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+
+            {(cfg.graph.nodes || []).map((node, index) => {
+              const chosenFeature = translatedInputOptions.find((f) => listToCsv(f.indices) === listToCsv(node.indices));
+              const availableRefs = [cfg.graph.input_name || "features", ...(cfg.graph.nodes || []).slice(0, index).map((x) => String(x.name || "").trim()).filter(Boolean)];
+              return (
+                <div key={index} style={{ border: "1px solid #e0e0e0", background: "#fff", padding: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                    <strong>Node {index + 1}</strong>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button type="button" onClick={() => moveGraphNode(index, -1)} disabled={disabled || index === 0}>Up</button>
+                      <button type="button" onClick={() => moveGraphNode(index, 1)} disabled={disabled || index === (cfg.graph.nodes || []).length - 1}>Down</button>
+                      <button type="button" onClick={() => commit((prev) => { prev.graph.nodes.splice(index, 1); return prev; })} disabled={disabled}>Remove</button>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                    <label style={{ display: "grid", gap: 6 }}><span>Name</span><input placeholder={nodeNamePlaceholder(node.op, index)} value={node.name || ""} onChange={(e) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], name: e.target.value }; return prev; })} disabled={disabled} /></label>
+                    <label style={{ display: "grid", gap: 6 }}><span>Op</span><select value={node.op || "Dense"} onChange={(e) => commit((prev) => {
+                      const op = e.target.value;
+                      const current = { ...prev.graph.nodes[index], op };
+                      if (op === "Slice") current.indices = current.indices || [0];
+                      if (op === "Dropout") current.rate = current.rate ?? 0.1;
+                      if (op === "Concatenate") current.axis = current.axis ?? -1;
+                      if (op === "Dense") {
+                        current.units = current.units ?? 64;
+                        current.activation = current.activation || "relu";
+                      }
+                      prev.graph.nodes[index] = current;
+                      return prev;
+                    })} disabled={disabled}>{GRAPH_OP_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>
+                    <label style={{ display: "grid", gap: 6 }}><span>Inputs (csv)</span><CsvTextInput value={node.inputs} onCommit={(next) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], inputs: next }; return prev; })} disabled={disabled} /></label>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <span>Available refs</span>
+                      <div style={{ padding: "8px 10px", border: "1px solid #ddd", borderRadius: 4, background: "#fafafa", fontSize: 12 }}>
+                        {availableRefs.join(", ") || "No refs yet"}
+                      </div>
+                    </div>
+
+                    {node.op === "Slice" ? (
+                      <>
+                        <label style={{ display: "grid", gap: 6 }}>
+                          <span>Translated feature</span>
+                          <select
+                            value={chosenFeature?.name || ""}
+                            onChange={(e) => {
+                              const feature = translatedInputOptions.find((f) => f.name === e.target.value);
+                              if (!feature) return;
+                              commit((prev) => {
+                                const current = { ...prev.graph.nodes[index] };
+                                current.inputs = [prev.graph.input_name || "features"];
+                                current.indices = feature.indices;
+                                prev.graph.nodes[index] = current;
+                                return prev;
+                              });
+                            }}
+                            disabled={disabled || !translatedInputOptions.length}
+                          >
+                            <option value="">Pick feature…</option>
+                            {translatedInputOptions.map((f) => <option key={f.name} value={f.name}>{`${f.name} (${listToCsv(f.indices)})`}</option>)}
+                          </select>
+                        </label>
+                        <label style={{ display: "grid", gap: 6 }}><span>Indices (csv)</span><NumberCsvTextInput value={node.indices} onCommit={(next) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], indices: next }; return prev; })} disabled={disabled} /></label>
+                      </>
+                    ) : null}
+
+                    {node.op === "Dense" ? (
+                      <>
+                        <label style={{ display: "grid", gap: 6 }}><span>Units</span><input value={node.units ?? ""} onChange={(e) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], units: e.target.value }; return prev; })} disabled={disabled} /></label>
+                        <label style={{ display: "grid", gap: 6 }}><span>Activation</span><select value={node.activation || "relu"} onChange={(e) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], activation: e.target.value }; return prev; })} disabled={disabled}>{ACTIVATION_OPTIONS.map((x) => <option key={x} value={x}>{x}</option>)}</select></label>
+                        {renderRegularizerEditor({
+                          regularizer: node.regularizer,
+                          disabled,
+                          onChange: (nextRegularizer) => commit((prev) => {
+                            const nextNode = { ...prev.graph.nodes[index] };
+                            if (nextRegularizer) nextNode.regularizer = nextRegularizer;
+                            else delete nextNode.regularizer;
+                            prev.graph.nodes[index] = nextNode;
+                            return prev;
+                          }),
+                        })}
+                      </>
+                    ) : null}
+
+                    {node.op === "Dropout" ? (
+                      <label style={{ display: "grid", gap: 6 }}><span>Rate</span><input type="number" step="any" value={node.rate ?? 0.1} onChange={(e) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], rate: Number(e.target.value || 0) }; return prev; })} disabled={disabled} /></label>
+                    ) : null}
+
+                    {node.op === "Concatenate" ? (
+                      <label style={{ display: "grid", gap: 6 }}><span>Axis</span><input type="number" value={node.axis ?? -1} onChange={(e) => commit((prev) => { prev.graph.nodes[index] = { ...prev.graph.nodes[index], axis: Number(e.target.value || 0) }; return prev; })} disabled={disabled} /></label>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>
+              Build the current ANN config on the backend and show the real Keras model.summary() output.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setShowKerasArchitecture((v) => !v)} disabled={disabled && !kerasArchitectureText && !kerasArchitectureError}>
+                {showKerasArchitecture ? "Hide Keras architecture" : "View Keras architecture"}
+              </button>
+              <button type="button" onClick={fetchKerasArchitecturePreview} disabled={disabled || kerasArchitectureLoading}>
+                {kerasArchitectureLoading ? "Loading…" : "Refresh Keras architecture"}
+              </button>
+            </div>
+          </div>
+
+          {showKerasArchitecture ? (
+            <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Preview dimensions sent to backend: input_dim={previewInputDim}, output_dim={previewOutputDim}
+              </div>
+              {kerasArchitectureError ? (
+                <div style={{ color: "#b00020", whiteSpace: "pre-wrap", fontSize: 13 }}>
+                  {kerasArchitectureError}
+                </div>
+              ) : null}
+              <pre
+                style={{
+                  margin: 0,
+                  padding: 12,
+                  border: "1px solid #ddd",
+                  background: "#fff",
+                  overflowX: "auto",
+                  overflowY: "auto",
+                  maxHeight: 500,
+                  fontSize: 12,
+                  lineHeight: 1.4,
+                  whiteSpace: "pre",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                }}
+              >
+                {kerasArchitectureText || "No Keras architecture loaded yet."}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+
 export default function Model() {
   const setValue = useUiStore((s) => s.setValue);
 
@@ -494,6 +1279,10 @@ export default function Model() {
   const [modelConfigText, setModelConfigText] = useState(
     safePretty(DEFAULT_DRAFT.model_config)
   );
+  const [annConfigForm, setAnnConfigForm] = useState(
+    normalizeAnnModelConfig(DEFAULT_DRAFT.model_config)
+  );
+  const [useRawModelConfig, setUseRawModelConfig] = useState(false);
   const [translateSelection, setTranslateSelection] = useState(
     normalizeSelection(DEFAULT_DRAFT.translate_config?.selection)
   );
@@ -659,16 +1448,36 @@ export default function Model() {
     };
   }, [report, activeModel, draft.model_type]);
 
+  function syncAnnEditors(nextConfig) {
+    const normalized = normalizeAnnModelConfig(nextConfig);
+    setAnnConfigForm(normalized);
+    setModelConfigText(safePretty(normalized));
+  }
+
   function syncEditorsFromDraft(nextDraft) {
     setTranslateForm(normalizeTranslateConfig(nextDraft.translate_config));
-    setModelConfigText(safePretty(nextDraft.model_config));
     setTranslateSelection(normalizeSelection(nextDraft.translate_config?.selection));
+
+    if (String(nextDraft.model_type || "").toUpperCase() === "ANN") {
+      syncAnnEditors(nextDraft.model_config);
+    } else {
+      setModelConfigText(safePretty(nextDraft.model_config));
+    }
+  }
+
+  function handleAnnConfigChange(nextValue) {
+    const normalized = normalizeAnnModelConfig(nextValue);
+    setAnnConfigForm(normalized);
+    setModelConfigText(safePretty(normalized));
   }
 
   function buildDraftFromEditors() {
     const translate_config = buildTranslateConfigFromForm(translateForm);
     translate_config.selection = normalizeSelection(translateSelection);
-    const model_config = parseJsonText(modelConfigText, "Model config");
+    const isAnn = String(draft.model_type || "ANN").toUpperCase() === "ANN";
+    const model_config = isAnn && !useRawModelConfig
+      ? cloneJson(annConfigForm)
+      : parseJsonText(modelConfigText, "Model config");
 
     return {
       sweep_name: draft.sweep_name || "",
@@ -1360,27 +2169,76 @@ export default function Model() {
               )}
             </div>
 
-            <div>
-              <div style={{ marginBottom: 6, fontWeight: "bold" }}>
-                model_config.json
-              </div>
-              <textarea
-                value={modelConfigText}
-                onChange={(e) => setModelConfigText(e.target.value)}
-                disabled={running}
-                style={{
-                  width: "100%",
-                  maxWidth: "100%",
-                  height: "400px",
-                  fontFamily: "monospace",
-                  fontSize: "13px",
-                  padding: "10px",
-                  borderRadius: "8px",
-                  border: "1px solid #d0d7de",
-                  background: "#fff",
-                  boxSizing: "border-box",   // ⭐ IMPORTANT
-                }}
-              />
+            <div style={{ display: "grid", gap: 12 }}>
+              {String(draft.model_type || "ANN").toUpperCase() === "ANN" ? (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ marginBottom: 6, fontWeight: "bold" }}>ANN configuration</div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>Use the form editor for day-to-day work, or switch to raw JSON for advanced edits.</div>
+                    </div>
+                    <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input type="checkbox" checked={useRawModelConfig} onChange={(e) => setUseRawModelConfig(e.target.checked)} disabled={running} />
+                      Edit raw JSON
+                    </label>
+                  </div>
+
+                  {!useRawModelConfig ? (
+                    <AnnModelConfigEditor value={annConfigForm} onChange={handleAnnConfigChange} disabled={running} translatePreview={translatePreview} translateSelection={translateSelection} />
+                  ) : null}
+
+                  <div>
+                    <div style={{ marginBottom: 6, fontWeight: "bold" }}>model_config.json</div>
+                    <textarea
+                      value={modelConfigText}
+                      onChange={(e) => {
+                        setModelConfigText(e.target.value);
+                        if (useRawModelConfig) {
+                          try {
+                            handleAnnConfigChange(parseJsonText(e.target.value, "Model config"));
+                          } catch {
+                            // keep text editable even while JSON is temporarily invalid
+                          }
+                        }
+                      }}
+                      disabled={running || !useRawModelConfig}
+                      style={{
+                        width: "100%",
+                        maxWidth: "100%",
+                        height: useRawModelConfig ? "400px" : "220px",
+                        fontFamily: "monospace",
+                        fontSize: "13px",
+                        padding: "10px",
+                        borderRadius: "8px",
+                        border: "1px solid #d0d7de",
+                        background: useRawModelConfig ? "#fff" : "#f7f7f7",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: 6, fontWeight: "bold" }}>model_config.json</div>
+                  <textarea
+                    value={modelConfigText}
+                    onChange={(e) => setModelConfigText(e.target.value)}
+                    disabled={running}
+                    style={{
+                      width: "100%",
+                      maxWidth: "100%",
+                      height: "400px",
+                      fontFamily: "monospace",
+                      fontSize: "13px",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #d0d7de",
+                      background: "#fff",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

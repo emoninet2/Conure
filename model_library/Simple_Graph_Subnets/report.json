@@ -1,0 +1,183 @@
+{
+    "model_info": {
+        "model_name": "Simple_Graph_Subnets",
+        "model_type": "ANN",
+        "framework": "TensorFlow",
+        "framework_version": "2.20.0",
+        "architecture_type": "graph",
+        "trainable_parameters": 3589,
+        "model_size_mb": 0.08,
+        "training_duration_sec": 7.447772026062012,
+        "completion_timestamp": "2026-03-29 19:50:28"
+    },
+    "data_info": {
+        "input_dim": 3,
+        "output_dim": 5,
+        "total_samples": 1000,
+        "train_samples": 640,
+        "validation_samples": 160,
+        "test_samples": 200,
+        "split_strategy": "train_test_split",
+        "test_size": 0.2,
+        "validation_split": 0.2,
+        "random_state": 42
+    },
+    "training_summary": {
+        "epochs_completed": 50,
+        "final_train_loss": 0.00012363193673081696,
+        "final_val_loss": 0.0001506483240518719,
+        "best_val_loss": 0.00014597024710383266
+    },
+    "performance": {
+        "metrics": {
+            "Aggregate": {
+                "R2": 0.9998800158500671,
+                "RMSE": 0.0022520061349791693,
+                "MAE": 0.0014871724415570498
+            },
+            "Per-Output": {
+                "RMSE_Mean": 0.00186239555478096,
+                "RMSE_Max": 0.00402871984988451,
+                "RMSE_Min": 0.00016510329442098737,
+                "R2_Mean_Finite": 0.9998800158500671,
+                "R2_Min_Finite": 0.9998508095741272,
+                "Variance_Min": 0.00027779777883552015,
+                "Variance_Max": 0.1771896332502365,
+                "Near_Zero_Variance_Count": 0
+            },
+            "Per-Sample": {
+                "RMSE_Mean": 0.0020405659452080727,
+                "RMSE_Max": 0.005186267662793398
+            }
+        },
+        "evaluation_protocol": {
+            "evaluation_dataset": "held-out test set",
+            "predictions_inverse_transformed": true,
+            "normalization_used": true,
+            "feature_normalization_used": true,
+            "target_normalization_used": true
+        }
+    },
+    "system_info": {
+        "os": "Linux",
+        "os_release": "6.8.0-90-generic",
+        "processor": "x86_64",
+        "physical_cores": 8,
+        "total_cores": 8,
+        "ram_total_gb": 31.34,
+        "python_version": "3.12.3"
+    },
+    "hardware_info": {
+        "gpu_utilized": true,
+        "gpu_count": 1,
+        "gpu_details": [
+            {
+                "name": "GRID V100-8Q",
+                "compute_capability": [
+                    7,
+                    0
+                ]
+            }
+        ],
+        "peak_process_ram_gb": 1.28
+    },
+    "configuration": {
+        "model_name": "Simple_Graph_Subnets",
+        "model_type": "ANN",
+        "architecture_type": "graph",
+        "data_split": {
+            "test_size": 0.2,
+            "random_state": 42
+        },
+        "normalization": {
+            "feature_method": "standard",
+            "target_method": "standard"
+        },
+        "training": {
+            "epochs": 50,
+            "batch_size": 32,
+            "loss": "mse",
+            "metrics": [
+                "mae"
+            ],
+            "validation_split": 0.2,
+            "optimizer": {
+                "type": "Adam",
+                "learning_rate": 0.001
+            }
+        },
+        "graph": {
+            "input_name": "features",
+            "nodes": [
+                {
+                    "name": "geometry_slice",
+                    "op": "Slice",
+                    "inputs": [
+                        "features"
+                    ],
+                    "indices": [
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "name": "spacing_slice",
+                    "op": "Slice",
+                    "inputs": [
+                        "features"
+                    ],
+                    "indices": [
+                        2
+                    ]
+                },
+                {
+                    "name": "geo_dense",
+                    "op": "Dense",
+                    "inputs": [
+                        "geometry_slice"
+                    ],
+                    "units": 32,
+                    "activation": "relu"
+                },
+                {
+                    "name": "space_dense",
+                    "op": "Dense",
+                    "inputs": [
+                        "spacing_slice"
+                    ],
+                    "units": 16,
+                    "activation": "relu"
+                },
+                {
+                    "name": "merged",
+                    "op": "Concatenate",
+                    "inputs": [
+                        "geo_dense",
+                        "space_dense"
+                    ]
+                },
+                {
+                    "name": "dense_final",
+                    "op": "Dense",
+                    "inputs": [
+                        "merged"
+                    ],
+                    "units": 64,
+                    "activation": "relu"
+                },
+                {
+                    "name": "output_layer",
+                    "op": "Dense",
+                    "inputs": [
+                        "dense_final"
+                    ],
+                    "units": 5,
+                    "activation": "linear"
+                }
+            ],
+            "outputs": [
+                "output_layer"
+            ]
+        }
+    }
+}

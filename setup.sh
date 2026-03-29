@@ -44,6 +44,7 @@ if [ -f "requirements.txt" ]; then
     echo "✅ Dependencies installed."
 fi
 
+
 # Install TensorFlow inside the venv
 echo ""
 if command -v nvidia-smi >/dev/null 2>&1; then
@@ -62,3 +63,13 @@ echo "    source $VENV_DIR/bin/activate"
 echo ""
 echo "🧼 To deactivate, just run:"
 echo "    deactivate"
+
+
+
+#!/bin/bash
+# Install system-level dependencies
+sudo apt-get update
+sudo apt-get install -y graphviz
+
+# Install python dependencies
+pip install -r requirements.txt

@@ -1,0 +1,99 @@
+{
+    "model_name": "Simple_Graph_Subnets",
+    "model_type": "ANN",
+    "architecture_type": "graph",
+    "data_split": {
+        "test_size": 0.2,
+        "random_state": 42
+    },
+    "normalization": {
+        "feature_method": "standard",
+        "target_method": "standard"
+    },
+    "training": {
+        "epochs": 50,
+        "batch_size": 32,
+        "loss": "mse",
+        "metrics": [
+            "mae"
+        ],
+        "validation_split": 0.2,
+        "optimizer": {
+            "type": "Adam",
+            "learning_rate": 0.001
+        }
+    },
+    "graph": {
+        "input_name": "features",
+        "nodes": [
+            {
+                "name": "geometry_slice",
+                "op": "Slice",
+                "inputs": [
+                    "features"
+                ],
+                "indices": [
+                    0,
+                    1
+                ]
+            },
+            {
+                "name": "spacing_slice",
+                "op": "Slice",
+                "inputs": [
+                    "features"
+                ],
+                "indices": [
+                    2
+                ]
+            },
+            {
+                "name": "geo_dense",
+                "op": "Dense",
+                "inputs": [
+                    "geometry_slice"
+                ],
+                "units": 32,
+                "activation": "relu"
+            },
+            {
+                "name": "space_dense",
+                "op": "Dense",
+                "inputs": [
+                    "spacing_slice"
+                ],
+                "units": 16,
+                "activation": "relu"
+            },
+            {
+                "name": "merged",
+                "op": "Concatenate",
+                "inputs": [
+                    "geo_dense",
+                    "space_dense"
+                ]
+            },
+            {
+                "name": "dense_final",
+                "op": "Dense",
+                "inputs": [
+                    "merged"
+                ],
+                "units": 64,
+                "activation": "relu"
+            },
+            {
+                "name": "output_layer",
+                "op": "Dense",
+                "inputs": [
+                    "dense_final"
+                ],
+                "units": 5,
+                "activation": "linear"
+            }
+        ],
+        "outputs": [
+            "output_layer"
+        ]
+    }
+}

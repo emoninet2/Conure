@@ -2019,6 +2019,43 @@ def model_predict(payload: Dict[str, Any] = Body(...)):
     }
 
 
+
+@app.post("/api/models/ann/preview-architecture")
+def preview_ann_architecture(payload: Dict[str, Any] = Body(...)):
+    import io
+    import numpy as np
+    from model import ANN
+
+
+    model_config = payload.get("model_config", {})
+    input_dim = int(payload.get("input_dim", 1))
+    output_dim = int(payload.get("output_dim", 1))
+
+    dummy_x = np.zeros((4, input_dim), dtype=np.float32)
+    dummy_y = np.zeros((4, output_dim), dtype=np.float32)
+
+    config = ANN._prepare_config_for_training(dummy_x, dummy_y, model_config)
+
+    arch_type = str(config.get("architecture_type", "sequential")).lower()
+    if arch_type == "graph":
+        model = ANN._build_graph_model(input_dim=input_dim, output_dim=output_dim, config=config)
+    else:
+        model = ANN._build_sequential_model(input_dim=input_dim, output_dim=output_dim, config=config)
+
+    buf = io.StringIO()
+    model.summary(print_fn=lambda line: buf.write(line + "\n"), line_length=140, expand_nested=True)
+
+    return {
+        "ok": True,
+        "summary_text": buf.getvalue(),
+        "input_dim": input_dim,
+        "output_dim": output_dim,
+    }
+
+
+
+
+
 # ------------------------------------------------------------
 # Simulation (EMX) API
 # ------------------------------------------------------------

@@ -1,0 +1,52 @@
+{
+    "model_name": "Simple_ANN_Example",
+    "model_type": "ANN",
+    "architecture_type": "sequential",
+    "data_split": {
+        "test_size": 0.2,
+        "random_state": 42
+    },
+    "normalization": {
+        "feature_method": "standard",
+        "target_method": "standard"
+    },
+    "training": {
+        "epochs": 50,
+        "batch_size": 16,
+        "loss": "mse",
+        "metrics": [
+            "mae"
+        ],
+        "validation_split": 0.2,
+        "optimizer": {
+            "type": "Adam",
+            "learning_rate": 0.001
+        }
+    },
+    "architecture": [
+        {
+            "type": "Dense",
+            "units": 64,
+            "activation": "relu"
+        },
+        {
+            "type": "Dropout",
+            "rate": 0.1
+        },
+        {
+            "type": "Dense",
+            "units": 32,
+            "activation": "relu"
+        },
+        {
+            "type": "Dense",
+            "units": 5,
+            "activation": "linear"
+        }
+    ],
+    "early_stopping": {
+        "monitor": "val_loss",
+        "patience": 5,
+        "restore_best_weights": true
+    }
+}
