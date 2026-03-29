@@ -670,7 +670,7 @@ function SelectionList({ title, info, value, onChange, disabled }) {
     const next = selectedSet.has(name)
       ? selected.filter((x) => x !== name)
       : [...selected, name];
-    onChange(next);
+    onChange([...new Set(next)]);
   };
 
   return (
@@ -685,7 +685,7 @@ function SelectionList({ title, info, value, onChange, disabled }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" onClick={() => onChange([...names])} disabled={disabled}>All</button>
+          <button type="button" onClick={() => onChange([...new Set(names)])} disabled={disabled}>All</button>
           <button type="button" onClick={() => onChange([])} disabled={disabled}>None</button>
         </div>
       </div>
@@ -841,6 +841,8 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
   const architectureType = cfg.architecture_type || "sequential";
   const selectedXNames = translateSelection?.x_names || [];
   const selectedYNames = translateSelection?.y_names || [];
+  const uniqueSelectedXNames = [...new Set(selectedXNames)];
+  const uniqueSelectedYNames = [...new Set(selectedYNames)];
   const xNamesKey = selectedXNames.join("\0");
   const yNamesKey = selectedYNames.join("\0");
   const translatedInputOptions = buildTranslatedFieldOptions(translatePreview, selectedXNames, "x");
@@ -850,6 +852,46 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
   const [kerasArchitectureLoading, setKerasArchitectureLoading] = useState(false);
   const [kerasArchitectureError, setKerasArchitectureError] = useState("");
   const [kerasArchitectureText, setKerasArchitectureText] = useState("");
+
+  const commit = (updater) => {
+    const next = typeof updater === "function" ? updater(cloneJson(cfg)) : cloneJson(updater);
+    onChange(normalizeAnnModelConfig(next));
+  };
+
+  const setTop = (path, nextValue) => {
+    commit((prev) => {
+      let cur = prev;
+      for (let i = 0; i < path.length - 1; i++) cur = cur[path[i]];
+      cur[path[path.length - 1]] = nextValue;
+      return prev;
+    });
+  };
+
+  const applyFeatureDefaultToAllSelected = () => {
+    const def = cfg.normalization?.feature_method ?? "standard";
+    commit((prev) => {
+      prev.normalization = prev.normalization || {};
+      const fm = { ...(prev.normalization.feature_methods || {}) };
+      for (const name of uniqueSelectedXNames) {
+        fm[name] = def;
+      }
+      prev.normalization.feature_methods = fm;
+      return prev;
+    });
+  };
+
+  const applyTargetDefaultToAllSelected = () => {
+    const def = cfg.normalization?.target_method ?? "standard";
+    commit((prev) => {
+      prev.normalization = prev.normalization || {};
+      const tm = { ...(prev.normalization.target_methods || {}) };
+      for (const name of uniqueSelectedYNames) {
+        tm[name] = def;
+      }
+      prev.normalization.target_methods = tm;
+      return prev;
+    });
+  };
 
   useEffect(() => {
     commit((prev) => {
@@ -904,20 +946,6 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
     () => getTranslatedAxisFlatWidth(translatePreview, selectedYNames, "y"),
     [translatePreview, selectedYNames]
   );
-
-  const commit = (updater) => {
-    const next = typeof updater === "function" ? updater(cloneJson(cfg)) : cloneJson(updater);
-    onChange(normalizeAnnModelConfig(next));
-  };
-
-  const setTop = (path, nextValue) => {
-    commit((prev) => {
-      let cur = prev;
-      for (let i = 0; i < path.length - 1; i++) cur = cur[path[i]];
-      cur[path[path.length - 1]] = nextValue;
-      return prev;
-    });
-  };
 
   const addSeqLayer = (type = "Dense") => {
     commit((prev) => {
@@ -1016,18 +1044,37 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
           </label>
         </div>
 
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={applyFeatureDefaultToAllSelected}
+            disabled={disabled || uniqueSelectedXNames.length === 0}
+            title="Set every selected X field’s normalization to the default feature normalization above"
+          >
+            Apply default to all selected X
+          </button>
+          <button
+            type="button"
+            onClick={applyTargetDefaultToAllSelected}
+            disabled={disabled || uniqueSelectedYNames.length === 0}
+            title="Set every selected Y field’s normalization to the default target normalization above"
+          >
+            Apply default to all selected Y
+          </button>
+        </div>
+
         <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
           <div style={{ fontSize: 13, color: "#444" }}>
-            Per-field overrides (logical names from Translation &amp; data). Each dropdown below overrides the default feature / target normalization for that name only. New fields copy those defaults. Grouped fields share one name and one scaler across their flat columns.
+            Per-field overrides (logical names from Translation &amp; data). Each dropdown below overrides the default feature / target normalization for that name only. New fields copy those defaults. Use the buttons above to reset all listed fields to the defaults. Grouped fields share one name and one scaler across their flat columns.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16, alignItems: "start" }}>
             <div style={{ display: "grid", gap: 8 }}>
               <strong>Features (X)</strong>
-              {selectedXNames.length === 0 ? (
+              {uniqueSelectedXNames.length === 0 ? (
                 <span style={{ color: "#888" }}>No X fields selected — choose inputs under Translation &amp; data.</span>
               ) : (
                 <div style={{ display: "grid", gap: 6 }}>
-                  {selectedXNames.map((name) => (
+                  {uniqueSelectedXNames.map((name) => (
                     <label key={name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, alignItems: "center" }}>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis" }} title={name}>{name}</span>
                       <select
@@ -1053,11 +1100,11 @@ function AnnModelConfigEditor({ value, onChange, disabled, translatePreview, tra
             </div>
             <div style={{ display: "grid", gap: 8 }}>
               <strong>Targets (Y)</strong>
-              {selectedYNames.length === 0 ? (
+              {uniqueSelectedYNames.length === 0 ? (
                 <span style={{ color: "#888" }}>No Y fields selected — choose outputs under Translation &amp; data.</span>
               ) : (
                 <div style={{ display: "grid", gap: 6 }}>
-                  {selectedYNames.map((name) => (
+                  {uniqueSelectedYNames.map((name) => (
                     <label key={name} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, alignItems: "center" }}>
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis" }} title={name}>{name}</span>
                       <select

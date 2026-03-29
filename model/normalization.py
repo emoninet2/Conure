@@ -12,6 +12,7 @@ Persists the same on-disk artifacts: ``feature_scaler.pkl`` / ``target_scaler.pk
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -29,6 +30,27 @@ SCALER_CLASSES = {
     "maxabs": MaxAbsScaler,
     "none": None,
 }
+
+
+def expand_column_names_from_rle(rle: Optional[Sequence[Sequence[Any]]]) -> List[str]:
+    """
+    Rebuild a flat per-column name list from run-length pairs ``[[name, count], ...]``.
+
+    Used when reading ``report.json`` artifact metadata where expanded
+    ``feature_column_names`` / ``target_column_names`` are stored compactly as
+    ``feature_column_names_rle`` / ``target_column_names_rle``.
+    """
+    if not rle:
+        return []
+    out: List[str] = []
+    for pair in rle:
+        if not pair or len(pair) < 2:
+            continue
+        name, count = str(pair[0]), int(pair[1])
+        if count <= 0:
+            continue
+        out.extend([name] * count)
+    return out
 
 
 class PerColumnScaler:
@@ -88,6 +110,9 @@ class PerColumnScaler:
         """
         Map prediction std (in normalized target space) to original target space.
         Used by GPR when ``return_std=True``. Linear for standard/robust; delta trick otherwise.
+
+        With *mixed* target scalers this is approximate (not a full uncertainty transform for
+        arbitrary monotonic inverse maps).
         """
         y_std_norm = np.asarray(y_std_norm)
         if y_std_norm.ndim == 1:
@@ -267,6 +292,23 @@ def normalize_train_test_split(
 
     nf = int(np.asarray(f_train).shape[1])
     nt = int(np.asarray(t_train).shape[1])
+
+    if f_map and (f_cols is None or len(f_cols) != nf):
+        warnings.warn(
+            "normalization.feature_methods is set but feature_column_names is missing or does not match "
+            f"the number of feature columns ({nf}); using feature_method={fm!r} for every feature column. "
+            "Unified training via train.py sets feature_column_names from Translation selection.",
+            UserWarning,
+            stacklevel=2,
+        )
+    if t_map and (t_cols is None or len(t_cols) != nt):
+        warnings.warn(
+            "normalization.target_methods is set but target_column_names is missing or does not match "
+            f"the number of target columns ({nt}); using target_method={tm!r} for every target column. "
+            "Unified training via train.py sets target_column_names from Translation selection.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     f_methods = _resolve_axis_methods(f_cols, nf, f_map, fm)
     t_methods = _resolve_axis_methods(t_cols, nt, t_map, tm)

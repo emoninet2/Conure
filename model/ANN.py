@@ -538,6 +538,12 @@ def predict(model_dir, X_new):
     t_scaler = joblib.load(target_scaler_path) if os.path.exists(target_scaler_path) else None
 
     if f_scaler is not None:
+        expected_features = getattr(f_scaler, "n_features_in_", None)
+        if expected_features is not None and int(expected_features) != int(X_new.shape[1]):
+            raise ValueError(
+                f"Feature count mismatch: model expects {int(expected_features)} features, "
+                f"got {int(X_new.shape[1])}."
+            )
         X_norm = f_scaler.transform(X_new).astype(np.float32)
     else:
         X_norm = X_new.astype(np.float32)

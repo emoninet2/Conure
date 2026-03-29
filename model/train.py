@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import copy
 import inspect
 import json
 import math
@@ -405,11 +406,60 @@ def build_translation_preview(npz_file, translate_config):
     }
 
 
+def _run_length_encode_column_names(labels: Optional[Sequence[str]]) -> List[List[Any]]:
+    """Consecutive identical names -> ``[[name, count], ...]`` for compact JSON in reports."""
+    if not labels:
+        return []
+    runs: List[List[Any]] = []
+    cur = str(labels[0])
+    count = 1
+    for item in labels[1:]:
+        s = str(item)
+        if s == cur:
+            count += 1
+        else:
+            runs.append([cur, count])
+            cur = s
+            count = 1
+    runs.append([cur, count])
+    return runs
+
+
+def compact_translation_metadata_for_report(translation_metadata: Optional[dict]) -> dict:
+    """
+    Copy translation metadata for ``report.json``: replace long repeated
+    ``feature_column_names`` / ``target_column_names`` with run-length encoded
+    ``*_rle`` lists. Training already used the full lists in memory and in
+    ``config.json`` under the model directory.
+    """
+    if not translation_metadata:
+        return {}
+    out = copy.deepcopy(translation_metadata)
+    fc = out.get("feature_column_names")
+    tc = out.get("target_column_names")
+    used_rle = False
+    if isinstance(fc, list) and fc:
+        out["feature_column_names_rle"] = _run_length_encode_column_names(fc)
+        del out["feature_column_names"]
+        used_rle = True
+    elif "feature_column_names" in out:
+        out.pop("feature_column_names", None)
+    if isinstance(tc, list) and tc:
+        out["target_column_names_rle"] = _run_length_encode_column_names(tc)
+        del out["target_column_names"]
+        used_rle = True
+    elif "target_column_names" in out:
+        out.pop("target_column_names", None)
+    if used_rle:
+        out["column_names_encoding"] = "rle_v1"
+    return out
+
+
 def build_artifact_metadata(npz_file, translate_config, translation_metadata):
     return {
         "npz_file": os.path.abspath(npz_file),
         "translate_config": translate_config,
-        "translation_metadata": translation_metadata,
+        "translation_metadata": compact_translation_metadata_for_report(translation_metadata),
     }
 
 
