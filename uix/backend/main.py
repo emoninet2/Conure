@@ -1977,8 +1977,6 @@ def model_predict(payload: Dict[str, Any] = Body(...)):
     command = [
         sys.executable,
         predict_script,
-        "-t",
-        model_type,
         "-m",
         str(model_folder),
         "-x",
