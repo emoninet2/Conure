@@ -388,6 +388,30 @@ function needsReferenceImpedance(baseType) {
   );
 }
 
+/** `numPorts`: inferred port count from sweep NPZ, or `null` if unknown, or `undefined` if no sweep selected. */
+function isTranslationTypeAllowedForPorts(baseType, numPorts) {
+  const t = String(baseType || "");
+  if (t.endsWith("_Transformer")) {
+    return numPorts === 2;
+  }
+  if (t.includes("_Inductor")) {
+    return numPorts === 1;
+  }
+  return true;
+}
+
+function translationTypeOptionHint(baseType, numPorts) {
+  if (isTranslationTypeAllowedForPorts(baseType, numPorts)) return null;
+  const t = String(baseType || "");
+  if (t.endsWith("_Transformer")) {
+    return "Requires 2-port sweep data (full 2×2 S-parameters).";
+  }
+  if (t.includes("_Inductor")) {
+    return "Requires 1-port sweep data (e.g. S11).";
+  }
+  return null;
+}
+
 function normalizeTranslateConfig(config) {
   const input =
     config && typeof config === "object" && !Array.isArray(config)
@@ -483,7 +507,7 @@ function reconcileSelectionWithPreview(selection, preview) {
   };
 }
 
-function TranslationConfigForm({ value, onChange, disabled }) {
+function TranslationConfigForm({ value, onChange, disabled, sweepNumPorts, hasSweepSelected }) {
   const showZ0 = needsReferenceImpedance(value.baseType);
 
   return (
@@ -499,22 +523,54 @@ function TranslationConfigForm({ value, onChange, disabled }) {
       </div>
 
       <div style={{ display: "grid", gap: 12 }}>
-        <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           Translation type:
           <select
-            value={value.baseType}
+            value={
+              isTranslationTypeAllowedForPorts(value.baseType, sweepNumPorts)
+                ? value.baseType
+                : "FFD"
+            }
             onChange={(e) =>
               onChange((prev) => ({ ...prev, baseType: e.target.value }))
             }
             disabled={disabled}
           >
-            {TRANSLATION_BASE_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
+            {TRANSLATION_BASE_TYPES.map((type) => {
+              const hint = translationTypeOptionHint(type, sweepNumPorts);
+              return (
+                <option
+                  key={type}
+                  value={type}
+                  disabled={!isTranslationTypeAllowedForPorts(type, sweepNumPorts)}
+                  title={hint || undefined}
+                >
+                  {type}
+                </option>
+              );
+            })}
           </select>
         </label>
+        {hasSweepSelected ? (
+          <div style={{ fontSize: 12, opacity: 0.75, width: "100%" }}>
+            {sweepNumPorts != null ? (
+              <>
+                This sweep is <strong>{sweepNumPorts}-port</strong> data. Inductor translations
+                apply to 1-port sweeps; transformer translations apply to 2-port sweeps.
+              </>
+            ) : (
+              <>
+                Port count could not be read from <code>simulation_data.npz</code>; inductor and
+                transformer options stay disabled.
+              </>
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, opacity: 0.75, width: "100%" }}>
+            Select a sweep to enable inductor or transformer translation types when the data
+            matches (1-port vs 2-port).
+          </div>
+        )}
 
         {showZ0 ? (
           <label style={{ display: "grid", gap: 6 }}>
@@ -1658,6 +1714,29 @@ export default function Model() {
     };
   }, [report, activeModel, draft.model_type]);
 
+  const selectedSweepMeta = useMemo(
+    () => sweepOptions.find((s) => s.sweep_name === draft.sweep_name),
+    [sweepOptions, draft.sweep_name]
+  );
+
+  const sweepNumPorts = useMemo(() => {
+    if (!draft.sweep_name || !selectedSweepMeta) return undefined;
+    return selectedSweepMeta.num_ports;
+  }, [draft.sweep_name, selectedSweepMeta]);
+
+  useEffect(() => {
+    setTranslateForm((prev) => {
+      if (isTranslationTypeAllowedForPorts(prev.baseType, sweepNumPorts)) return prev;
+      return { ...prev, baseType: "FFD" };
+    });
+  }, [draft.sweep_name, sweepNumPorts]);
+
+  useEffect(() => {
+    if (isTranslationTypeAllowedForPorts(translateForm.baseType, sweepNumPorts)) return;
+    setTranslatePreview(null);
+    setTranslateSelection({ x_names: [], y_names: [] });
+  }, [translateForm.baseType, draft.sweep_name, sweepNumPorts]);
+
   function syncAnnEditors(nextConfig) {
     const normalized = normalizeAnnModelConfig(nextConfig);
     setAnnConfigForm(normalized);
@@ -2403,6 +2482,8 @@ export default function Model() {
               value={translateForm}
               onChange={handleTranslateFormChange}
               disabled={running}
+              sweepNumPorts={sweepNumPorts}
+              hasSweepSelected={!!draft.sweep_name}
             />
 
 
@@ -2698,6 +2779,200 @@ export default function Model() {
                   </div>
                 </div>
               </div>
+
+              {report?.data_info?.observed_ranges && (
+                <details
+                  style={{
+                    marginBottom: 12,
+                    border: "1px solid #ddd",
+                    padding: 12,
+                  }}
+                >
+                  <summary style={{ cursor: "pointer", fontWeight: "bold" }}>
+                    Observed input / output ranges (training data)
+                  </summary>
+                  <p style={{ fontSize: 12, opacity: 0.75, marginTop: 8 }}>
+                    {report.data_info.observed_ranges.note}
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      marginTop: 10,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                        Features (min–max)
+                      </div>
+                      <div
+                        style={{
+                          maxHeight: 240,
+                          overflow: "auto",
+                          fontSize: 13,
+                          fontFamily: "ui-monospace, monospace",
+                        }}
+                      >
+                        <table
+                          style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                          }}
+                        >
+                          <thead>
+                            <tr>
+                              <th
+                                style={{
+                                  textAlign: "left",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Name
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: "right",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Min
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: "right",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Max
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(
+                              report.data_info.observed_ranges.features || []
+                            ).map((row, i) => (
+                              <tr key={`obs-f-${i}`}>
+                                <td
+                                  style={{
+                                    padding: "4px 8px",
+                                    wordBreak: "break-all",
+                                  }}
+                                >
+                                  {row.name}
+                                </td>
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  {formatNumber(row.min)}
+                                </td>
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  {formatNumber(row.max)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                        Targets (min–max)
+                      </div>
+                      <div
+                        style={{
+                          maxHeight: 240,
+                          overflow: "auto",
+                          fontSize: 13,
+                          fontFamily: "ui-monospace, monospace",
+                        }}
+                      >
+                        <table
+                          style={{
+                            width: "100%",
+                            borderCollapse: "collapse",
+                          }}
+                        >
+                          <thead>
+                            <tr>
+                              <th
+                                style={{
+                                  textAlign: "left",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Name
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: "right",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Min
+                              </th>
+                              <th
+                                style={{
+                                  textAlign: "right",
+                                  padding: "4px 8px",
+                                  borderBottom: "1px solid #ddd",
+                                }}
+                              >
+                                Max
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(
+                              report.data_info.observed_ranges.targets || []
+                            ).map((row, i) => (
+                              <tr key={`obs-t-${i}`}>
+                                <td
+                                  style={{
+                                    padding: "4px 8px",
+                                    wordBreak: "break-all",
+                                  }}
+                                >
+                                  {row.name}
+                                </td>
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  {formatNumber(row.min)}
+                                </td>
+                                <td
+                                  style={{
+                                    textAlign: "right",
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  {formatNumber(row.max)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              )}
 
               <div id="model-metrics" style={{ marginBottom: 12 }}>
                 <h4 style={{ marginBottom: 10 }}>Performance Metrics</h4>

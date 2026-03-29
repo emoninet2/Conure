@@ -87,6 +87,60 @@ def calculate_metrics(y_true, y_pred):
 
 
 # ------------------------------------------------------------
+# OBSERVED DATA RANGES (domain covered by training material)
+# ------------------------------------------------------------
+def observed_ranges_for_report(
+    f_train, f_test, t_train, t_test, feature_names=None, target_names=None
+):
+    """
+    Per-column min/max over all rows used to build the model (train and test splits
+    combined), in original units before feature/target normalization.
+
+    Names come from translation/selection when provided; otherwise ``feature_i`` /
+    ``target_i`` placeholders are used.
+    """
+    f_train = np.asarray(f_train)
+    f_test = np.asarray(f_test)
+    t_train = np.asarray(t_train)
+    t_test = np.asarray(t_test)
+    if f_train.ndim != 2 or f_test.ndim != 2:
+        raise ValueError("f_train and f_test must be 2D arrays.")
+    if t_train.ndim != 2 or t_test.ndim != 2:
+        raise ValueError("t_train and t_test must be 2D arrays.")
+    f_all = np.vstack([f_train, f_test])
+    t_all = np.vstack([t_train, t_test])
+    nf = int(f_all.shape[1])
+    nt = int(t_all.shape[1])
+
+    if feature_names is not None and len(feature_names) == nf:
+        fnames = [str(x) for x in feature_names]
+    else:
+        fnames = [f"feature_{i}" for i in range(nf)]
+    if target_names is not None and len(target_names) == nt:
+        tnames = [str(x) for x in target_names]
+    else:
+        tnames = [f"target_{i}" for i in range(nt)]
+
+    f_min = np.min(f_all, axis=0)
+    f_max = np.max(f_all, axis=0)
+    t_min = np.min(t_all, axis=0)
+    t_max = np.max(t_all, axis=0)
+
+    def _entry(name, vmin, vmax):
+        return {"name": name, "min": float(vmin), "max": float(vmax)}
+
+    return {
+        "note": (
+            "Per-dimension min/max over all samples used to build this model (train and test "
+            "splits combined), in original units before feature/target normalization. Values "
+            "outside these ranges are extrapolation relative to the data the model was fit on."
+        ),
+        "features": [_entry(fnames[i], f_min[i], f_max[i]) for i in range(nf)],
+        "targets": [_entry(tnames[i], t_min[i], t_max[i]) for i in range(nt)],
+    }
+
+
+# ------------------------------------------------------------
 # LOAD / SAVE REPORT
 # ------------------------------------------------------------
 def load_report(path_or_dir):

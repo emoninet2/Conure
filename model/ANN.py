@@ -572,6 +572,8 @@ def generate_report(
     config,
     train_duration,
     save_path,
+    feature_names=None,
+    target_names=None,
 ):
     if f_scaler is not None:
         f_test_eval = f_scaler.transform(f_test).astype(np.float32)
@@ -649,6 +651,9 @@ def generate_report(
             "test_size": test_size,
             "validation_split": val_split,
             "random_state": random_state,
+            "observed_ranges": report.observed_ranges_for_report(
+                f_train, f_test, t_train, t_test, feature_names, target_names
+            ),
         },
         "training_summary": {
             "epochs_completed": int(len(history.history["loss"])),
@@ -734,7 +739,7 @@ def _prepare_config_for_training(X, y, config):
     return config
 
 
-def train_model_pipeline(X, y, config, model_base_dir):
+def train_model_pipeline(X, y, config, model_base_dir, feature_names=None, target_names=None):
     data_split_cfg = config.get("data_split", {})
     test_size = float(data_split_cfg.get("test_size", 0.2))
     random_state = int(data_split_cfg.get("random_state", config.get("random_state", 42)))
@@ -819,6 +824,8 @@ def train_model_pipeline(X, y, config, model_base_dir):
         config,
         train_duration,
         save_path,
+        feature_names=feature_names,
+        target_names=target_names,
     )
     report.save_report(report_data, save_path)
     report.log_metric(report_data["performance"]["metrics"], config["model_type"], logger)

@@ -163,6 +163,8 @@ def generate_pce_report(
     train_duration,
     save_path,
     model_name="PCE_MODEL",
+    feature_names=None,
+    target_names=None,
 ):
     degree = _get_degree(params)
     test_size, random_state = get_data_split_config(params)
@@ -219,6 +221,9 @@ def generate_pce_report(
             "split_strategy": "train_test_split",
             "test_size": test_size,
             "random_state": random_state,
+            "observed_ranges": report.observed_ranges_for_report(
+                X_train, X_test, y_train, y_test, feature_names, target_names
+            ),
         },
         "training_summary": {
             "degree": degree,
@@ -248,7 +253,7 @@ def generate_pce_report(
 # ============================================================
 # PCE PIPELINE
 # ============================================================
-def train_model_pipeline(X, y, train_config, model_base_dir):
+def train_model_pipeline(X, y, train_config, model_base_dir, feature_names=None, target_names=None):
     """
     Unified PCE training interface.
 
@@ -306,6 +311,8 @@ def train_model_pipeline(X, y, train_config, model_base_dir):
         train_duration=train_duration,
         save_path=save_path,
         model_name=train_config["model_name"],
+        feature_names=feature_names,
+        target_names=target_names,
     )
 
     report.save_report(report_data, save_path)

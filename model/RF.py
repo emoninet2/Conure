@@ -133,6 +133,8 @@ def generate_report(
     config,
     train_duration,
     save_path,
+    feature_names=None,
+    target_names=None,
 ):
     if f_scaler is not None:
         f_test_eval = f_scaler.transform(f_test)
@@ -190,6 +192,9 @@ def generate_report(
             "split_strategy": "train_test_split",
             "test_size": test_size,
             "random_state": random_state,
+            "observed_ranges": report.observed_ranges_for_report(
+                f_train, f_test, t_train, t_test, feature_names, target_names
+            ),
         },
         "training_summary": {
             "n_outputs": t_train.shape[1],
@@ -220,7 +225,7 @@ def generate_report(
 # ============================================================
 # TRAINING PIPELINE
 # ============================================================
-def train_model_pipeline(X, y, config, model_base_dir):
+def train_model_pipeline(X, y, config, model_base_dir, feature_names=None, target_names=None):
     test_size, random_state = get_data_split_config(config)
 
     # 1. Split
@@ -278,6 +283,8 @@ def train_model_pipeline(X, y, config, model_base_dir):
         config=config_to_save,
         train_duration=train_duration,
         save_path=save_path,
+        feature_names=feature_names,
+        target_names=target_names,
     )
 
     report.save_report(report_data, save_path)

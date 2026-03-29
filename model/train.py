@@ -165,7 +165,13 @@ def build_effective_train_config(model_type, model_config):
     return {"model_type": str(model_type).strip().upper(), **model_config}
 
 
-def load_translated_data(npz_file, translation_type, translation_params=None, return_metadata=False):
+def load_translated_data(
+    npz_file,
+    translation_type,
+    translation_params=None,
+    return_metadata=False,
+    schema_only=False,
+):
     if not os.path.exists(npz_file):
         raise FileNotFoundError(f"NPZ data file not found: {npz_file}")
 
@@ -185,6 +191,9 @@ def load_translated_data(npz_file, translation_type, translation_params=None, re
 
     if return_metadata and "return_metadata" in allowed_params:
         filtered_params["return_metadata"] = True
+
+    if schema_only and "schema_only" in allowed_params:
+        filtered_params["schema_only"] = True
 
     return translator_fn(npz_file, **filtered_params)
 
@@ -358,29 +367,58 @@ def apply_translated_selection(X, y, feature_names, target_names, selection=None
     return X_sel, y_sel, resolved_x_names, resolved_y_names, updated_meta, info
 
 
+def _read_simulation_npz_preview_shapes(npz_file: str) -> Tuple[Tuple[int, ...], Tuple[int, ...], List[str], List[str], int]:
+    """
+    Read only tensor shapes and name lists from ``simulation_data.npz`` using memory mapping.
+    Does not load full ``features`` / ``targets`` arrays into RAM.
+    """
+    import numpy as np
+
+    with np.load(npz_file, mmap_mode="r", allow_pickle=True) as data:
+        if "features" not in data.files or "targets" not in data.files:
+            raise ValueError("NPZ must contain features and targets arrays.")
+        fshape = tuple(int(x) for x in data["features"].shape)
+        tshape = tuple(int(x) for x in data["targets"].shape)
+        fn = [str(x) for x in data["feature_names"].tolist()]
+        tn = [str(x) for x in data["target_names"].tolist()]
+        if "frequency_points" not in data.files:
+            raise ValueError("NPZ must contain frequency_points.")
+        nfreq = int(len(np.asarray(data["frequency_points"])))
+    return fshape, tshape, fn, tn, nfreq
+
+
 def build_translation_preview(npz_file, translate_config):
     """
-    Preview should describe the translated schema for the *current* translation config.
-    It must not fail because of stale X/Y selections from a previous translation type.
+    Preview describes the translated schema for the *current* translation config.
+
+    This path **does not** run data translation (no S→Z, no row expansion, no full tensor loads).
+    It derives post-translation field names and column widths from NPZ shapes and name lists only,
+    then builds the same selection metadata the UI needs. Training still uses the full pipeline.
     """
+    import numpy as np
+
     translate_config = load_translate_config(translate_config)
-    translated = load_translated_data(
-        npz_file=npz_file,
-        translation_type=translate_config["translation_type"],
-        translation_params=translate_config.get("translation_params", {}),
-        return_metadata=True,
+    fshape, tshape, fn, tn, nfreq = _read_simulation_npz_preview_shapes(npz_file)
+
+    schema = data_translator.preview_translation_field_schema(
+        fn,
+        tn,
+        fshape,
+        tshape,
+        nfreq,
+        translate_config["translation_type"],
+        translate_config.get("translation_params"),
     )
 
-    if len(translated) == 6:
-        X, y, feature_names, target_names, freqs, translation_metadata = translated
-    else:
-        X, y, feature_names, target_names, freqs = translated
-        translation_metadata = {}
+    X = np.zeros((1, schema["model_input_width"]), dtype=np.float32)
+    y = np.zeros((1, schema["model_output_width"]), dtype=np.float32)
+    feature_names = schema["feature_names"]
+    target_names = schema["target_names"]
+    translation_metadata = schema["translation_metadata"]
 
     selection_info = _selection_info(X, y, feature_names, target_names, translation_metadata)
 
     # For preview we intentionally ignore persisted selection from the config.
-    # The UI may still keep a local subset and reconcile it against these names.
     resolved_x_names = list(selection_info["x"]["selectable_names"])
     resolved_y_names = list(selection_info["y"]["selectable_names"])
 
@@ -389,7 +427,7 @@ def build_translation_preview(npz_file, translate_config):
         "translation_params": translate_config.get("translation_params", {}),
         "feature_names": _normalize_names(feature_names),
         "target_names": _normalize_names(target_names),
-        "freq_count": None if freqs is None else int(len(freqs)),
+        "freq_count": nfreq,
         "model_input_width": int(X.shape[1]),
         "model_output_width": int(y.shape[1]),
         "selection": {
@@ -518,7 +556,14 @@ def train_model(npz_file, model_type, translate_config, model_config, output_dir
     norm_cfg["feature_column_names"] = translation_metadata.get("feature_column_names")
     norm_cfg["target_column_names"] = translation_metadata.get("target_column_names")
 
-    model_module.train_model_pipeline(X, y, effective_config, output_dir)
+    model_module.train_model_pipeline(
+        X,
+        y,
+        effective_config,
+        output_dir,
+        feature_names=selected_feature_names,
+        target_names=selected_target_names,
+    )
 
     model_artifact_dir = get_model_artifact_dir(output_dir, effective_config)
     artifact_metadata = build_artifact_metadata(
