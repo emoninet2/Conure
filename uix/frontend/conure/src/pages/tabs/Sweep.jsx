@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ProcessConsole from "../../components/ProcessConsole";
+import { appendCapped, maxLineTime } from "../../components/consoleUtils";
 import { IconPencil, IconTrash } from "../../icons/actionIcons";
 import { useUiStore } from "../../state/uiStore";
 
@@ -39,12 +41,6 @@ const DEFAULT_SUMMARY = {
   finished_at: null,
   last_updated: null,
 };
-
-const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
-
-function stripAnsi(s) {
-  return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
-}
 
 function parseScalar(value) {
   const t = String(value ?? "").trim();
@@ -167,11 +163,44 @@ export default function Sweep() {
   const [savedSnapshot, setSavedSnapshot] = useState(DEFAULT_DRAFT);
   const [summary, setSummary] = useState(DEFAULT_SUMMARY);
   const [lines, setLines] = useState([]);
+  const [logsHydrated, setLogsHydrated] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [apiError, setApiError] = useState("");
 
   const scrollerRef = useRef(null);
   const esRef = useRef(null);
+  const linesRef = useRef([]);
+
+  linesRef.current = lines;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLogsHydrated(false);
+    if (!activeSweep) {
+      setLines([]);
+      setLogsHydrated(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/sweeps/logs?sweep_name=${encodeURIComponent(activeSweep)}`
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setLines(data.lines || []);
+      } catch {
+        if (!cancelled) setLines([]);
+      } finally {
+        if (!cancelled) setLogsHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSweep]);
 
   useEffect(() => {
     const store = useUiStore.getState();
@@ -209,21 +238,18 @@ export default function Sweep() {
       esRef.current = null;
     }
 
-    if (!running || !activeSweep) return;
+    if (!running || !activeSweep || !logsHydrated) return;
 
+    const since = maxLineTime(linesRef.current);
     const es = new EventSource(
-      `${API_BASE}/api/sweeps/stream?sweep_name=${encodeURIComponent(activeSweep)}`
+      `${API_BASE}/api/sweeps/stream?sweep_name=${encodeURIComponent(activeSweep)}&since=${encodeURIComponent(since)}`
     );
     esRef.current = es;
 
     es.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        setLines((prev) => {
-          const next = [...prev, msg];
-          if (next.length > 3000) next.splice(0, next.length - 3000);
-          return next;
-        });
+        setLines((prev) => appendCapped(prev, msg));
 
         if (typeof msg?.line === "string" && msg.line.startsWith("[done]")) {
           setValue(RUNNING_PATH, false);
@@ -246,7 +272,7 @@ export default function Sweep() {
       es.close();
       esRef.current = null;
     };
-  }, [running, activeSweep, setValue]);
+  }, [running, activeSweep, logsHydrated, setValue]);
 
   useEffect(() => {
     if (!activeSweep) {
@@ -415,7 +441,6 @@ export default function Sweep() {
 
       setDraft(nextDraft);
       setSavedSnapshot(JSON.parse(JSON.stringify(nextDraft)));
-      setLines([]);
       await fetchSummary(data.sweep_name);
     } catch (err) {
       setApiError(err?.message || String(err));
@@ -483,7 +508,6 @@ export default function Sweep() {
 
     try {
       setApiError("");
-      setLines([]);
       setSummary((prev) => ({ ...prev, state: "running" }));
 
       setValue(RUNNING_PATH, true);
@@ -529,6 +553,20 @@ export default function Sweep() {
       setValue(RUNNING_PATH, false);
       setRunningLocal(false);
       await fetchSummary(activeSweep);
+    }
+  }
+
+  async function clearSweepLog() {
+    if (!activeSweep || running) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/sweeps/logs?sweep_name=${encodeURIComponent(activeSweep)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) return;
+      setLines([]);
+    } catch {
+      //
     }
   }
 
@@ -1039,28 +1077,27 @@ export default function Sweep() {
             <button onClick={stopSweep} disabled={!running}>
               Stop
             </button>
-            <button onClick={() => setLines([])}>Clear Console</button>
           </div>
 
-          <div
-            ref={scrollerRef}
-            style={{
-              height: 280,
-              overflow: "auto",
-              padding: 12,
-              border: "1px solid #ddd",
-              background: "#fafafa",
-              whiteSpace: "pre-wrap",
-              fontFamily: "monospace",
-              fontSize: 12,
+          <ProcessConsole
+            title={activeSweep ? `Sweep output — ${activeSweep} (server log)` : "Sweep output"}
+            lines={lines}
+            running={running}
+            emptyIdle={activeSweep ? "No output yet for this sweep." : "Open or create a sweep to view logs."}
+            emptyRunning="Waiting for output…"
+            autoScroll={autoScroll}
+            onAutoScrollChange={setAutoScroll}
+            scrollerRef={scrollerRef}
+            onScrollContainer={() => {
+              const el = scrollerRef.current;
+              if (!el) return;
+              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+              setAutoScroll(atBottom);
             }}
-          >
-            {lines.length === 0
-              ? running
-                ? "Waiting for output..."
-                : "No output yet."
-              : lines.map((x, i) => <div key={i}>{stripAnsi(x.line)}</div>)}
-          </div>
+            onClear={clearSweepLog}
+            clearDisabled={running || !activeSweep}
+            clearLabel="Clear log"
+          />
         </div>
       </div>
     </div>

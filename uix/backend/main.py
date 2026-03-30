@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from dotenv import load_dotenv
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -197,6 +197,41 @@ def _write_json(path: Path, obj: Dict[str, Any]) -> None:
     tmp_path = path.with_name(f".{path.name}.tmp")
     tmp_path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp_path.replace(path)
+
+
+CONSOLE_LOG_APPEND_LOCK = threading.Lock()
+CONSOLE_LOG_MAX_READ = 20000
+
+
+def _append_jsonl_line(path: Path, item: Dict[str, Any]) -> None:
+    line = json.dumps(item, ensure_ascii=False) + "\n"
+    with CONSOLE_LOG_APPEND_LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line)
+
+
+def _read_jsonl_tail(path: Path, max_lines: int = CONSOLE_LOG_MAX_READ) -> list[Dict[str, Any]]:
+    if not path.exists() or not path.is_file():
+        return []
+    out: list[Dict[str, Any]] = []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for raw in f:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    obj = json.loads(raw)
+                    if isinstance(obj, dict):
+                        out.append(obj)
+                except Exception:
+                    continue
+    except OSError:
+        return []
+    if len(out) > max_lines:
+        out = out[-max_lines:]
+    return out
 
 
 def _get_active_project_id() -> Optional[str]:
@@ -384,6 +419,63 @@ def delete_project(project_id: str):
 
     shutil.rmtree(pdir, ignore_errors=True)
     return {"ok": True}
+
+
+@app.post("/api/projects/rename")
+def rename_project(payload: Dict[str, Any] = Body(...)):
+    """Rename a project folder under the workspace and update meta + project.json identity."""
+    old_id = str(payload.get("from_id") or payload.get("from_name") or "").strip()
+    raw_to = str(payload.get("to_name") or payload.get("new_name") or "").strip()
+
+    if not old_id:
+        raise HTTPException(status_code=400, detail="from_id is required.")
+    if not raw_to:
+        raise HTTPException(status_code=400, detail="New name is required.")
+
+    old_dir = _project_dir(old_id)
+    if not old_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Project not found.")
+
+    new_id = normalize_project_name(raw_to)
+    display_name = raw_to.strip()
+
+    new_dir = _project_dir(new_id)
+
+    if new_id != old_id and new_dir.exists():
+        raise HTTPException(status_code=400, detail="A project with that name already exists.")
+
+    with PROJECT_STATE_LOCK:
+        with ACTIVE_FILE_LOCK:
+            active_raw = ""
+            if ACTIVE_FILE.exists():
+                active_raw = ACTIVE_FILE.read_text(encoding="utf-8").strip()
+            was_active = active_raw == old_id
+
+            if new_id != old_id:
+                try:
+                    old_dir.rename(new_dir)
+                except OSError as e:
+                    raise HTTPException(status_code=500, detail=f"Rename failed: {e}") from e
+                target_dir = new_dir
+            else:
+                target_dir = old_dir
+
+            meta = _read_json(target_dir / "meta.json", {})
+            meta["displayName"] = display_name
+            _write_json(target_dir / "meta.json", meta)
+
+            pj = target_dir / "project.json"
+            if pj.exists():
+                state = _read_json(pj, _deepcopy_jsonish(DEFAULT_PROJECT), strict=True)
+                proj = state.setdefault("project", {})
+                proj["id"] = new_id
+                proj["name"] = display_name
+                _write_json(pj, state)
+
+            if was_active and new_id != old_id:
+                ACTIVE_FILE.write_text(new_id, encoding="utf-8")
+
+    return {"ok": True, "id": new_id, "name": display_name, "from_id": old_id}
 
 
 @app.get("/api/projects/active")
@@ -699,11 +791,18 @@ def _set_project_sweep_ui(active_sweep=None, running=None, draft_config=None) ->
 
 
 def _push_sweep_line(stream: str, line: str) -> None:
-    item = {"t": time.time(), "stream": stream, "line": line}
+    sn = (SWEEP_RUN_META.get(SWEEP_ACTIVE_RUN_KEY) or {}).get("sweep_name")
+    item = {"t": time.time(), "stream": stream, "line": line, "sweep_name": sn}
     with SWEEP_RING_LOCK:
         SWEEP_RING.append(item)
         if len(SWEEP_RING) > SWEEP_RING_MAX:
             del SWEEP_RING[: len(SWEEP_RING) - SWEEP_RING_MAX]
+    if sn:
+        try:
+            _, sdir = _resolve_existing_sweep_dir(sn)
+            _append_jsonl_line(sdir / "console.jsonl", item)
+        except Exception:
+            pass
 
 
 def _sweep_reader_thread(pipe, stream_name: str):
@@ -1222,19 +1321,47 @@ def sweep_status():
     return {"running": False, "returncode": rc, "sweep_name": finished_name}
 
 
+@app.get("/api/sweeps/logs")
+def get_sweep_logs(sweep_name: str = Query(...)):
+    actual_name, sdir = _resolve_existing_sweep_dir(sweep_name)
+    path = sdir / "console.jsonl"
+    return {"lines": _read_jsonl_tail(path), "sweep_name": actual_name}
+
+
+@app.delete("/api/sweeps/logs")
+def clear_sweep_logs(sweep_name: str = Query(...)):
+    actual_name, sdir = _resolve_existing_sweep_dir(sweep_name)
+    path = sdir / "console.jsonl"
+    with SWEEP_RING_LOCK:
+        SWEEP_RING[:] = [x for x in SWEEP_RING if x.get("sweep_name") != actual_name]
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
+    return {"ok": True, "sweep_name": actual_name}
+
+
 @app.get("/api/sweeps/stream")
-def sweep_stream(request: Request, sweep_name: str):
+def sweep_stream(request: Request, sweep_name: str, since: float = Query(0)):
     actual_name, _ = _resolve_existing_sweep_dir(sweep_name)
 
     def event_gen():
         with SWEEP_RING_LOCK:
-            start_idx = max(0, len(SWEEP_RING) - 300)
-            backlog = SWEEP_RING[start_idx:]
+            if since > 0:
+                backlog = [
+                    x
+                    for x in SWEEP_RING
+                    if x.get("sweep_name") == actual_name and float(x.get("t") or 0) > since
+                ]
+            else:
+                cand = [x for x in SWEEP_RING if x.get("sweep_name") == actual_name]
+                backlog = cand[-300:] if len(cand) > 300 else cand
 
         for item in backlog:
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
-        last_idx = start_idx + len(backlog)
+        last_idx = len(SWEEP_RING)
 
         while True:
             if request.client is None:
@@ -1243,7 +1370,11 @@ def sweep_stream(request: Request, sweep_name: str):
             try:
                 with SWEEP_RING_LOCK:
                     if last_idx < len(SWEEP_RING):
-                        new_items = SWEEP_RING[last_idx:]
+                        new_items = [
+                            x
+                            for x in SWEEP_RING[last_idx:]
+                            if x.get("sweep_name") == actual_name
+                        ]
                         last_idx = len(SWEEP_RING)
                     else:
                         new_items = []
@@ -1260,6 +1391,7 @@ def sweep_stream(request: Request, sweep_name: str):
                             "t": time.time(),
                             "stream": "system",
                             "line": f"[done] returncode={rc}",
+                            "sweep_name": actual_name,
                         }
                         yield f"data: {json.dumps(done_msg, ensure_ascii=False)}\n\n"
                         break
@@ -1563,11 +1695,18 @@ def _set_project_model_ui(active_model=None, running=None, draft_config=None) ->
 
 
 def _push_model_line(stream: str, line: str, model_name: Optional[str] = None) -> None:
-    item = {"t": time.time(), "stream": stream, "line": line, "model_name": model_name}
+    mn = model_name or (MODEL_RUN_META.get(MODEL_ACTIVE_RUN_KEY) or {}).get("model_name")
+    item = {"t": time.time(), "stream": stream, "line": line, "model_name": mn}
     with MODEL_RING_LOCK:
         MODEL_RING.append(item)
         if len(MODEL_RING) > MODEL_RING_MAX:
             del MODEL_RING[: len(MODEL_RING) - MODEL_RING_MAX]
+    if mn:
+        try:
+            artifact = _resolve_model_artifact_dir(normalize_model_name(mn))
+            _append_jsonl_line(artifact / "training.jsonl", item)
+        except Exception:
+            pass
 
 
 def _model_reader_thread(pipe, stream_name: str, model_name: Optional[str] = None):
@@ -2126,18 +2265,46 @@ def model_status():
     return {"running": False, "returncode": rc, "model_name": finished_name}
 
 
+@app.get("/api/models/logs")
+def get_model_logs(model_name: str = Query(...)):
+    mn = normalize_model_name(model_name)
+    path = _resolve_model_artifact_dir(mn) / "training.jsonl"
+    return {"lines": _read_jsonl_tail(path), "model_name": mn}
+
+
+@app.delete("/api/models/logs")
+def clear_model_logs(model_name: str = Query(...)):
+    mn = normalize_model_name(model_name)
+    path = _resolve_model_artifact_dir(mn) / "training.jsonl"
+    with MODEL_RING_LOCK:
+        MODEL_RING[:] = [x for x in MODEL_RING if x.get("model_name") != mn]
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
+    return {"ok": True, "model_name": mn}
+
+
 @app.get("/api/models/stream")
-def model_stream(request: Request, model_name: str):
+def model_stream(request: Request, model_name: str, since: float = Query(0)):
     model_name = normalize_model_name(model_name)
 
     def event_gen():
         with MODEL_RING_LOCK:
-            backlog = [item for item in MODEL_RING[-300:] if item.get("model_name") == model_name]
+            if since > 0:
+                backlog = [
+                    item
+                    for item in MODEL_RING
+                    if item.get("model_name") == model_name and float(item.get("t") or 0) > since
+                ]
+            else:
+                backlog = [item for item in MODEL_RING[-300:] if item.get("model_name") == model_name]
 
         for item in backlog:
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
-        last_seen_ts = backlog[-1]["t"] if backlog else 0.0
+        last_seen_ts = since if since > 0 else (backlog[-1]["t"] if backlog else 0.0)
 
         while True:
             if request.client is None:
@@ -2146,12 +2313,13 @@ def model_stream(request: Request, model_name: str):
             try:
                 with MODEL_RING_LOCK:
                     new_items = [
-                        item for item in MODEL_RING
-                        if item.get("model_name") == model_name and item.get("t", 0) > last_seen_ts
+                        item
+                        for item in MODEL_RING
+                        if item.get("model_name") == model_name and float(item.get("t") or 0) > last_seen_ts
                     ]
 
                 for item in new_items:
-                    last_seen_ts = max(last_seen_ts, item.get("t", 0))
+                    last_seen_ts = max(last_seen_ts, float(item.get("t") or 0))
                     yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
                 proc = MODEL_RUNS.get(MODEL_ACTIVE_RUN_KEY)
@@ -2305,6 +2473,13 @@ def _push_sim_line(stream: str, line: str) -> None:
         SIM_RING.append(item)
         if len(SIM_RING) > SIM_RING_MAX:
             del SIM_RING[: len(SIM_RING) - SIM_RING_MAX]
+    meta = SIM_RUN_META.get(ACTIVE_RUN_KEY) or {}
+    pid = meta.get("projectId") or _get_active_project_id()
+    if pid:
+        try:
+            _append_jsonl_line(_project_dir(pid) / "logs" / "simulate.jsonl", item)
+        except Exception:
+            pass
 
 
 def _reader_thread(pipe, stream_name: str):
@@ -2446,17 +2621,45 @@ def sim_status():
     return {"running": False, "returncode": rc}
 
 
+@app.get("/api/sim/logs")
+def get_sim_logs():
+    pid = _get_active_project_id()
+    if not pid:
+        raise HTTPException(status_code=400, detail="No project open.")
+    path = _project_dir(pid) / "logs" / "simulate.jsonl"
+    return {"lines": _read_jsonl_tail(path)}
+
+
+@app.delete("/api/sim/logs")
+def clear_sim_logs():
+    pid = _get_active_project_id()
+    if not pid:
+        raise HTTPException(status_code=400, detail="No project open.")
+    path = _project_dir(pid) / "logs" / "simulate.jsonl"
+    with SIM_RING_LOCK:
+        SIM_RING.clear()
+    try:
+        if path.exists():
+            path.unlink()
+    except OSError:
+        pass
+    return {"ok": True}
+
+
 @app.get("/api/sim/stream")
-def sim_stream(request: Request):
+def sim_stream(request: Request, since: float = Query(0)):
     def event_gen():
         with SIM_RING_LOCK:
-            start_idx = max(0, len(SIM_RING) - 300)
-            backlog = SIM_RING[start_idx:]
+            if since > 0:
+                backlog = [x for x in SIM_RING if float(x.get("t") or 0) > since]
+            else:
+                start_idx = max(0, len(SIM_RING) - 300)
+                backlog = SIM_RING[start_idx:]
 
         for item in backlog:
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
 
-        last_idx = start_idx + len(backlog)
+        last_idx = len(SIM_RING)
 
         while True:
             if request.client is None:

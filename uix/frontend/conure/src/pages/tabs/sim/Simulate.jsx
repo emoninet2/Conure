@@ -1,23 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import ProcessConsole from "../../../components/ProcessConsole";
+import { appendCapped, maxLineTime } from "../../../components/consoleUtils";
 import { useUiStore } from "../../../state/uiStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
-const SIM_ROOT = ["ui", "home", "tabs", "sim", "simulate"];
-const SIMULATOR_PATH = [...SIM_ROOT, "simulator"];
-const RUNNING_PATH = [...SIM_ROOT, "running"];
-const LINES_PATH = [...SIM_ROOT, "lines"];
-const AUTOSCROLL_PATH = [...SIM_ROOT, "autoScroll"];
-
-const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
-function stripAnsi(s) {
-  return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
-}
+const SIMULATOR_PATH = ["ui", "home", "tabs", "sim", "simulate", "simulator"];
+const RUNNING_PATH = ["ui", "home", "tabs", "sim", "simulate", "running"];
 
 export default function Simulate() {
   const setValue = useUiStore((s) => s.setValue);
 
-  // Keep the important UI state locally, but initialize from store.
   const [simulator, setSimulatorLocal] = useState(() =>
     useUiStore.getState().getValue(SIMULATOR_PATH, "emx")
   );
@@ -26,17 +19,15 @@ export default function Simulate() {
     !!useUiStore.getState().getValue(RUNNING_PATH, false)
   );
 
-  const [lines, setLines] = useState(() =>
-    useUiStore.getState().getValue(LINES_PATH, []) || []
-  );
-
-  const [autoScroll, setAutoScrollLocal] = useState(() => {
-    const v = useUiStore.getState().getValue(AUTOSCROLL_PATH, true);
-    return typeof v === "boolean" ? v : true;
-  });
+  const [lines, setLines] = useState([]);
+  const [autoScroll, setAutoScroll] = useState(true);
+  const [logsHydrated, setLogsHydrated] = useState(false);
 
   const esRef = useRef(null);
   const scrollerRef = useRef(null);
+  const linesRef = useRef([]);
+
+  linesRef.current = lines;
 
   function setSimulator(next) {
     setSimulatorLocal(next);
@@ -47,20 +38,6 @@ export default function Simulate() {
     const b = !!next;
     setRunningLocal(b);
     setValue(RUNNING_PATH, b);
-  }
-
-  function setAutoScroll(next) {
-    const b = !!next;
-    setAutoScrollLocal(b);
-    setValue(AUTOSCROLL_PATH, b);
-  }
-
-  function setConsoleLines(next) {
-    setLines((prev) => {
-      const resolved = typeof next === "function" ? next(prev) : next;
-      setValue(LINES_PATH, resolved);
-      return resolved;
-    });
   }
 
   async function syncStatus() {
@@ -74,15 +51,27 @@ export default function Simulate() {
     }
   }
 
+  async function fetchLogs() {
+    try {
+      const res = await fetch(`${API_BASE}/api/sim/logs`);
+      if (!res.ok) {
+        setLines([]);
+        return;
+      }
+      const data = await res.json();
+      setLines(data.lines || []);
+    } catch {
+      setLines([]);
+    } finally {
+      setLogsHydrated(true);
+    }
+  }
+
   useEffect(() => {
-    // restore from store on mount in case component remounted after tab switch
     const store = useUiStore.getState();
     setSimulatorLocal(store.getValue(SIMULATOR_PATH, "emx"));
     setRunningLocal(!!store.getValue(RUNNING_PATH, false));
-    setLines(store.getValue(LINES_PATH, []) || []);
-    const v = store.getValue(AUTOSCROLL_PATH, true);
-    setAutoScrollLocal(typeof v === "boolean" ? v : true);
-
+    fetchLogs();
     syncStatus();
   }, []);
 
@@ -92,20 +81,17 @@ export default function Simulate() {
       esRef.current = null;
     }
 
-    if (!running) return;
+    if (!running || !logsHydrated) return;
 
-    const es = new EventSource(`${API_BASE}/api/sim/stream`);
+    const since = maxLineTime(linesRef.current);
+    const es = new EventSource(`${API_BASE}/api/sim/stream?since=${encodeURIComponent(since)}`);
     esRef.current = es;
 
     es.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
 
-        setConsoleLines((prev) => {
-          const next = [...prev, msg];
-          if (next.length > 3000) next.splice(0, next.length - 3000);
-          return next;
-        });
+        setLines((prev) => appendCapped(prev, msg));
 
         if (typeof msg?.line === "string" && msg.line.startsWith("[done]")) {
           setRunning(false);
@@ -125,7 +111,7 @@ export default function Simulate() {
       es.close();
       esRef.current = null;
     };
-  }, [running]);
+  }, [running, logsHydrated]);
 
   useEffect(() => {
     if (!autoScroll) return;
@@ -136,7 +122,6 @@ export default function Simulate() {
 
   async function start() {
     try {
-      setConsoleLines([]);
       setRunning(true);
 
       const res = await fetch(`${API_BASE}/api/sim/start`, {
@@ -173,11 +158,19 @@ export default function Simulate() {
       alert(err?.message || String(err));
     } finally {
       setRunning(false);
+      await fetchLogs();
     }
   }
 
-  function clearConsole() {
-    setConsoleLines([]);
+  async function clearConsole() {
+    if (running) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/sim/logs`, { method: "DELETE" });
+      if (!res.ok) return;
+      setLines([]);
+    } catch {
+      //
+    }
   }
 
   return (
@@ -197,69 +190,38 @@ export default function Simulate() {
             </select>
           </label>
 
-          <button onClick={start} disabled={running}>
+          <button type="button" onClick={start} disabled={running}>
             Start
           </button>
 
-          <button onClick={stop} disabled={!running}>
+          <button type="button" onClick={stop} disabled={!running}>
             Stop
           </button>
-
-          <button onClick={clearConsole} disabled={running && lines.length === 0}>
-            Clear
-          </button>
-
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-            />
-            Auto-scroll
-          </label>
 
           <div style={{ opacity: 0.75 }}>
             Status: {running ? "Running…" : "Idle"}
           </div>
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
-            Simulation output
-          </div>
-
-          <div
-            ref={scrollerRef}
-            style={{
-              height: 280,
-              overflow: "auto",
-              padding: 12,
-              border: "1px solid #ddd",
-              background: "#fafafa",
-              whiteSpace: "pre-wrap",
-              fontFamily:
-                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-              fontSize: 12,
-              lineHeight: 1.35,
-            }}
-            onScroll={() => {
-              const el = scrollerRef.current;
-              if (!el) return;
-              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
-              setAutoScroll(atBottom);
-            }}
-          >
-            {lines.length === 0 ? (
-              <span style={{ opacity: 0.6 }}>
-                {running ? "Waiting for output…" : "No output yet. Press Start."}
-              </span>
-            ) : (
-              lines.map((x, i) => (
-                <div key={i}>{stripAnsi(x.line)}</div>
-              ))
-            )}
-          </div>
-        </div>
+        <ProcessConsole
+          title="Simulation output (stored on server)"
+          lines={lines}
+          running={running}
+          emptyIdle="No output yet. Press Start — history is kept in the project logs folder."
+          emptyRunning="Waiting for output…"
+          autoScroll={autoScroll}
+          onAutoScrollChange={setAutoScroll}
+          scrollerRef={scrollerRef}
+          onScrollContainer={() => {
+            const el = scrollerRef.current;
+            if (!el) return;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+            setAutoScroll(atBottom);
+          }}
+          onClear={clearConsole}
+          clearDisabled={running}
+          clearLabel="Clear log"
+        />
       </div>
     </div>
   );

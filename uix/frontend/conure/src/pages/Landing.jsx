@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconOpen, IconPencil, IconTrash } from "../icons/actionIcons";
 import { useUiStore } from "../state/uiStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
@@ -84,6 +85,43 @@ export default function Landing() {
     }
   }
 
+  async function renameProject(id, displayName) {
+    const next = window.prompt(`Rename project "${displayName}" to:`, displayName);
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === displayName) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from_id: id, to_name: trimmed }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => null);
+        throw new Error(j?.detail || (await res.text()));
+      }
+
+      const data = await res.json();
+      const newId = data.id;
+      const newName = data.name ?? trimmed;
+
+      if (activeProjectId === id) {
+        setValue(["project", "id"], newId);
+        setValue(["project", "name"], newName);
+        await load({ force: true });
+      }
+
+      await refresh();
+    } catch (e) {
+      setError(e?.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deleteProject(id) {
     if (!confirm("Delete this project? This cannot be undone.")) return;
 
@@ -102,6 +140,20 @@ export default function Landing() {
       setBusy(false);
     }
   }
+
+  const iconBtn = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 36,
+    height: 36,
+    padding: 0,
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+    background: "#fff",
+    flexShrink: 0,
+    cursor: "pointer",
+  };
 
   return (
     <div style={{ padding: 16, maxWidth: 900 }}>
@@ -142,7 +194,7 @@ export default function Landing() {
               <tr>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Name</th>
                 <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #eee" }}>Status</th>
-                <th style={{ padding: 10, borderBottom: "1px solid #eee", width: 260 }} />
+                <th style={{ padding: 10, borderBottom: "1px solid #eee", width: 148 }} />
               </tr>
             </thead>
             <tbody>
@@ -162,12 +214,38 @@ export default function Landing() {
                   </td>
 
                   <td style={{ padding: 10, borderBottom: "1px solid #f2f2f2", textAlign: "right" }}>
-                    <button onClick={() => openProject(p.id, p.name)} disabled={busy} style={{ marginRight: 8 }}>
-                      Open
-                    </button>
-                    <button onClick={() => deleteProject(p.id)} disabled={busy}>
-                      Delete
-                    </button>
+                    <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => openProject(p.id, p.name)}
+                        disabled={busy}
+                        aria-label={`Open project ${p.name}`}
+                        title="Open this project"
+                        style={{ ...iconBtn, color: "#1e40af" }}
+                      >
+                        <IconOpen />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => renameProject(p.id, p.name)}
+                        disabled={busy}
+                        aria-label={`Rename project ${p.name}`}
+                        title="Rename this project"
+                        style={{ ...iconBtn, color: "#334155" }}
+                      >
+                        <IconPencil />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteProject(p.id)}
+                        disabled={busy}
+                        aria-label={`Delete project ${p.name}`}
+                        title="Delete this project"
+                        style={{ ...iconBtn, color: "#7f1d1d" }}
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

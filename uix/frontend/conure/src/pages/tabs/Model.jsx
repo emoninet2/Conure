@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import ProcessConsole from "../../components/ProcessConsole";
+import { appendCapped, maxLineTime } from "../../components/consoleUtils";
 import { IconPencil, IconTrash } from "../../icons/actionIcons";
 import { useUiStore } from "../../state/uiStore";
 
@@ -81,7 +83,6 @@ const DEFAULT_DRAFT = {
 };
 
 const DEFAULT_REPORT = null;
-const ANSI_REGEX = /\x1B\[[0-?]*[ -/]*[@-~]/g;
 const DEFAULT_ANN_MODEL_CONFIG = {
   model_name: "",
   architecture_type: "sequential",
@@ -326,10 +327,6 @@ async function fetchDefaultModelDraft(model_type, model_name = "") {
 
   if (!res.ok) throw new Error(await res.text());
   return await res.json();
-}
-
-function stripAnsi(s) {
-  return typeof s === "string" ? s.replace(ANSI_REGEX, "") : s;
 }
 
 function safePretty(value) {
@@ -1558,6 +1555,8 @@ export default function Model() {
   const [sweepOptions, setSweepOptions] = useState([]);
   const [report, setReport] = useState(DEFAULT_REPORT);
   const [lines, setLines] = useState([]);
+  const [logsHydrated, setLogsHydrated] = useState(false);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [predictionInput, setPredictionInput] = useState("[[10, 5000000]]");
   const [predictionOutput, setPredictionOutput] = useState("");
   const [apiError, setApiError] = useState("");
@@ -1565,8 +1564,40 @@ export default function Model() {
 
   const esRef = useRef(null);
   const scrollerRef = useRef(null);
+  const linesRef = useRef([]);
+
+  linesRef.current = lines;
   const previewAbortRef = useRef(null);
   const previewRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLogsHydrated(false);
+    if (!activeModel) {
+      setLines([]);
+      setLogsHydrated(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/models/logs?model_name=${encodeURIComponent(activeModel)}`
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setLines(data.lines || []);
+      } catch {
+        if (!cancelled) setLines([]);
+      } finally {
+        if (!cancelled) setLogsHydrated(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeModel]);
 
   useEffect(() => {
     refreshSweepOptions();
@@ -1645,21 +1676,18 @@ export default function Model() {
       esRef.current = null;
     }
 
-    if (!running || !activeModel) return;
+    if (!running || !activeModel || !logsHydrated) return;
 
+    const since = maxLineTime(linesRef.current);
     const es = new EventSource(
-      `${API_BASE}/api/models/stream?model_name=${encodeURIComponent(activeModel)}`
+      `${API_BASE}/api/models/stream?model_name=${encodeURIComponent(activeModel)}&since=${encodeURIComponent(since)}`
     );
     esRef.current = es;
 
     es.onmessage = (evt) => {
       try {
         const msg = JSON.parse(evt.data);
-        setLines((prev) => {
-          const next = [...prev, msg];
-          if (next.length > 3000) next.splice(0, next.length - 3000);
-          return next;
-        });
+        setLines((prev) => appendCapped(prev, msg));
 
         if (typeof msg?.line === "string" && msg.line.startsWith("[done]")) {
           setValue(RUNNING_PATH, false);
@@ -1686,12 +1714,14 @@ export default function Model() {
       es.close();
       esRef.current = null;
     };
-  }, [running, activeModel, setValue]);
+  }, [running, activeModel, logsHydrated, setValue]);
 
   useEffect(() => {
+    if (!autoScroll) return;
     const el = scrollerRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines]);
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [lines, autoScroll]);
 
   const dirty = useMemo(
     () => JSON.stringify(draft) !== JSON.stringify(savedSnapshot),
@@ -1946,7 +1976,6 @@ export default function Model() {
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
-      setLines([]);
       setPredictionOutput("");
       setNewModelName("");
       await refreshModels();
@@ -1980,7 +2009,6 @@ export default function Model() {
       setSavedSnapshot(cloneJson(nextDraft));
       syncEditorsFromDraft(nextDraft);
       setReport(data.report || null);
-      setLines([]);
       setPredictionOutput("");
     } catch (err) {
       setApiError(err?.message || String(err));
@@ -2043,7 +2071,6 @@ export default function Model() {
       setSavedSnapshot(cloneJson(nextDraft));
 
       setApiError("");
-      setLines([]);
       setReport(null);
       setPredictionOutput("");
 
@@ -2087,6 +2114,20 @@ export default function Model() {
       setValue(RUNNING_PATH, false);
       setRunningLocal(false);
       await fetchReport(activeModel);
+    }
+  }
+
+  async function clearModelLog() {
+    if (!activeModel || running) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/models/logs?model_name=${encodeURIComponent(activeModel)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) return;
+      setLines([]);
+    } catch {
+      //
     }
   }
 
@@ -2612,29 +2653,27 @@ export default function Model() {
             <button onClick={stopTraining} disabled={!running}>
               Stop
             </button>
-            <button onClick={() => setLines([])}>Clear Console</button>
           </div>
 
-          <div
-            ref={scrollerRef}
-            style={{
-              height: 220,
-              overflow: "auto",
-              padding: 12,
-              border: "1px solid #ddd",
-              background: "#fafafa",
-              whiteSpace: "pre-wrap",
-              fontFamily: "monospace",
-              fontSize: 12,
-              marginBottom: 16,
+          <ProcessConsole
+            title={activeModel ? `Training output — ${activeModel} (server log)` : "Training output"}
+            lines={lines}
+            running={running}
+            emptyIdle={activeModel ? "No training log yet for this model." : "Open or create a model to view logs."}
+            emptyRunning="Waiting for training output…"
+            autoScroll={autoScroll}
+            onAutoScrollChange={setAutoScroll}
+            scrollerRef={scrollerRef}
+            onScrollContainer={() => {
+              const el = scrollerRef.current;
+              if (!el) return;
+              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+              setAutoScroll(atBottom);
             }}
-          >
-            {lines.length === 0
-              ? running
-                ? "Waiting for training output..."
-                : "No output yet."
-              : lines.map((x, i) => <div key={i}>{stripAnsi(x.line)}</div>)}
-          </div>
+            onClear={clearModelLog}
+            clearDisabled={running || !activeModel}
+            clearLabel="Clear log"
+          />
 
           {report ? (
             <div style={{ marginBottom: 16 }}>
