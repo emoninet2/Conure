@@ -572,7 +572,8 @@ class Component:
                             Point(dx_end, -arm_width / 2.0)))
                         port_line.rotate_around(Point(0, 0), angle_degree)
                         port_point = port_line.midpoint()
-                        port = arm_data["port"]
+                        #port = arm_data["port"]
+                        port = arm_data["port"][0] if isinstance(arm_data["port"], (list, tuple)) else arm_data["port"]
                         port_info = {"Line": port_line, "Point": port_point,
                                      "Port": port, "Layer": arm_data["layer"]}
                         self.port_info.append(copy.deepcopy(port_info))
